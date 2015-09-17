@@ -5,6 +5,28 @@
 #include <chrono>
 
 #include "ComputeShader.h"
+#include "VertexShader.h"
+#include "PixelShader.h"
+#include "Timer.h"
+
+#include <DirectXMath.h>
+
+namespace
+{
+	struct Vertex
+	{
+		Vertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color)
+			: position(position)
+			, color(color)
+		{
+
+		}
+
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT3 color;
+		DirectX::XMFLOAT2 padding;
+	};
+}
 
 class MulticoreWindow :
 	public DX11Window
@@ -31,7 +53,12 @@ private:
 	bool paused;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
+	COMUniquePtr<ID3D11Buffer> vertexBuffer;
+
+	ID3D11RasterizerState* rasterizerState;
 
 	ComputeShader computeShader;
+	VertexShader vertexShader;
+	PixelShader pixelShader;
 };
 

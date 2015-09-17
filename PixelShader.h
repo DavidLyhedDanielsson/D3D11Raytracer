@@ -2,12 +2,12 @@
 
 #include "Shader.h"
 
-class ComputeShader
-	: public Shader<ID3D11ComputeShader>
+class PixelShader 
+	: public Shader<ID3D11PixelShader>
 {
 public:
-	ComputeShader(const std::string& entryPoint, const std::string& compileVersion);
-	~ComputeShader();
+	PixelShader(const std::string& entryPoint, const std::string& compileVersion);
+	~PixelShader();
 
 	void Bind(ID3D11DeviceContext* context) override;
 	void Unbind(ID3D11DeviceContext* context) override;
