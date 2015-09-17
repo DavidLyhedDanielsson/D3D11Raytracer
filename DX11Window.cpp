@@ -159,6 +159,7 @@ std::string DX11Window::CreateWindowsWindow(int nCmdShow)
 std::string DX11Window::CreateSwapChain()
 {
 	DXGI_SWAP_CHAIN_DESC desc;
+	desc.BufferCount = 1;
 	desc.BufferDesc.Width = width;
 	desc.BufferDesc.Height = height;
 	desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -167,22 +168,18 @@ std::string DX11Window::CreateSwapChain()
 	desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 	desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 
-	desc.BufferCount = 1;
 	desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_UNORDERED_ACCESS;
 	desc.OutputWindow = hWnd;
 	desc.SampleDesc.Count = 1;
 	desc.SampleDesc.Quality = 0;
 	desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 	desc.Windowed = true;
-	desc.BufferCount = 1;
 
 	desc.Flags = 0;
 
-	auto deleter = [](IUnknown* p) { p->Release(); };
-
-	std::unique_ptr<IDXGIDevice, decltype(deleter)> dxgiDevice(nullptr, deleter);
-	std::unique_ptr<IDXGIAdapter, decltype(deleter)> dxgiAdapter(nullptr, deleter);
-	std::unique_ptr<IDXGIFactory, decltype(deleter)> dxgiFactory(nullptr, deleter);
+	COMUniquePtr<IDXGIDevice> dxgiDevice(nullptr, COMUniqueDeleter);
+	COMUniquePtr<IDXGIAdapter> dxgiAdapter(nullptr, COMUniqueDeleter);
+	COMUniquePtr<IDXGIFactory> dxgiFactory(nullptr, COMUniqueDeleter);
 
 	IDXGIDevice* dxgiDeviceDumb;
 	if(FAILED(device->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDeviceDumb))))
@@ -208,14 +205,14 @@ std::string DX11Window::CreateSwapChain()
 
 std::string DX11Window::CreateRenderTargetView()
 {
-	ID3D11Texture2D* backBuffer;
+	ID3D11Texture2D* backBufferDumb;
 	ID3D11RenderTargetView* backBufferRenderTarget;
 
-	swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer));
-	device->CreateRenderTargetView(backBuffer, 0, &backBufferRenderTarget);
-	this->backBufferRenderTarget.reset(backBufferRenderTarget);
+	swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBufferDumb));
+	COMUniquePtr<ID3D11Texture2D> backBuffer(backBufferDumb, COMUniqueDeleter);
 
-	backBuffer->Release();
+	device->CreateRenderTargetView(backBufferDumb, nullptr, &backBufferRenderTarget);
+	this->backBufferRenderTarget.reset(backBufferRenderTarget);
 
 	return "";
 }

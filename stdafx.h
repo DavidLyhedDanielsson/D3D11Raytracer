@@ -6,7 +6,8 @@
 
 inline void COMUniqueDeleter(IUnknown* comObject)
 {
-	comObject->Release();
+	if(comObject != nullptr)
+		comObject->Release();
 }
 
 template<typename T>

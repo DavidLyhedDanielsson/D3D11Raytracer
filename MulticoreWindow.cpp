@@ -19,7 +19,7 @@ MulticoreWindow::~MulticoreWindow()
 
 bool MulticoreWindow::Init()
 {
-	ID3D11Texture2D* backBufferDumb;
+	ID3D11Texture2D* backBufferDumb = nullptr;
 	if(FAILED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBufferDumb))))
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't get backBuffer from swapChain");
@@ -36,6 +36,13 @@ bool MulticoreWindow::Init()
 	}
 
 	backbufferUAV.reset(backbufferUAVDumb);
+
+	std::string errorString = computeShader.CreateFromFile("ComputeShader.cso", device.get());
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
 
 	return true;
 }
@@ -68,12 +75,20 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 
 void MulticoreWindow::Draw()
 {
+	//Unbind backbuffer and bind it as resource
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
 	ID3D11UnorderedAccessView* uav[] = { backbufferUAV.get() };
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uav, nullptr);
-	
+
+	computeShader.Bind(deviceContext.get());
+
+	deviceContext->Dispatch(40, 45, 1);
+
+	computeShader.Unbind(deviceContext.get());
+
+	//Unbind backbuffer resource and bind it as render target
 	uav[0] = nullptr;
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uav, nullptr);
 

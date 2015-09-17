@@ -26,12 +26,6 @@ protected:
 	COMUniquePtr<ID3D11RenderTargetView> backBufferRenderTarget;
 	COMUniquePtr<ID3D11DepthStencilView> depthStencilView;
 
-	/*std::unique_ptr<ID3D11Device, decltypeCOMDeleter> device;
-	std::unique_ptr<ID3D11DeviceContext, decltypeCOMDeleter> deviceContext;
-	std::unique_ptr<IDXGISwapChain, decltypeCOMDeleter> swapChain;
-	std::unique_ptr<ID3D11RenderTargetView, decltypeCOMDeleter> backBufferRenderTarget;
-	std::unique_ptr<ID3D11DepthStencilView, decltypeCOMDeleter> depthStencilView;*/
-
 	UINT width;
 	UINT height;
 

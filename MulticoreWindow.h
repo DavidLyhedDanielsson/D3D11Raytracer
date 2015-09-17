@@ -4,6 +4,8 @@
 
 #include <chrono>
 
+#include "ComputeShader.h"
+
 class MulticoreWindow :
 	public DX11Window
 {
@@ -29,5 +31,7 @@ private:
 	bool paused;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
+
+	ComputeShader computeShader;
 };
 
