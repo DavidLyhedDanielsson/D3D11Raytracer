@@ -4,6 +4,7 @@
 #include <memory>
 #include <d3d11.h>
 #include <Windows.h>
+#include <DirectXMath.h>
 
 inline void COMUniqueDeleter(IUnknown* comObject)
 {

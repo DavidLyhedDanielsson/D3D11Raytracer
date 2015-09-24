@@ -154,6 +154,16 @@ bool MulticoreWindow::Init()
 
 	guiManager.AddContainer(&console);
 
+	//Graph
+	std::vector<std::string> tracks{ "Test0", "Test1", "Test2" };
+
+	errorString = graph.Init(device.get(), deviceContext.get(), 256, 128, 0.0f, 30.0f, 1, tracks);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize graph: " + errorString);
+		return false;
+	}
+
 	//Etc
 	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XM_PIDIV2, 1280.0f / 720.0f, 0.01f, 100.0f);
 
@@ -222,7 +232,9 @@ void MulticoreWindow::Run()
 
 void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
-	double fracDelta = delta.count() * 1e-6;
+	double deltaMS = delta.count() * 1e-6;
+
+	graph.AddValueToTrack("Test0", deltaMS);
 
 	if(!drawConsole)
 	{
@@ -244,7 +256,7 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		ClientToScreen(hWnd, &midPoint);
 		SetCursorPos(midPoint.x, midPoint.y);
 
-		float cameraSpeed = 0.005f * fracDelta;
+		float cameraSpeed = 0.005f * deltaMS;
 
 		if(keyMap.count('W'))
 			camera.MoveFoward(cameraSpeed);
@@ -359,8 +371,12 @@ void MulticoreWindow::Draw()
 	spriteRenderer.Begin();
 
 	guiManager.Draw(&spriteRenderer);
+	if(!drawConsole)
+		graph.Draw(&spriteRenderer);
 
 	spriteRenderer.End();
+
+	graph.Draw();
 
 	swapChain->Present(0, 0);
 }

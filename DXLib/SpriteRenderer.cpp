@@ -186,7 +186,7 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 	//////////////////////////////////////////////////
 	D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 	depthStencilDesc.DepthEnable = FALSE;
-	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	depthStencilDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
 	depthStencilDesc.StencilEnable = FALSE;
 	depthStencilDesc.StencilReadMask = 0xFF;
@@ -312,11 +312,26 @@ void SpriteRenderer::End()
 	if(spriteBatch.size() > 0)
 		Draw();
 
+	//Unbind
+	context->IASetIndexBuffer(nullptr, DXGI_FORMAT_R32_UINT, 0);
+	ID3D11Buffer* vertexBufferDumb = nullptr;
+	UINT stride = 0;
+	UINT offset = 0;
+	context->IASetVertexBuffers(0, 1, &vertexBufferDumb, &stride, &offset);
+
 	vertexShader.Unbind(context);
 	pixelShader.Unbind(context);
 
+	ID3D11SamplerState* samplerStateDumb = nullptr;
+	context->PSSetSamplers(0, 1, &samplerStateDumb);
+
+	ID3D11Buffer* viewProjBufferDumb = nullptr;
+	context->VSSetConstantBuffers(0, 1, &viewProjBufferDumb);
+
+	//Set defaults
 	context->OMSetBlendState(defaultBlendState, defaultBlendFactors, defaultBlendMask);
-	//context->RSSetState(defaultRasterizerState);
+	context->RSSetState(defaultRasterizerState);
+	context->OMSetDepthStencilState(defaultDepthStencilState, defaultStencilRef);
 
 	hasBegun = false;
 }

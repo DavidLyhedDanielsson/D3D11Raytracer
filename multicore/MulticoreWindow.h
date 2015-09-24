@@ -18,6 +18,8 @@
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
 
+#include "Graph.h"
+
 enum class BUFFER_DATA_TYPES
 {
 	MAT4X4
@@ -111,6 +113,8 @@ private:
 	CharacterSet* calibri16;
 
 	GUIManager guiManager;
+	
+	Graph graph;
 
 	Console console;
 	bool drawConsole;

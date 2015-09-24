@@ -69,7 +69,8 @@ private:
 	COMUniquePtr<ID3D11RasterizerState> rasterizerState;
 	COMUniquePtr<ID3D11BlendState> blendState;
 	COMUniquePtr<ID3D11DepthStencilState> depthStencilState;
-
+	
+	//Defaults to restore
 	ID3D11RasterizerState* defaultRasterizerState;
 	ID3D11BlendState* defaultBlendState;
 	float defaultBlendFactors[4];
