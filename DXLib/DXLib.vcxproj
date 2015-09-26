@@ -22,6 +22,7 @@
     <ClCompile Include="CharacterSet.cpp" />
     <ClCompile Include="Content.cpp" />
     <ClCompile Include="ContentManager.cpp" />
+    <ClCompile Include="D3D11Timer.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
@@ -45,6 +46,7 @@
     <ClInclude Include="ContentCreationParameters.h" />
     <ClInclude Include="ContentManager.h" />
     <ClInclude Include="ContentParameters.h" />
+    <ClInclude Include="D3D11Timer.h" />
     <ClInclude Include="DDS.h" />
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DirectXHelpers.h" />

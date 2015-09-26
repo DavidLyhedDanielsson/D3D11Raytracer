@@ -37,6 +37,7 @@ private:
 	std::chrono::high_resolution_clock::duration runTime;
 	std::chrono::high_resolution_clock::duration pauseTime;
 	std::chrono::high_resolution_clock::duration deltaTime;
+	std::chrono::high_resolution_clock::duration deltaPauseTime;
 };
 
 #endif // Timer_h__

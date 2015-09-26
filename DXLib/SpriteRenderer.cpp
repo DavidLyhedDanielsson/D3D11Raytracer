@@ -532,7 +532,7 @@ void SpriteRenderer::Draw()
 		assert("Couldn't map vertex buffer!");
 	}
 
-	memcpy(mappedVertexBuffer.pData, &vertices[0], sizeof(vertices) * vertices.size());
+	memcpy(mappedVertexBuffer.pData, &vertices[0], sizeof(Vertex2D) * vertices.size());
 	memcpy(mappedIndexBuffer.pData, &indicies[0], sizeof(unsigned int) * indicies.size());
 
 	//glUnmapBuffer(GL_ARRAY_BUFFER);

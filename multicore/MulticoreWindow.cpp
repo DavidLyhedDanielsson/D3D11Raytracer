@@ -37,6 +37,8 @@ MulticoreWindow::~MulticoreWindow()
 
 bool MulticoreWindow::Init()
 {
+	srand(time(NULL));
+
 	ID3D11Texture2D* backBufferDumb = nullptr;
 	HRESULT hRes = swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBufferDumb));
 	COMUniquePtr<ID3D11Texture2D> backBuffer(backBufferDumb, COMUniqueDeleter);
@@ -144,7 +146,74 @@ bool MulticoreWindow::Init()
 	//Sprite renderer
 	spriteRenderer.Init(device.get(), deviceContext.get(), &contentManager, 1280, 720);
 
+	//////////////////////////////////////////////////
+	//Timing
+	//////////////////////////////////////////////////
+	//CPU
+#ifdef _DEBUG
+	int cpuMSAverage = 10;
+#else
+	int cpuMSAverage = 50;
+#endif
+	std::vector<Track> cpuTracks{ Track(cpuMSAverage, 1.0f) };
+	std::vector<std::string> cpuTrackNames{ "MS" };
+
+	errorString = cpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize CPU graph: " + errorString);
+		return false;
+	}
+
+	errorString = cpuGraph.AddTracks(cpuTrackNames, cpuTracks);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add CPU tracks to graph: " + errorString);
+		return false;
+	}
+
+	//GPU
+#ifdef _DEBUG
+	int gpuMSAverage = 10;
+#else
+	int gpuMSAverage = 50;
+#endif
+
+	std::vector<Track> gpuTracks;
+	std::vector<std::string> gpuTrackNames;
+
+	std::vector<std::string> timerQueries{ "Primary", "Trace"};
+
+	if(!d3d11Timer.Init(device.get(), deviceContext.get(), timerQueries))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize d3d11Timer");
+		return false;
+	}
+
+	gpuTracks.reserve(gpuTracks.size() + timerQueries.size());
+	for(std::string& name : timerQueries)
+	{
+		gpuTrackNames.emplace_back(std::move(name));
+		gpuTracks.emplace_back(gpuMSAverage, 1.0f);
+	}
+
+	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 10.0f, 1);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize GPU graph: " + errorString);
+		return false;
+	}
+
+	errorString = gpuGraph.AddTracks(gpuTrackNames, gpuTracks);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add GPU tracks to graph: " + errorString);
+		return false;
+	}
+
+	//////////////////////////////////////////////////
 	//Console
+	//////////////////////////////////////////////////
 	auto style = std::shared_ptr<GUIStyle>(console.GenerateDoomStyle(&contentManager));
 	auto background = std::unique_ptr<GUIBackground>(console.GenerateDoomStyleBackground(&contentManager));
 	auto backgroundStyle = std::shared_ptr<GUIStyle>(console.GenerateDoomStyleBackgroundStyle(&contentManager));
@@ -153,16 +222,6 @@ bool MulticoreWindow::Init()
 	console.Autoexec();
 
 	guiManager.AddContainer(&console);
-
-	//Graph
-	std::vector<std::string> tracks{ "Test0", "Test1", "Test2" };
-
-	errorString = graph.Init(device.get(), deviceContext.get(), 256, 128, 0.0f, 30.0f, 1, tracks);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize graph: " + errorString);
-		return false;
-	}
 
 	//Etc
 	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XM_PIDIV2, 1280.0f / 720.0f, 0.01f, 100.0f);
@@ -182,19 +241,13 @@ void MulticoreWindow::Run()
 	if(!Init())
 		return;
 
-	Timer gameTimer;
-	gameTimer.Start();
-
 	std::chrono::nanoseconds accumulatedDelta(0);
 	int iterations = 0;
 
-	std::chrono::nanoseconds targetFrametime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1) / 65.0f);
-
-	Timer frameLimiter;
-	frameLimiter.Start();
-
 	bool run = true;
 
+	gameTimer.Start();
+	gameTimer.UpdateDelta();
 	while(run)
 	{
 		run = PeekMessages();
@@ -202,8 +255,6 @@ void MulticoreWindow::Run()
 
 		if(!paused)
 		{
-			frameLimiter.Reset();
-
 			gameTimer.UpdateDelta();
 			accumulatedDelta += gameTimer.GetDelta();
 			++iterations;
@@ -220,10 +271,6 @@ void MulticoreWindow::Run()
 
 			Update(gameTimer.GetDelta());
 			Draw();
-
-			frameLimiter.Stop();
-			if(frameLimiter.GetTime() < targetFrametime)
-				std::this_thread::sleep_for(targetFrametime - frameLimiter.GetTime());
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -234,7 +281,9 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
 	double deltaMS = delta.count() * 1e-6;
 
-	graph.AddValueToTrack("Test0", deltaMS);
+	cpuGraph.AddValueToTrack("MS", deltaMS);
+
+	Logger::LogLine(LOG_TYPE::NONE, std::to_string(deltaMS));
 
 	if(!drawConsole)
 	{
@@ -308,6 +357,11 @@ void MulticoreWindow::Draw()
 
 	deviceContext->Unmap(viewProjInverseBuffer.get(), 0);
 
+	d3d11Timer.Start();
+	
+	Timer timer;
+	timer.Start();
+
 	//Ray shaders
 	//Unbind backbuffer and bind it as resource
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
@@ -331,6 +385,8 @@ void MulticoreWindow::Draw()
 	uav[1] = nullptr;
 	deviceContext->CSSetUnorderedAccessViews(0, 2, uav, nullptr);
 
+	d3d11Timer.Stop("Primary");
+
 	//Ray trace
 	ID3D11SamplerState* samplerStateDumb = samplerState.get();
 	deviceContext->CSSetSamplers(0, 1, &samplerStateDumb);
@@ -351,6 +407,11 @@ void MulticoreWindow::Draw()
 	sphereBufferDumb = nullptr;
 	deviceContext->CSSetConstantBuffers(0, 1, &sphereBufferDumb);
 
+	d3d11Timer.Stop("Trace");
+	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
+	for(const auto& pair : d3d11Times)
+		gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
+
 	//Unbind backbuffer resource and bind it as render target
 	uav[0] = nullptr;
 	deviceContext->CSSetUnorderedAccessViews(0, 1, uav, nullptr);
@@ -362,6 +423,8 @@ void MulticoreWindow::Draw()
 	renderTargets[0] = backBufferRenderTarget.get();
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
+	timer.Stop();
+
 	//Normal forward drawing
 	deviceContext->ClearDepthStencilView(depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
@@ -371,12 +434,14 @@ void MulticoreWindow::Draw()
 	spriteRenderer.Begin();
 
 	guiManager.Draw(&spriteRenderer);
-	if(!drawConsole)
-		graph.Draw(&spriteRenderer);
+
+	gpuGraph.Draw(&spriteRenderer);
+	cpuGraph.Draw(&spriteRenderer);
 
 	spriteRenderer.End();
 
-	graph.Draw();
+	gpuGraph.Draw();
+	cpuGraph.Draw();
 
 	swapChain->Present(0, 0);
 }
@@ -387,9 +452,15 @@ LRESULT MulticoreWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 	{
 		case WM_ACTIVATE:
 			if(LOWORD(wParam) == WA_INACTIVE)
+			{
 				paused = true;
+				gameTimer.Stop();
+			}
 			else
+			{
 				paused = false;
+				gameTimer.Start();
+			}
 			break;
 		default:
 			return DX11Window::WndProc(hWnd, msg, wParam, lParam);
@@ -408,7 +479,7 @@ void MulticoreWindow::KeyEvent(const KeyState& keyCode)
 	{
 		keyMap.insert(keyCode.key);
 
-		if(keyCode.key == VK_F1)
+		if(keyCode.key == VK_OEM_5)
 		{
 			drawConsole = !drawConsole;
 

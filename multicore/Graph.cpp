@@ -2,37 +2,63 @@
 
 #include <DXLib/Logger.h>
 
+#include <sstream>
+#include <iomanip>
+#include <queue>
+
 Graph::Graph()
 	: vertexBuffer(nullptr, COMUniqueDeleter)
 	, indexBuffer(nullptr, COMUniqueDeleter)
-	, backgroundVertexBuffer(nullptr, COMUniqueDeleter)
-	, backgroundIndexBuffer(nullptr, COMUniqueDeleter)
+	//, backgroundVertexBuffer(nullptr, COMUniqueDeleter)
+	//, backgroundIndexBuffer(nullptr, COMUniqueDeleter)
 	, depthStencilState(nullptr, COMUniqueDeleter)
 	, blendState(nullptr, COMUniqueDeleter)
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, backgroundIndicies(0)
-{}
+{
+	defaultColors.emplace(0.0f / 255.0f, 31.0f / 255.0f, 63.0f / 255.0f); //Navy
+	defaultColors.emplace(0.0f / 255.0f, 116.0f / 255.0f, 217.0f / 255.0f); //Blue
+	defaultColors.emplace(127.0f / 255.0f, 219.0f / 255.0f, 255.0f / 255.0f); //Aqua
+	//defaultColors.emplace(57.0f / 255.0f, 204.0f / 255.0f, 204.0f / 255.0f); //Teal
+	defaultColors.emplace(61.0f / 255.0f, 153.0f / 255.0f, 112.0f / 255.0f); //Olive
+	//defaultColors.emplace(46.0f / 255.0f, 204.0f / 255.0f, 64.0f / 255.0f); //Green
+	defaultColors.emplace(1.0f / 255.0f, 255.0f / 255.0f, 112.0f / 255.0f); //Lime
+	defaultColors.emplace(255.0f / 255.0f, 220.0f / 255.0f, 0.0f / 255.0f); //Yellow
+	defaultColors.emplace(255.0f / 255.0f, 133.0f / 255.0f, 27.0f / 255.0f); //Orange
+	defaultColors.emplace(255.0f / 255.0f, 65.0f / 255.0f, 54.0f / 255.0f); //Red
+	defaultColors.emplace(133.0f / 255.0f, 20.0f / 255.0f, 75.0f / 255.0f); //Maroon
+	defaultColors.emplace(240.0f / 255.0f, 18.0f / 255.0f, 190.0f / 255.0f); //Fuchsia
+	defaultColors.emplace(177.0f / 255.0f, 13.0f / 255.0f, 201.0f / 255.0f); //Purple
+	defaultColors.emplace(17.0f / 255.0f, 17.0f / 255.0f, 17.0f / 255.0f); //Black
+	defaultColors.emplace(170.0f / 255.0f, 170.0f / 255.0f, 170.0f / 255.0f); //Gray
+	defaultColors.emplace(221.0f / 255.0f, 221.0f / 255.0f, 221.0f / 255.0f); //Silver
+}
 
 Graph::~Graph()
 {}
 
-std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, int width, int height, float yMin, float yMax, int avgPoints, const std::vector<std::string>& tracks)
+std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints)
 {
 	this->device = device;
 	this->deviceContext = context;
-	this->width = width;
-	this->height = height;
-	this->yMin = yMin;
+	this->width = size.x;
+	this->height = size.y;
 	this->yMax = yMax;
 	this->avgPoints = avgPoints;
 
-	for(std::string trackName : tracks)
-		this->tracks.emplace(trackName, std::vector<float>());
+	this->position.x = position.x;
+	this->position.y = position.y;
 
-	position.x = 0.0f;
-	position.y = Y_SCREEN_SIZE - height;
+	//Text
+	font = contentManager->Load<CharacterSet>("Calibri12");
+	legendFont = contentManager->Load<CharacterSet>("Calibri16");
 
+	backgroundWidth = font->GetWidthAtIndex("[9.999;9.999]", -1);
+
+	//////////////////////////////////////////////////
+	//Dotted lines
+	//////////////////////////////////////////////////
 	std::string errorString = vertexShader.CreateFromFile("DashedLineVertexShader.hlsl", device);
 	if(!errorString.empty())
 		return errorString;
@@ -45,17 +71,6 @@ std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, int 
 	pixelShader.CreateFromFile("DashedLinePixelShader.hlsl", device);
 	if(!errorString.empty())
 		return errorString;
-
-	if(!GenerateBackgroundBuffers(position, width, height, yMin, yMax))
-		return "Couldn't create background buffers";
-
-	vertexBuffer.reset(CreateBuffer(sizeof(LineVertex) * width * tracks.size(), D3D11_USAGE_DYNAMIC, D3D11_BIND_VERTEX_BUFFER, D3D11_CPU_ACCESS_WRITE, nullptr));
-	if(vertexBuffer == nullptr)
-		return "Couldn't create vertex buffer";
-
-	indexBuffer.reset(CreateBuffer(sizeof(unsigned int) * width * tracks.size(), D3D11_USAGE_DYNAMIC, D3D11_BIND_INDEX_BUFFER, D3D11_CPU_ACCESS_WRITE, nullptr));
-	if(indexBuffer == nullptr)
-		return "Couldn't create index buffer";
 
 	//////////////////////////////////////////////////
 	//Depth stencil
@@ -105,27 +120,85 @@ std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, int 
 	hRes = device->CreateBlendState(&blendDesc, &blendStateDumb);
 	blendState.reset(blendStateDumb);
 	if(FAILED(hRes))
-		return "Couldn't create graphblend state";
+		return "Couldn't create graph blend state";
 
 	return "";
 }
 
-bool Graph::AddTracks(const std::vector<std::string>& tracks)
+std::string Graph::AddTrack(std::string name, Track track)
 {
-	for(std::string trackName : tracks)
-		this->tracks.emplace(trackName, std::vector<float>());
+	track.maxValues = CalculateMaxValues(track);
 
-	vertexBuffer->Release();
-	vertexBuffer.reset(CreateVertexBuffer(width, static_cast<int>(tracks.size())));
+	if(track.color.x == -1.0f)
+	{
+		if(defaultColors.empty())
+			return "Can't add more tracks than 10 without assigning them colors";
+
+		Track newTrack(track);
+		newTrack.color = defaultColors.front();
+
+		this->tracks.insert(std::make_pair(name, std::move(newTrack)));
+		defaultColors.pop();
+	}
+	else
+		this->tracks.insert(std::make_pair(name, std::move(track)));
+
+	vertexBuffer.reset(CreateVertexBuffer());
 	if(vertexBuffer == nullptr)
-		return false;
+		return "Couldn't create vertex buffer";
 
-	indexBuffer->Release();
-	indexBuffer.reset(CreateVertexBuffer(width, static_cast<int>(tracks.size())));
+	indexBuffer.reset(CreateIndexBuffer());
 	if(indexBuffer == nullptr)
-		return false;
+		return "Couldn't create index buffer";
 
-	return true;
+	CreateLegend();
+
+	return "";
+}
+
+std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<Track> tracks)
+{
+	int addedTracks = 0;
+	bool tooManyTracks = false;
+
+	for(int i = 0, end = static_cast<int>(trackNames.size()); i < end; ++i)
+	{
+		tracks[i].maxValues = CalculateMaxValues(tracks[i]);
+
+		if(tracks[i].color.x == -1.0f)
+		{
+			if(defaultColors.empty())
+			{
+				tooManyTracks = true;
+				break;
+			}
+
+			Track newTrack(std::move(tracks[i]));
+			newTrack.color = defaultColors.front();
+
+			this->tracks.insert(std::make_pair(std::move(trackNames[i]), std::move(newTrack)));
+			defaultColors.pop();
+		}
+		else
+			this->tracks.insert(std::make_pair(std::move(trackNames[i]), std::move(tracks[i])));
+
+		++addedTracks;
+	}
+
+	vertexBuffer.reset(CreateVertexBuffer());
+	if(vertexBuffer == nullptr)
+		return "Couldn't create vertex buffer";
+
+	indexBuffer.reset(CreateIndexBuffer());
+	if(indexBuffer == nullptr)
+		return "Couldn't create index buffer";
+
+	if(tooManyTracks)
+		return "Can't add more tracks than 10 without assigning them colors. " + std::to_string(addedTracks) + " were added";
+
+	CreateLegend();
+
+	return "";
 }
 
 void Graph::AddValueToTrack(const std::string& track, float value)
@@ -138,29 +211,111 @@ void Graph::AddValueToTrack(const std::string& track, float value)
 	}
 #endif
 
-	tracks[track].emplace_back(value);
-
-	if(tracks[track].size() > width * avgPoints)
-		tracks[track].erase(tracks[track].begin(), tracks[track].begin() + (tracks[track].size() - width * avgPoints));
+	tracks[track].AddValue(value);
 }
 
 void Graph::Draw(SpriteRenderer* spriteRenderer)
 {
+	//////////////////////////////////////////////////
+	//Background
+	//////////////////////////////////////////////////
 	spriteRenderer->Draw(Rect(position, width, height), DirectX::XMFLOAT4(0.8f, 0.8f, 0.8f, 0.5f));
+	spriteRenderer->Draw(Rect(position.x + width, position.y, backgroundWidth, height), DirectX::XMFLOAT4(0.5f, 0.5f, 0.5f, 0.8f));
+	spriteRenderer->Draw(Rect(position.x, position.y - font->GetLineHeight() * 0.5f - legendHeight, width + backgroundWidth, font->GetLineHeight() * 0.5f + legendHeight), DirectX::XMFLOAT4(0.5f, 0.5f, 0.5f, 0.8f));
+
+	//////////////////////////////////////////////////
+	//Legend
+	//////////////////////////////////////////////////
+	for(const LegendIndex& index : legend)
+		spriteRenderer->DrawString(legendFont, index.name, index.position, DirectX::XMFLOAT4(index.color.x, index.color.y, index.color.z, 0.8f));
+
+	//////////////////////////////////////////////////
+	//Line values
+	//////////////////////////////////////////////////
+	float maxValue = 0.0f;
+
+	for(const auto& track : tracks)
+	{
+		if(track.second.GetMaxValue() > maxValue)
+			maxValue = track.second.GetMaxValue();
+	}
+
+	if(maxValue == 0.0f)
+		maxValue = 1.0f;
+
+	for(const auto& track : tracks)
+	{
+		DirectX::XMFLOAT4 color;
+		color.x = track.second.color.x;
+		color.y = track.second.color.y;
+		color.z = track.second.color.z;
+		color.w = 1.0f;
+
+		//////////////////////////////////////////////////
+		//Max
+		//////////////////////////////////////////////////
+		float max = track.second.GetMaxValue();
+		float maxYPosition = CalculateYValue(maxValue, max) - font->GetLineHeight() * 0.5f;
+
+		//////////////////////////////////////////////////
+		//Min
+		//////////////////////////////////////////////////
+		std::deque<float> values = track.second.GetValues();
+
+		float min = 0.0f;// = track.second.GetMinValue();
+
+		int valueRange = std::ceil(values.size() * 0.25f);
+		if(values.size() > valueRange + 1)
+		{
+			int endDistance = valueRange + 2;
+
+			if(values.size() - endDistance <= 0)
+				endDistance = values.size();
+
+			for(auto iter = values.end() - 2, end = values.end() - endDistance; iter != end; --iter)
+				min += (*iter) / static_cast<float>(track.second.valuesToAverage);
+
+			min /= static_cast<float>(valueRange);
+		}
+
+		float minYPosition = CalculateYValue(maxValue, min) - font->GetLineHeight() * 0.5f;
+
+		std::string maxText;
+		std::string minText;
+
+		float maxXPosition = this->position.x + this->width;
+		float minXPosition;
+
+		if(minYPosition - maxYPosition > font->GetLineHeight() * 0.5f)
+		{
+			minXPosition = maxXPosition;
+
+			maxText = FloatToString(max);
+			minText = FloatToString(min);
+
+			spriteRenderer->DrawString(font, maxText, DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
+			spriteRenderer->DrawString(font, minText, DirectX::XMFLOAT2(std::roundf(minXPosition), std::roundf(minYPosition)), color);
+		}
+		else
+		{
+			minXPosition = this->position.x + this->width + font->GetWidthAtIndex(track.first, -1);
+
+			maxText = FloatToString(max);
+			minText = FloatToString(min);
+
+			//spriteRenderer->DrawString(characterSet, track.first + " [" + FloatToString(min) + "," + FloatToString(max) + "]", DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
+			spriteRenderer->DrawString(font, "[" + FloatToString(min) + ";" + FloatToString(max) + "]", DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
+		}
+	}
 }
 
 void Graph::Draw()
 {
+	if(vertexBuffer == nullptr || indexBuffer == nullptr)
+		return;
+
 	vertexShader.Bind(deviceContext);
 	pixelShader.Bind(deviceContext);
-
-	ID3D11Buffer* vertexBufferDumb = backgroundVertexBuffer.get();
-
-	UINT stride = sizeof(LineVertex);
-	UINT offset = 0;
-
-	deviceContext->IASetVertexBuffers(0, 1, &vertexBufferDumb, &stride, &offset);
-	deviceContext->IASetIndexBuffer(backgroundIndexBuffer.get(), DXGI_FORMAT_R32_UINT, 0);
 
 	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
 
@@ -169,79 +324,192 @@ void Graph::Draw()
 	float blendFactors[4]{ 1.0f, 1.0f, 1.0f, 1.0f };
 	deviceContext->OMSetBlendState(blendState.get(), blendFactors, 0xFFFFFFFF);
 
-	deviceContext->DrawIndexed(backgroundIndicies, 0, 0);
+	float maxValue = 0.0f;
+
+	for(const auto& track : tracks)
+	{
+		if(track.second.GetMaxValue() > maxValue)
+			maxValue = track.second.GetMaxValue();
+	}
+
+	if(maxValue == 0.0f)
+		maxValue = 1.0f;
 
 	std::vector<LineVertex> newVertices;
-	newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x, CalculateYPosition(0.0f)), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), DirectX::XM_PIDIV2);
 	std::vector<unsigned int> newIndicies;
 
-	newIndicies.push_back(0);
-	newIndicies.push_back(1);
-
-
-	for(const auto& pair : tracks)
+	for(const auto& track : tracks)
 	{
-		float value = 0.0f;
-		int values = 0;
-
 		int vertexCount = newVertices.size();
 
 		DirectX::XMFLOAT2 position(this->position);
+		position.x += this->width;
 
-		for(const auto& trackValue : pair.second)
+		DirectX::XMFLOAT4 color;
+		color.x = track.second.color.x;
+		color.y = track.second.color.y;
+		color.z = track.second.color.z;
+		color.w = 1.0f;
+
+		float max = track.second.GetMaxValue();
+		float maxYPosition = CalculateYValue(maxValue, max);
+
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, maxYPosition), color, DirectX::XM_PIDIV2);
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x, maxYPosition), color, DirectX::XM_2PI * 20.5f);
+
+		newIndicies.emplace_back(vertexCount);
+		newIndicies.emplace_back(vertexCount + 1);
+
+		//float min = track.second.GetMinValue();
+		float min = 0.0f;// = track.second.GetMinValue();
+
+		std::deque<float> values = track.second.GetValues();
+		int valueRange = std::ceil(values.size() * 0.25f);
+		if(values.size() > valueRange + 1)
 		{
-			value += trackValue;
-			values++;
+			int endDistance = valueRange + 2;
 
-			if(values % avgPoints == 0)
-			{
-				float average = value / static_cast<float>(values);
-				newVertices.emplace_back(DirectX::XMFLOAT2(position.x, CalculateYPosition(value)), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), DirectX::XM_PIDIV2);
+			if(values.size() - endDistance <= 0)
+				endDistance = values.size();
 
-				position.x += 1.0f;
+			for(auto iter = values.end() - 2, end = values.end() - endDistance; iter != end; --iter)
+				min += (*iter) / static_cast<float>(track.second.valuesToAverage);
 
-				value = 0.0;
-				values = 0;
-			}
+			min /= static_cast<float>(valueRange);
 		}
 
-		for(int i = vertexCount; i < newVertices.size() - 1; ++i)
+		//float minYPosition = CalculateYValue(maxValue, min) - characterSet->GetLineHeight() * 0.5f;
+
+		float minYPosition = CalculateYValue(maxValue, min);
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, minYPosition), color, DirectX::XM_PIDIV2);
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x, minYPosition), color, DirectX::XM_2PI * 20.5f);
+
+		newIndicies.emplace_back(vertexCount + 2);
+		newIndicies.emplace_back(vertexCount + 3);
+
+		vertexCount = newVertices.size();
+
+		if(values.empty())
+			continue;
+
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, this->position.y + height), color, DirectX::XM_PIDIV2);
+
+		for(auto iter = values.rbegin(), end = values.rend(); iter != end; ++iter)
+		{
+			float value = *iter / static_cast<float>(track.second.valuesToAverage);
+
+			position.y = CalculateYValue(maxValue, value);
+			position.x -= track.second.xResolution;
+
+			newVertices.emplace_back(position, color, DirectX::XM_PIDIV2);
+
+			if(value > maxValue)
+				maxValue = value;
+		}
+
+		for(int i = vertexCount; i < static_cast<int>(newVertices.size()) - 1; ++i)
 		{
 			newIndicies.push_back(i);
 			newIndicies.push_back(i + 1);
 		}
 	}
 
+	if(newIndicies.empty() || newVertices.empty())
+		return;
+
+
 	D3D11_MAPPED_SUBRESOURCE mappedVertexBuffer;
+#ifdef _DEBUG
 	if(FAILED(deviceContext->Map(vertexBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedVertexBuffer)))
-	{
-		int asdf = 5;
-	}
+		throw "Couldn't map vertex buffer";
+#else
+	deviceContext->Map(vertexBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedVertexBuffer);
+#endif //_DEBUG
 	memcpy(mappedVertexBuffer.pData, &newVertices[0], sizeof(LineVertex) * newVertices.size());
 	deviceContext->Unmap(vertexBuffer.get(), 0);
 
 	D3D11_MAPPED_SUBRESOURCE mappedIndexBuffer;
+#ifdef _DEBUG
 	if(FAILED(deviceContext->Map(indexBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedIndexBuffer)))
-	{
-		int asdf = 5;
-	}
+		throw "Couldn't map index buffer";
+#else
+	deviceContext->Map(indexBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedIndexBuffer);
+#endif //_DEBUG
+
 	memcpy(mappedIndexBuffer.pData, &newIndicies[0], sizeof(unsigned int) * newIndicies.size());
 	deviceContext->Unmap(indexBuffer.get(), 0);
 
-	vertexBufferDumb = vertexBuffer.get();
+	ID3D11Buffer* vertexBufferDumb = vertexBuffer.get();
+	UINT stride = sizeof(LineVertex);
+	UINT offset = 0;
 	deviceContext->IASetVertexBuffers(0, 1, &vertexBufferDumb, &stride, &offset);
 	deviceContext->IASetIndexBuffer(indexBuffer.get(), DXGI_FORMAT_R32_UINT, 0);
-	
+
 	deviceContext->DrawIndexed(newIndicies.size(), 0, 0);
 
 	vertexShader.Unbind(deviceContext);
 	pixelShader.Unbind(deviceContext);
 }
 
-ID3D11Buffer* Graph::CreateVertexBuffer(int points, int tracks) const
+void Graph::CreateLegend()
 {
+	int xPadding = 4;
+
+	legend.clear();
+
+	int maxWidth = backgroundWidth + width;
+
+	//Use position as size
+	auto RectComparator = [](const LegendIndex& lhs, const LegendIndex& rhs)
+	{
+		return lhs.position.x < rhs.position.x;
+	};
+
+	std::priority_queue<Rect, std::vector<LegendIndex>, decltype(RectComparator)> rectangles(RectComparator);
+
+	for(const auto& track : tracks)
+		rectangles.emplace(track.first, DirectX::XMFLOAT2(legendFont->GetWidthAtIndex(track.first, -1) + xPadding, legendFont->GetLineHeight()), track.second.color);
+
+	std::vector<float> shelves(1, maxWidth);
+
+	while(!rectangles.empty())
+	{
+		LegendIndex index = rectangles.top();
+		rectangles.pop();
+
+		float width = index.position.x;
+
+		bool found = false;
+
+		for(int i = 0, end = static_cast<int>(shelves.size()); i < end; ++i)
+		{
+			if(shelves[i] >= width)
+			{
+				found = true;
+
+				legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x + (maxWidth - shelves[i]), this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (i + 1)), index.color);
+				shelves[i] -= width;
+
+				break;
+			}
+		}
+
+		if(!found)
+		{
+			shelves.emplace_back(maxWidth - width);
+			legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x, this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (shelves.size())), index.color);
+		}
+	}
+
+	legendHeight = shelves.size() * legendFont->GetLineHeight();
+}
+
+ID3D11Buffer* Graph::CreateVertexBuffer() const
+{
+	int points = CalculateMaxPoints();
+
 	D3D11_BUFFER_DESC desc;
-	desc.ByteWidth = sizeof(LineVertex) * points * tracks;
+	desc.ByteWidth = sizeof(LineVertex) * points;
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -255,10 +523,12 @@ ID3D11Buffer* Graph::CreateVertexBuffer(int points, int tracks) const
 	return buffer;
 }
 
-ID3D11Buffer* Graph::CreateIndexBuffer(int points, int tracks) const
+ID3D11Buffer* Graph::CreateIndexBuffer() const
 {
+	int points = CalculateMaxPoints();
+
 	D3D11_BUFFER_DESC desc;
-	desc.ByteWidth = sizeof(unsigned int) * (2 * (points - 2) + 2) * tracks;
+	desc.ByteWidth = sizeof(unsigned int) * (2 * (points - 2) + 2);
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -270,73 +540,6 @@ ID3D11Buffer* Graph::CreateIndexBuffer(int points, int tracks) const
 		return nullptr;
 
 	return buffer;
-}
-
-bool Graph::GenerateBackgroundBuffers(const DirectX::XMFLOAT2& position, int width, int height, float yMin, float yMax)
-{
-	std::vector<LineVertex> vertices;
-	std::vector<unsigned int> indicies;
-
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x, position.y), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 0.0f);
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x + width, position.y), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 20 * DirectX::XM_2PI + DirectX::XM_PI);
-
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x, position.y + height * 0.5f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 0.0f);
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x + width, position.y + height * 0.5f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 20 * DirectX::XM_2PI + DirectX::XM_PI);
-
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x, position.y + height), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 0.0f);
-	vertices.emplace_back(DirectX::XMFLOAT2(position.x + width, position.y + height), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 20 * DirectX::XM_2PI + DirectX::XM_PI);
-
-	//vertices.emplace_back(DirectX::XMFLOAT2(0.0f, 360.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 0.0f);
-	//vertices.emplace_back(DirectX::XMFLOAT2(1280.0f, 360.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 5.0f);
-
-	indicies.emplace_back(0);
-	indicies.emplace_back(1);
-
-	indicies.emplace_back(2);
-	indicies.emplace_back(3);
-
-	indicies.emplace_back(4);
-	indicies.emplace_back(5);
-
-	backgroundIndicies = static_cast<int>(indicies.size());
-
-	D3D11_BUFFER_DESC vertexDesc;
-	vertexDesc.ByteWidth = sizeof(LineVertex) * vertices.size();
-	vertexDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vertexDesc.CPUAccessFlags = 0;
-	vertexDesc.MiscFlags = 0;
-	vertexDesc.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA vertexData;
-	ZeroMemory(&vertexData, sizeof(vertexData));
-	vertexData.pSysMem = &vertices[0];
-
-	ID3D11Buffer* vertexBufferDumb = nullptr;
-	HRESULT hRes = device->CreateBuffer(&vertexDesc, &vertexData, &vertexBufferDumb);
-	this->backgroundVertexBuffer.reset(vertexBufferDumb);
-	if(FAILED(hRes))
-		return false;
-
-	D3D11_BUFFER_DESC indexDesc;
-	indexDesc.ByteWidth = sizeof(unsigned int) * indicies.size();
-	indexDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	indexDesc.CPUAccessFlags = 0;
-	indexDesc.MiscFlags = 0;
-	indexDesc.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA indexData;
-	ZeroMemory(&indexData, sizeof(indexData));
-	indexData.pSysMem = &indicies[0];
-
-	ID3D11Buffer* indexBufferDumb = nullptr;
-	hRes = device->CreateBuffer(&indexDesc, &indexData, &indexBufferDumb);
-	this->backgroundIndexBuffer.reset(indexBufferDumb);
-	if(FAILED(hRes))
-		return false;
-
-	return true;
 }
 
 ID3D11Buffer* Graph::CreateBuffer(UINT size
@@ -364,9 +567,43 @@ ID3D11Buffer* Graph::CreateBuffer(UINT size
 	return returnBuffer;
 }
 
-float Graph::CalculateYPosition(float value) const
+int Graph::CalculateMaxPoints() const
 {
-	float yPercent = value / (yMax - yMin);
+	int maxPoints = 0;
 
-	return position.y + height * (1.0f - yPercent);
+	for(const auto& pair : tracks)
+		maxPoints += pair.second.maxValues + 5; //+1 for "0-element", +2 for max markers, +2 for min markers
+
+	return maxPoints;
+}
+
+int Graph::CalculateMaxValues(const Track& track) const
+{
+	return std::ceil(width / track.xResolution);
+}
+
+float Graph::CalculateYValue(float maxValue, float value) const
+{
+	if(maxValue > yMax)
+		maxValue = yMax;
+
+	if(value > yMax)
+		value = yMax;
+
+	float yPercent = (value / maxValue);
+
+	return this->position.y + height * (1.0f - yPercent);
+}
+
+std::string Graph::FloatToString(float value) const
+{
+	std::stringstream sstream;
+	sstream << std::fixed << std::setprecision(3) << value;
+
+	return sstream.str();
+}
+
+int Graph::GetBackgroundWidth() const
+{
+	return backgroundWidth;
 }

@@ -11,7 +11,7 @@ public:
 	DX11Window(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height);
 	virtual ~DX11Window();
 
-	virtual std::string CreateDXWindow(HINSTANCE hInstance, int nCmdShow);
+	virtual std::string CreateDXWindow(HINSTANCE hInstance, int nCmdShow, int targetMonitor = 0);
 	virtual LRESULT WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 	bool PeekMessages();
@@ -37,7 +37,7 @@ protected:
 	virtual void MouseUp(WPARAM keyCode);
 
 private:
-	std::string CreateWindowsWindow(int nCmdShow);
+	std::string CreateWindowsWindow(int nCmdShow, int targetMonitor);
 	std::string CreateSwapChain();
 	std::string CreateRenderTargetView();
 	std::string CreateDepthStencilBuffer();

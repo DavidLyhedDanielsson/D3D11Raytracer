@@ -18,7 +18,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float3 rayPosition = rayPositions.SampleLevel(raySampler, texCoords, 0).xyz;
 	float3 rayDirection = rayDirections.SampleLevel(raySampler, texCoords, 0).xyz;
 
-	int closestSphereIndex = 0;
+	int closestSphereIndex = -1;
 	float closestSphereDistance = 2e30f;
 
 	for(int i = 0; i < 64; ++i)
@@ -40,6 +40,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
 			closestSphereDistance = distance;
 			closestSphereIndex = i;
 		}
+	}
+
+	if(closestSphereIndex == -1)
+	{
+		output[threadID.xy] = float4(44.0f, 87.0f, 120.0f, 255.0f) / 255.0f;
+		return;
 	}
 
 	const float3 LIGHT_DIR = float3(0.5f, 0.5f, 0.0f);

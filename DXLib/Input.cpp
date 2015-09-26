@@ -194,7 +194,7 @@ void Input::KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 
 void Input::CharEvent(unsigned int key)
 {
-	if(key < 32)
+	if(key < 32 || key > 126)
 		return;
 
 	if(charCallback != nullptr)

@@ -368,7 +368,7 @@ unsigned int CharacterSet::GetWidthAtIndex(const ConstructedString& constructedS
 	return currentWidth;
 }
 
-unsigned int CharacterSet::GetWidthAtIndex(const std::string& text, unsigned index) const
+unsigned int CharacterSet::GetWidthAtIndex(const std::string& text, unsigned int index) const
 {
 	if(index == 0)
 		return 0;

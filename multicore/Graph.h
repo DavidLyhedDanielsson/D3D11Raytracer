@@ -3,10 +3,14 @@
 
 #include <DXLib/Common.h>
 #include <DXLib/SpriteRenderer.h>
+#include <DXLib/ContentManager.h>
 
 #include <vector>
 #include <string>
 #include <map>
+#include <queue>
+#include <deque>
+#include <limits>
 
 namespace
 {
@@ -27,9 +31,117 @@ namespace
 			, color(color)
 			, dashValue(dashValue)
 		{}
-		~LineVertex() = default;
+	};
+
+	struct LegendIndex
+	{
+		LegendIndex()
+			: position(0.0f, 0.0f)
+			, color(0.0f, 0.0f, 0.0f)
+		{}
+		LegendIndex(std::string name, DirectX::XMFLOAT2 position, DirectX::XMFLOAT3 color)
+			: name(name)
+			, position(position)
+			, color(color)
+		{}
+
+		std::string name;
+		DirectX::XMFLOAT2 position;
+		DirectX::XMFLOAT3 color;
 	};
 }
+
+class Track
+{
+public:
+	Track()
+		: color(-1.0f, -1.0f, -1.0f)
+		, maxValues(0)
+		, valuesToAverage(1)
+		, xResolution(1.0f)
+		, maxValue(std::numeric_limits<float>::min())
+		, minValue(std::numeric_limits<float>::max())
+		, addedValues(0)
+	{
+		values.emplace_back(0.0f);
+	}
+	Track(int valuesToAverage, float xResolution, DirectX::XMFLOAT3 color = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f))
+		: valuesToAverage(valuesToAverage)
+		, xResolution(xResolution)
+		, color(color)
+		, maxValue(std::numeric_limits<float>::min())
+		, minValue(std::numeric_limits<float>::max())
+		, addedValues(0)
+	{
+		values.emplace_back(0.0f);
+	}
+
+	void AddValue(float value)
+	{
+		if(addedValues == valuesToAverage)
+		{
+			if(values.back() < minValue)
+				minValue = values.back();
+
+			addedValues = 0;
+			values.emplace_back(0.0f);
+		}
+
+		values.back() += value;
+
+		if(values.back() > maxValue)
+			maxValue = values.back();
+
+		if(values.size() > maxValues)
+		{
+			values.erase(values.begin(), values.begin() + (values.size() - maxValues));
+
+			maxValue = std::numeric_limits<float>::min();
+			minValue = std::numeric_limits<float>::max();
+
+			//for(float value : values)
+			for(int i = 0, end = static_cast<int>(values.size()); i < end; ++i)
+			{
+				if(values[i] > maxValue)
+					maxValue = values[i];
+				if(values[i] < minValue && i < end - 1)
+					minValue = values[i];
+			}
+		}
+
+		++addedValues;
+	}
+
+	float GetValue(int index) const
+	{
+		return values[index];
+	}
+
+	float GetMaxValue() const
+	{
+		return maxValue / static_cast<float>(valuesToAverage);
+	}
+
+	float GetMinValue() const
+	{
+		return minValue / static_cast<float>(valuesToAverage);
+	}
+
+	std::deque<float> GetValues() const
+	{
+		return values;
+	}
+
+	DirectX::XMFLOAT3 color;
+	std::deque<float> values;
+
+	int maxValues;
+	int valuesToAverage;
+	int addedValues;
+	float xResolution;
+	float maxValue;
+	float minValue;
+};
 
 class Graph
 {
@@ -37,30 +149,37 @@ public:
 	Graph();
 	~Graph();
 
-	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, int width, int height, float yMin, float ymax, int avgPoints, const std::vector<std::string>& tracks);
+	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints);
 
-	bool AddTracks(const std::vector<std::string>& tracks);
+	std::string AddTrack(std::string name, Track track);
+	std::string AddTracks(std::vector<std::string> trackNames, std::vector<Track> tracks);
+
 	void AddValueToTrack(const std::string& track, float value);
 
 	void Draw(SpriteRenderer* spriteRenderer);
 	void Draw();
 
+	int GetBackgroundWidth() const;
+
 private:
 	//TODO: non-static
 	const static int X_SCREEN_SIZE = 1280;
 	const static int Y_SCREEN_SIZE = 720;
+	
+	int backgroundWidth;
+	int legendHeight;
 
 	int width;
 	int height;
 
-	float yMin;
 	float yMax;
 
 	int avgPoints;
 
 	DirectX::XMFLOAT2 position;
+	std::queue<DirectX::XMFLOAT3> defaultColors;
 
-	std::map<std::string, std::vector<float>> tracks;
+	std::map<std::string, Track> tracks;
 
 	ID3D11Device* device;
 	ID3D11DeviceContext* deviceContext;
@@ -68,23 +187,30 @@ private:
 	COMUniquePtr<ID3D11Buffer> vertexBuffer;
 	COMUniquePtr<ID3D11Buffer> indexBuffer;
 
-	COMUniquePtr<ID3D11Buffer> backgroundVertexBuffer;
-	COMUniquePtr<ID3D11Buffer> backgroundIndexBuffer;
-
 	COMUniquePtr<ID3D11DepthStencilState> depthStencilState;
 	COMUniquePtr<ID3D11BlendState> blendState;
+
+	CharacterSet* font;
+	CharacterSet* legendFont;
 
 	int backgroundIndicies;
 
 	VertexShader vertexShader;
 	PixelShader pixelShader;
-	
-	ID3D11Buffer* CreateVertexBuffer(int points, int tracks) const;
-	ID3D11Buffer* CreateIndexBuffer(int points, int tracks) const;
+
+	std::vector<LegendIndex> legend;
+
+	void CreateLegend();
+
+	ID3D11Buffer* CreateVertexBuffer() const;
+	ID3D11Buffer* CreateIndexBuffer() const;
 	ID3D11Buffer* CreateBuffer(UINT size, D3D11_USAGE usage, D3D11_BIND_FLAG bindFlags, D3D11_CPU_ACCESS_FLAG cpuAccess, void* initialData /*= nullptr*/);
 
-	bool GenerateBackgroundBuffers(const DirectX::XMFLOAT2& position, int width, int height, float yMin, float yMax);
-	float CalculateYPosition(float value) const;
+	int CalculateMaxPoints() const;
+	int CalculateMaxValues(const Track& track) const;
+	float CalculateYValue(float maxValue, float value) const;
+	std::string FloatToString(float value) const;
 
+	std::vector<DirectX::XMFLOAT2> CalculateNamePositions(const std::deque<float>& values) const;
 };
 #endif // Graph_h__

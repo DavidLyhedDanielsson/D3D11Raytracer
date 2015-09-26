@@ -14,6 +14,7 @@ Timer::Timer()
 	runTime = std::chrono::high_resolution_clock::duration::zero();
 	pauseTime = std::chrono::high_resolution_clock::duration::zero();
 	deltaTime = std::chrono::high_resolution_clock::duration::zero();
+	deltaPauseTime = std::chrono::high_resolution_clock::duration::zero();
 }
 
 Timer::~Timer() {}
@@ -22,7 +23,10 @@ void Timer::UpdateDelta()
 {
 	currentTime = std::chrono::high_resolution_clock::now();
 
-	deltaTime = currentTime - previousTime;
+	//deltaTime = currentTime - previousTime;
+	deltaTime = currentTime - previousTime - deltaPauseTime;
+	deltaPauseTime = std::chrono::nanoseconds::zero();
+
 	previousTime = currentTime;
 }
 
@@ -37,6 +41,7 @@ void Timer::Start()
 	if(!isRunning)
 	{
 		pauseTime += std::chrono::high_resolution_clock::now() - stopTime;
+		deltaPauseTime += std::chrono::high_resolution_clock::now() - stopTime;
 
 		isRunning = true;
 	}

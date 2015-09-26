@@ -5,20 +5,22 @@
 #include <chrono>
 #include <unordered_set>
 
-#include "ComputeShader.h"
 #include <DXLib/VertexShader.h>
 #include <DXLib/PixelShader.h>
 #include <DXLib/Timer.h>
-#include "FPSCamera.h"
 #include <DXLib/spriteRenderer.h>
 #include <DXLib/keyState.h>
-
-#include <DirectXMath.h>
+#include <DXLib/D3D11Timer.h>
 
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
+#include <DXConsole/Console.h>
 
+#include <DirectXMath.h>
+
+#include "FPSCamera.h"
 #include "Graph.h"
+#include "ComputeShader.h"
 
 enum class BUFFER_DATA_TYPES
 {
@@ -114,7 +116,11 @@ private:
 
 	GUIManager guiManager;
 	
-	Graph graph;
+	Timer gameTimer;
+	D3D11Timer d3d11Timer;
+
+	Graph cpuGraph;
+	Graph gpuGraph;
 
 	Console console;
 	bool drawConsole;

@@ -26,7 +26,11 @@ bool Texture2D::Load(const std::string& path, ID3D11Device* device, ContentManag
 	{
 		ID3D11Resource* resource = nullptr;
 
-		DirectX::CreateDDSTextureFromFile(device, std::wstring(path.begin(), path.end()).c_str(), &resource, &textureResourceView);
+		if(FAILED(DirectX::CreateDDSTextureFromFile(device, std::wstring(path.begin(), path.end()).c_str(), &resource, &textureResourceView)))
+		{
+			Logger::LogLine(LOG_TYPE::FATAL, "Couldn't open file at \"" + path + "\"");
+			return false;
+		}
 
 		resource->QueryInterface(IID_ID3D11Texture2D, (void**)&texture);
 

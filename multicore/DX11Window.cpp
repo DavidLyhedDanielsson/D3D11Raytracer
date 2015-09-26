@@ -27,11 +27,11 @@ DX11Window::~DX11Window()
 {
 }
 
-std::string DX11Window::CreateDXWindow(HINSTANCE hInstance, int nCmdShow)
+std::string DX11Window::CreateDXWindow(HINSTANCE hInstance, int nCmdShow, int targetMonitor /*= 0*/)
 {
 	std::string errorMessage;
 
-	errorMessage = CreateWindowsWindow(nCmdShow);
+	errorMessage = CreateWindowsWindow(nCmdShow, targetMonitor);
 	if(!errorMessage.empty())
 		return errorMessage;
 
@@ -127,8 +127,38 @@ void DX11Window::MouseDown(WPARAM keyCode)
 void DX11Window::MouseUp(WPARAM keyCode)
 {}
 
-std::string DX11Window::CreateWindowsWindow(int nCmdShow)
+struct MonitorData
 {
+	int targetMonitor;
+	int monitor;
+	RECT dimensions;
+};
+
+BOOL CALLBACK MonitorEnumProc(
+	_In_ HMONITOR hMonitor,
+	_In_ HDC      hdcMonitor,
+	_In_ LPRECT   lprcMonitor,
+	_In_ LPARAM   dwData
+	)
+{
+	MonitorData* data = reinterpret_cast<MonitorData*>(dwData);
+
+	data->dimensions = *lprcMonitor;
+	if(data->monitor == data->targetMonitor)
+		return FALSE;
+
+	data->monitor++;
+	return TRUE;
+}
+
+std::string DX11Window::CreateWindowsWindow(int nCmdShow, int targetMonitor)
+{
+	MonitorData monitorData;
+	ZeroMemory(&monitorData, sizeof(monitorData));
+	monitorData.targetMonitor = targetMonitor;
+
+	EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitorData));
+
 	WNDCLASS wndClass;
 
 	wndClass.cbClsExtra = 0;
@@ -146,14 +176,14 @@ std::string DX11Window::CreateWindowsWindow(int nCmdShow)
 		return "RegisterClass failed";
 
 	RECT clientRect;
-	clientRect.left = 0;
-	clientRect.right = width;
-	clientRect.top = 0;
-	clientRect.bottom = height;
+	clientRect.left = monitorData.dimensions.left;
+	clientRect.right = monitorData.dimensions.left + width;
+	clientRect.top = monitorData.dimensions.top;
+	clientRect.bottom = monitorData.dimensions.top + height;
 
-	AdjustWindowRect(&clientRect, WS_OVERLAPPEDWINDOW, false);
+	AdjustWindowRect(&clientRect, WS_POPUP, false);
 
-	hWnd = CreateWindow("DX11 Window", "DX11 Window", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, clientRect.right - clientRect.left, clientRect.bottom - clientRect.top, 0, 0, hInstance, 0);
+	hWnd = CreateWindow("DX11 Window", "DX11 Window", WS_POPUP, monitorData.dimensions.left, monitorData.dimensions.top, clientRect.right - clientRect.left, clientRect.bottom - clientRect.top, 0, 0, hInstance, 0);
 
 	if(hWnd == 0)
 		return "CreateWindow failed";
