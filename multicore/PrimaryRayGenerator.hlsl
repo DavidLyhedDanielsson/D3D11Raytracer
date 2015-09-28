@@ -29,5 +29,5 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	origin /= origin.w;
 
 	outputPosition[threadID.xy] = float4(origin.xyz, FLOAT_MAX); //Use fourth channel as depth buffer
-	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz), 1.0f);
+	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
 }

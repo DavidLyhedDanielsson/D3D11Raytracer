@@ -53,9 +53,22 @@ namespace
 		DirectX::XMFLOAT4X4 viewProjMatrixInverse;
 	};
 
+	struct PointlightBuffer
+	{
+		DirectX::XMFLOAT4 lights[10];
+		int lightCount;
+	};
+
 	struct SphereBuffer
 	{
 		DirectX::XMFLOAT4 spheres[64];
+		int sphereCount;
+	};
+
+	struct TriangleBuffer
+	{
+		DirectX::XMFLOAT4 triangles[64 * 3];
+		int triangleCount;
 	};
 }
 
@@ -94,17 +107,18 @@ private:
 
 	COMUniquePtr<ID3D11Buffer> viewProjMatrixBuffer;
 	COMUniquePtr<ID3D11Buffer> viewProjInverseBuffer;
+	COMUniquePtr<ID3D11Buffer> lightBuffer;
 	COMUniquePtr<ID3D11Buffer> sphereBuffer;
+	COMUniquePtr<ID3D11Buffer> triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV;
 	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV;
-	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV;
-	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV;
 
 	std::vector<unsigned int> indexData;
 
 	ComputeShader primaryRayGenerator;
-	ComputeShader rayTracer;
+	ComputeShader trace;
+	//ComputeShader rayTriangle;
 
 	VertexShader vertexShader;
 	PixelShader pixelShader;
@@ -141,7 +155,7 @@ private:
 		, D3D11_CPU_ACCESS_FLAG cpuAccess
 		, void* initialData = nullptr);
 
-	bool CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAccessView** uav, ID3D11ShaderResourceView**  srv);
+	bool CreateUAV(int width, int height, ID3D11UnorderedAccessView** uav);
 
 	bool GenerateCubePrimitive(std::vector<unsigned int> &indexData, ID3D11Device* device, ID3D11Buffer** vertexBuffer, ID3D11Buffer** indexBuffer);
 };

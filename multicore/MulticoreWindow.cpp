@@ -18,13 +18,13 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, indexBuffer(nullptr, COMUniqueDeleter)
 	, viewProjMatrixBuffer(nullptr, COMUniqueDeleter)
 	, viewProjInverseBuffer(nullptr, COMUniqueDeleter)
+	, lightBuffer(nullptr, COMUniqueDeleter)
 	, sphereBuffer(nullptr, COMUniqueDeleter)
+	, triangleBuffer(nullptr, COMUniqueDeleter)
 	, rayDirectionUAV(nullptr, COMUniqueDeleter)
 	, rayPositionUAV(nullptr, COMUniqueDeleter)
-	, rayDirectionSRV(nullptr, COMUniqueDeleter)
-	, rayPositionSRV(nullptr, COMUniqueDeleter)
 	, primaryRayGenerator("main", "cs_5_0")
-	, rayTracer("main", "cs_5_0")
+	, trace("main", "cs_5_0")
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, drawConsole(false)
@@ -57,20 +57,6 @@ bool MulticoreWindow::Init()
 		return false;
 	}
 
-	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
-
-	errorString = rayTracer.CreateFromFile("RayTracer.hlsl", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
-
 	std::vector<BUFFER_DATA_TYPES> matrixBuffer = { BUFFER_DATA_TYPES::MAT4X4 };
 
 	viewProjMatrixBuffer.reset(CreateBuffer(matrixBuffer, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE));
@@ -81,39 +67,75 @@ bool MulticoreWindow::Init()
 	if(viewProjInverseBuffer == nullptr)
 		return false;
 
-	SphereBuffer sphereBufferData;
-	for(int z = 0; z < 4; ++z)
+	//////////////////////////////////////////////////
+	//Rays
+	//////////////////////////////////////////////////
+	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.cso", device.get());
+	if(!errorString.empty())
 	{
-		for(int y = 0; y < 4; ++y)
-		{
-			for(int x = 0; x < 4; ++x)
-			{
-				sphereBufferData.spheres[z * 4 * 4 + y * 4 + x] = DirectX::XMFLOAT4(x * 2.5, y * 2.5f, z * 2.5f, 1.0f);
-			}
-		}
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
 	}
 
-	sphereBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData));
-	if(sphereBuffer == nullptr)
-		return false;
-
 	ID3D11UnorderedAccessView* rayPositionUAVDumb = nullptr;
-	ID3D11ShaderResourceView* rayPositionSRVDumb = nullptr;
 
-	if(!CreateUAVSRVCombo(width, height, &rayPositionUAVDumb, &rayPositionSRVDumb))
+	if(!CreateUAV(width, height, &rayPositionUAVDumb))
 		return false;
 
 	rayPositionUAV.reset(rayPositionUAVDumb);
-	rayPositionSRV.reset(rayPositionSRVDumb);
 
 	ID3D11UnorderedAccessView* rayDirectionUAVDumb = nullptr;
-	ID3D11ShaderResourceView* rayDirectionSRVDumb = nullptr;
 
-	if(!CreateUAVSRVCombo(width, height, &rayDirectionUAVDumb, &rayDirectionSRVDumb))
+	if(!CreateUAV(width, height, &rayDirectionUAVDumb))
 		return false;
 
 	rayDirectionUAV.reset(rayDirectionUAVDumb);
-	rayDirectionSRV.reset(rayDirectionSRVDumb);
+
+	//////////////////////////////////////////////////
+	//Pointlights
+	//////////////////////////////////////////////////
+	PointlightBuffer pointlightBufferData;
+	pointlightBufferData.lights[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 100.0f);
+	pointlightBufferData.lightCount = 1;
+
+	lightBuffer.reset(CreateBuffer(sizeof(float) * 4 * 10 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &pointlightBufferData));
+	if(lightBuffer == nullptr)
+		return false;
+
+	//////////////////////////////////////////////////
+	//Trace
+	//////////////////////////////////////////////////
+	errorString = trace.CreateFromFile("Trace.cso", device.get());
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
+	SphereBuffer sphereBufferData;
+	for(int z = 0; z < 4; ++z)
+		for(int y = 0; y < 4; ++y)
+			for(int x = 0; x < 4; ++x)
+				sphereBufferData.spheres[z * 4 * 4 + y * 4 + x] = DirectX::XMFLOAT4(x * 2.5, y * 2.5f, z * 2.5f, 1.0f);
+	sphereBufferData.sphereCount = 64;
+
+	sphereBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData));
+	if(sphereBuffer == nullptr)
+		return false;
+
+	TriangleBuffer triangleBufferData;
+	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(10.0f, 0.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 10.0f, 15.0f, 0.0f);
+
+	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(10.0f, 10.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 10.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(10.0f, 0.0f, 15.0f, 0.0f);
+	triangleBufferData.triangleCount = 2;
+
+	triangleBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64 * 3 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData));
+	if(triangleBuffer == nullptr)
+		return false;
 
 	//Sampler
 	D3D11_SAMPLER_DESC samplerDesc;
@@ -156,7 +178,7 @@ bool MulticoreWindow::Init()
 	int cpuMSAverage = 50;
 #endif
 	std::vector<Track> cpuTracks{ Track(cpuMSAverage, 1.0f) };
-	std::vector<std::string> cpuTrackNames{ "MS" };
+	std::vector<std::string> cpuTrackNames{ "Update", "Draw" };
 
 	errorString = cpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1);
 	if(!errorString.empty())
@@ -246,6 +268,9 @@ void MulticoreWindow::Run()
 
 	bool run = true;
 
+	Timer updateTimer;
+	Timer drawTimer;
+
 	gameTimer.Start();
 	gameTimer.UpdateDelta();
 	while(run)
@@ -256,21 +281,19 @@ void MulticoreWindow::Run()
 		if(!paused)
 		{
 			gameTimer.UpdateDelta();
-			accumulatedDelta += gameTimer.GetDelta();
-			++iterations;
 
-			if(accumulatedDelta.count() >= 1000000000)
-			{
-				std::chrono::nanoseconds averageDuration(static_cast<unsigned long long>(accumulatedDelta.count() / static_cast<float>(iterations)));
-
-				SetWindowText(hWnd, (std::to_string(averageDuration.count() * 1e-9f) + ", " + std::to_string(iterations)).c_str());
-
-				accumulatedDelta = accumulatedDelta - std::chrono::nanoseconds(1000000000);
-				iterations = 0;
-			}
-
+			updateTimer.Reset();
+			updateTimer.Start();
 			Update(gameTimer.GetDelta());
+			updateTimer.Stop();
+
+			drawTimer.Reset();
+			drawTimer.Start();
 			Draw();
+			drawTimer.Stop();
+
+			cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
+			cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -280,10 +303,6 @@ void MulticoreWindow::Run()
 void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
 	double deltaMS = delta.count() * 1e-6;
-
-	cpuGraph.AddValueToTrack("MS", deltaMS);
-
-	Logger::LogLine(LOG_TYPE::NONE, std::to_string(deltaMS));
 
 	if(!drawConsole)
 	{
@@ -330,7 +349,7 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 
 void MulticoreWindow::Draw()
 {
-	float colors[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	float colors[] = { 44.0f / 255.0f, 87.0f / 255.0f, 120.0f / 255.0f, 1.0f};
 	deviceContext->ClearRenderTargetView(backBufferRenderTarget.get(), colors);
 
 	//Update viewProjMatrix and viewProjInverseMatrix
@@ -358,18 +377,18 @@ void MulticoreWindow::Draw()
 	deviceContext->Unmap(viewProjInverseBuffer.get(), 0);
 
 	d3d11Timer.Start();
-	
-	Timer timer;
-	timer.Start();
 
-	//Ray shaders
-	//Unbind backbuffer and bind it as resource
+	//////////////////////////////////////////////////
+	//Rays
+	//////////////////////////////////////////////////
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
-	//Primary rays
-	ID3D11UnorderedAccessView* uav[] = { rayPositionUAV.get(), rayDirectionUAV.get() };
-	deviceContext->CSSetUnorderedAccessViews(0, 2, uav, nullptr);
+	//////////////////////////////////////////////////
+	//Primary
+	//////////////////////////////////////////////////
+	ID3D11UnorderedAccessView* primaryUAVs[] = { rayPositionUAV.get(), rayDirectionUAV.get() };
+	deviceContext->CSSetUnorderedAccessViews(0, 2, primaryUAVs, nullptr);
 
 	ID3D11Buffer* viewProjInverseBufferDumb = viewProjInverseBuffer.get();
 	deviceContext->CSSetConstantBuffers(0, 1, &viewProjInverseBufferDumb);
@@ -381,51 +400,45 @@ void MulticoreWindow::Draw()
 	viewProjInverseBufferDumb = nullptr;
 	deviceContext->CSSetConstantBuffers(0, 1, &viewProjInverseBufferDumb);
 
-	uav[0] = nullptr;
-	uav[1] = nullptr;
-	deviceContext->CSSetUnorderedAccessViews(0, 2, uav, nullptr);
+	primaryUAVs[0] = nullptr;
+	primaryUAVs[1] = nullptr;
+	deviceContext->CSSetUnorderedAccessViews(0, 2, primaryUAVs, nullptr);
 
 	d3d11Timer.Stop("Primary");
 
-	//Ray trace
+	//////////////////////////////////////////////////
+	//Trace
+	//////////////////////////////////////////////////
 	ID3D11SamplerState* samplerStateDumb = samplerState.get();
 	deviceContext->CSSetSamplers(0, 1, &samplerStateDumb);
 
-	ID3D11ShaderResourceView* resourceViews[] { rayPositionSRV.get(), rayDirectionSRV.get() };
-	deviceContext->CSSetShaderResources(0, 2, resourceViews);
+	ID3D11UnorderedAccessView* sphereUAVs[] = { rayPositionUAV.get(), rayDirectionUAV.get() };
+	deviceContext->CSSetUnorderedAccessViews(0, 2, sphereUAVs, nullptr);
 
-	uav[0] = backbufferUAV.get();
-	deviceContext->CSSetUnorderedAccessViews(0, 1, uav, nullptr);
+	ID3D11Buffer* sphereBufferDumb[2] = { sphereBuffer.get(), triangleBuffer.get() };
+	deviceContext->CSSetConstantBuffers(0, 2, sphereBufferDumb);
 
-	ID3D11Buffer* sphereBufferDumb = sphereBuffer.get();
-	deviceContext->CSSetConstantBuffers(0, 1, &sphereBufferDumb);
-
-	rayTracer.Bind(deviceContext.get());
+	trace.Bind(deviceContext.get());
 	deviceContext->Dispatch(40, 45, 1);
-	rayTracer.Unbind(deviceContext.get());
-
-	sphereBufferDumb = nullptr;
-	deviceContext->CSSetConstantBuffers(0, 1, &sphereBufferDumb);
+	trace.Unbind(deviceContext.get());
 
 	d3d11Timer.Stop("Trace");
+
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
 	for(const auto& pair : d3d11Times)
 		gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
 
-	//Unbind backbuffer resource and bind it as render target
-	uav[0] = nullptr;
-	deviceContext->CSSetUnorderedAccessViews(0, 1, uav, nullptr);
-
-	resourceViews[0] = nullptr;
-	resourceViews[1] = nullptr;
-	deviceContext->CSSetShaderResources(0, 2, resourceViews);
+	//////////////////////////////////////////////////
+	//Forward rendering
+	//////////////////////////////////////////////////
+	sphereUAVs[0] = nullptr;
+	sphereUAVs[1] = nullptr;
+	sphereUAVs[2] = nullptr;
+	deviceContext->CSSetUnorderedAccessViews(0, 3, sphereUAVs, nullptr);
 
 	renderTargets[0] = backBufferRenderTarget.get();
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
-	timer.Stop();
-
-	//Normal forward drawing
 	deviceContext->ClearDepthStencilView(depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	deviceContext->RSSetState(rasterizerState.get());
@@ -443,7 +456,7 @@ void MulticoreWindow::Draw()
 	gpuGraph.Draw();
 	cpuGraph.Draw();
 
-	swapChain->Present(0, 0);
+	swapChain->Present(1, 0);
 }
 
 LRESULT MulticoreWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -596,7 +609,7 @@ ID3D11Buffer* MulticoreWindow::CreateBuffer(BUFFER_DATA_TYPES bufferDataType, D3
 	return CreateBuffer(bufferDataTypes, usage, bindFlags, cpuAccess);
 }
 
-bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAccessView** uav, ID3D11ShaderResourceView** srv)
+bool MulticoreWindow::CreateUAV(int width, int height, ID3D11UnorderedAccessView** uav)
 {
 	D3D11_TEXTURE2D_DESC desc;
 	ZeroMemory(&desc, sizeof(desc));
@@ -606,7 +619,7 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAc
 
 	desc.ArraySize = 1;
 	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
 	desc.CPUAccessFlags = 0;
 	desc.SampleDesc.Count = 1;
 	desc.SampleDesc.Quality = 0;
@@ -626,13 +639,7 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAc
 
 	if(FAILED(device->CreateUnorderedAccessView(textureDumb, nullptr, uav)))
 	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create combo UAV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
-		return false;
-	}
-
-	if(FAILED(device->CreateShaderResourceView(textureDumb, nullptr, srv)))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create combo SRV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create UAV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
 		return false;
 	}
 

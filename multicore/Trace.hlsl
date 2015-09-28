@@ -1,10 +1,45 @@
-static const int MAX_SPHERES = 64; 
-static const int MAX_TRIANGLES = 64;
-static const int MAX_LIGHTS = 10;
+#include "Constants.hlsl"
 
-static const float FLOAT_MAX = 3.4e38f;
+//RWTexture2D<float4> output : register(u0);
+RWTexture2D<float4> rayPositions : register(u0);
+RWTexture2D<float4> rayDirections : register(u1);
 
-const static float3 LIGHT_DIR = normalize(float3(-0.5f, 0.5f, -0.5f));
+cbuffer sphereBuffer : register(b0)
+{
+	float4 spheres[MAX_SPHERES];
+	int sphereCount;
+};
+
+cbuffer triangleBuffer : register(b1)
+{
+	float4 vertices[MAX_TRIANGLES * 3];
+	int triangleCount;
+};
+
+void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal);
+void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal);
+
+[numthreads(32, 16, 1)]
+void main(uint3 threadID : SV_DispatchThreadID)
+{
+	float2 texCoords = threadID.xy / float2(1280.0f, 720.0f);
+
+	float4 rayPositionAndDepth = rayPositions[threadID.xy];
+	float3 rayDirection = rayDirections[threadID.xy].xyz;
+	
+	float3 normal = float3(0.0f, 0.0f, 0.0f);
+
+	SphereTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal);
+	TriangleTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal);
+
+	if(dot(normal, normal) == 0.0f)
+		return;
+
+	float lightFac = dot(normalize(normal), LIGHT_DIR);
+
+	//output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
+	rayPositions[threadID.xy] = float4(rayPositionAndDepth.xyz + rayDirection * rayPositionAndDepth.w, rayPositionAndDepth.w);
+}
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal)
 {

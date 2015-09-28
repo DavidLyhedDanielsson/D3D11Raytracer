@@ -161,6 +161,12 @@ std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<Tr
 	int addedTracks = 0;
 	bool tooManyTracks = false;
 
+	if(tracks.size() == 0)
+		tracks.push_back(Track(1, 1));
+
+	while(tracks.size() < trackNames.size())
+		tracks.push_back(tracks[0]);
+
 	for(int i = 0, end = static_cast<int>(trackNames.size()); i < end; ++i)
 	{
 		tracks[i].maxValues = CalculateMaxValues(tracks[i]);

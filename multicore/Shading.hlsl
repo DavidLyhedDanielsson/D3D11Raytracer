@@ -1,10 +1,31 @@
-static const int MAX_SPHERES = 64; 
-static const int MAX_TRIANGLES = 64;
-static const int MAX_LIGHTS = 10;
+#include "Constants.hlsl"
 
-static const float FLOAT_MAX = 3.4e38f;
+cbuffer pointlightBuffer : register(b0)
+{
+	float4 lights[MAX_LIGHTS];
+	int lightCount;
+};
 
-const static float3 LIGHT_DIR = normalize(float3(-0.5f, 0.5f, -0.5f));
+cbuffer sphereBuffer : register(b1)
+{
+	float4 spheres[MAX_SPHERES];
+	int sphereCount;
+};
+
+cbuffer sphereBuffer : register(b2)
+{
+	float4 vertices[MAX_TRIANGLES * 3];
+	int triangleCount;
+};
+
+RWTexture2D<float4> output : register(u0);
+RWTexture2D<float4> rayPositions : register(u1);
+RWTexture2D<float4> rayDirections : register(u2);
+
+[numthreads(32, 16, 1)]
+void main(uint3 threadID : SV_DispatchThreadID)
+{
+}
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal)
 {

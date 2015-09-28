@@ -35,9 +35,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="MulticoreWindow.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -61,13 +58,19 @@
     <FxCompile Include="PrimaryRayGenerator.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="RayTracer.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
     <FxCompile Include="DashedLineVertexShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="DashedLinePixelShader.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="Constants.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="Shading.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="Trace.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>
