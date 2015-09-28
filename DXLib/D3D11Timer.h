@@ -1,11 +1,11 @@
 #ifndef D3D11Timer_h__
 #define D3D11Timer_h__
 
-#include "Common.h"
-
 #include <map>
 #include <string>
 #include <vector>
+
+#include "Common.h"
 
 class D3D11Timer
 {
@@ -26,7 +26,9 @@ private:
 	COMUniquePtr<ID3D11Query> disjointQuery;
 	COMUniquePtr<ID3D11Query> startTimeQuery;
 	COMUniquePtr<ID3D11Query> stopTimeQuery;
+
 	std::map<std::string, ID3D11Query*> queries;
+	std::vector<std::string> stopOrder;
 
 	ID3D11DeviceContext* deviceContext;
 };

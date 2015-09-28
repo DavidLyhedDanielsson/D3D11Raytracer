@@ -61,11 +61,15 @@ bool D3D11Timer::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContext, 
 	if(FAILED(hRes))
 		return false;
 
+	stopOrder.reserve(queries.size());
+
 	return true;
 }
 
 void D3D11Timer::Start()
 {
+	stopOrder.clear();
+
 	deviceContext->Begin(disjointQuery.get());
 	deviceContext->End(startTimeQuery.get());
 }
@@ -81,6 +85,7 @@ void D3D11Timer::Stop(const std::string& string)
 #endif
 
 	deviceContext->End(queries[string]);
+	stopOrder.emplace_back(string);
 }
 
 std::map<std::string, double> D3D11Timer::Stop()
@@ -102,14 +107,17 @@ std::map<std::string, double> D3D11Timer::Stop()
 	{
 		double frequency = static_cast<double>(disjointData.Frequency);
 
-		for(const auto& query : queries)
+		UINT64 lastTime = 0;
+
+		for(const std::string& query : stopOrder)
 		{
-			UINT64 queryTime = 0;
-			while(deviceContext->GetData(query.second, &queryTime, sizeof(queryTime), 0) != S_OK);
+			UINT64 queryStopTime = 0;
+			while(deviceContext->GetData(queries[query], &queryStopTime, sizeof(queryStopTime), 0) != S_OK);
 
-			UINT64 queryDelta = queryTime - startTime;
+			UINT64 elapsedTime = queryStopTime - startTime - lastTime;
+			lastTime = elapsedTime;
 
-			timeTable.emplace(std::make_pair(query.first, (queryDelta / frequency) * 1000.0));
+			timeTable.emplace(std::make_pair(query, (elapsedTime / frequency) * 1000.0f));
 		}
 	}
 

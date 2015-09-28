@@ -1,3 +1,5 @@
+#include "Constants.hlsl"
+
 RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);
 
@@ -22,13 +24,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float4 maxWorld = mul(float4(maxNDC, 1.0f), viewProjMatrixInv);
 	maxWorld /= maxWorld.w;
 
-	//Write direction
-	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz), 1.0f);
-
 	//Origin of ray
 	float4 origin = mul(float4(minNDC, 1.0f), viewProjMatrixInv);
 	origin /= origin.w;
 
-	//Write position
-	outputPosition[threadID.xy] = origin;
+	outputPosition[threadID.xy] = float4(origin.xyz, FLOAT_MAX); //Use fourth channel as depth buffer
+	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz), 1.0f);
 }
