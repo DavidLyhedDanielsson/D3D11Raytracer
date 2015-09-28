@@ -111,8 +111,10 @@ private:
 	COMUniquePtr<ID3D11Buffer> sphereBuffer;
 	COMUniquePtr<ID3D11Buffer> triangleBuffer;
 
-	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV;
-	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV;
+	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
+	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
+	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV[2];
+	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV[2];
 
 	std::vector<unsigned int> indexData;
 
@@ -155,7 +157,7 @@ private:
 		, D3D11_CPU_ACCESS_FLAG cpuAccess
 		, void* initialData = nullptr);
 
-	bool CreateUAV(int width, int height, ID3D11UnorderedAccessView** uav);
+	bool CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAccessView** uav, ID3D11ShaderResourceView** srv);
 
 	bool GenerateCubePrimitive(std::vector<unsigned int> &indexData, ID3D11Device* device, ID3D11Buffer** vertexBuffer, ID3D11Buffer** indexBuffer);
 };

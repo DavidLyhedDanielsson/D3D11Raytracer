@@ -21,15 +21,27 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, lightBuffer(nullptr, COMUniqueDeleter)
 	, sphereBuffer(nullptr, COMUniqueDeleter)
 	, triangleBuffer(nullptr, COMUniqueDeleter)
-	, rayDirectionUAV(nullptr, COMUniqueDeleter)
+	/*, rayDirectionUAV(nullptr, COMUniqueDeleter)
 	, rayPositionUAV(nullptr, COMUniqueDeleter)
+	, rayDirectionSRV(nullptr, COMUniqueDeleter)
+	, rayPositionSRV(nullptr, COMUniqueDeleter)*/
 	, primaryRayGenerator("main", "cs_5_0")
 	, trace("main", "cs_5_0")
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, drawConsole(false)
 {
+	rayDirectionUAV[0] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
+	rayDirectionUAV[1] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
 
+	rayPositionUAV[0] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
+	rayPositionUAV[1] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
+
+	rayDirectionSRV[0] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
+	rayDirectionSRV[1] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
+
+	rayPositionSRV[0] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
+	rayPositionSRV[1] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
 }
 
 MulticoreWindow::~MulticoreWindow()
@@ -78,18 +90,42 @@ bool MulticoreWindow::Init()
 	}
 
 	ID3D11UnorderedAccessView* rayPositionUAVDumb = nullptr;
+	ID3D11ShaderResourceView* rayPositionSRVDumb = nullptr;
 
-	if(!CreateUAV(width, height, &rayPositionUAVDumb))
+	if(!CreateUAVSRVCombo(width, height, &rayPositionUAVDumb, &rayPositionSRVDumb))
 		return false;
 
-	rayPositionUAV.reset(rayPositionUAVDumb);
+	rayPositionUAV[0].reset(rayPositionUAVDumb);
+	rayPositionSRV[0].reset(rayPositionSRVDumb);
+
+	rayPositionUAVDumb = nullptr;
+	rayPositionSRVDumb = nullptr;
+
+	if(!CreateUAVSRVCombo(width, height, &rayPositionUAVDumb, &rayPositionSRVDumb))
+		return false;
+
+	rayPositionUAV[1].reset(rayPositionUAVDumb);
+	rayPositionSRV[1].reset(rayPositionSRVDumb);
+
+
 
 	ID3D11UnorderedAccessView* rayDirectionUAVDumb = nullptr;
+	ID3D11ShaderResourceView* rayDirectionSRVDumb = nullptr;
 
-	if(!CreateUAV(width, height, &rayDirectionUAVDumb))
+	if(!CreateUAVSRVCombo(width, height, &rayDirectionUAVDumb, &rayDirectionSRVDumb))
 		return false;
 
-	rayDirectionUAV.reset(rayDirectionUAVDumb);
+	rayDirectionUAV[0].reset(rayDirectionUAVDumb);
+	rayDirectionSRV[0].reset(rayDirectionSRVDumb);
+
+	rayDirectionUAVDumb = nullptr;
+	rayDirectionSRVDumb = nullptr;
+
+	if(!CreateUAVSRVCombo(width, height, &rayDirectionUAVDumb, &rayDirectionSRVDumb))
+		return false;
+
+	rayDirectionUAV[1].reset(rayDirectionUAVDumb);
+	rayDirectionSRV[1].reset(rayDirectionSRVDumb);
 
 	//////////////////////////////////////////////////
 	//Pointlights
@@ -124,13 +160,13 @@ bool MulticoreWindow::Init()
 		return false;
 
 	TriangleBuffer triangleBufferData;
-	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(10.0f, 0.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 10.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, -5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(5.0f, -5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 5.0f, 0.0f, 0.0f);
 
-	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(10.0f, 10.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 10.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(10.0f, 0.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(5.0f, 5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(5.0f, -5.0f, 0.0f, 0.0f);
 	triangleBufferData.triangleCount = 2;
 
 	triangleBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64 * 3 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData));
@@ -387,7 +423,7 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	//Primary
 	//////////////////////////////////////////////////
-	ID3D11UnorderedAccessView* primaryUAVs[] = { rayPositionUAV.get(), rayDirectionUAV.get() };
+	ID3D11UnorderedAccessView* primaryUAVs[] = { rayPositionUAV[0].get(), rayDirectionUAV[0].get() };
 	deviceContext->CSSetUnorderedAccessViews(0, 2, primaryUAVs, nullptr);
 
 	ID3D11Buffer* viewProjInverseBufferDumb = viewProjInverseBuffer.get();
@@ -412,11 +448,14 @@ void MulticoreWindow::Draw()
 	ID3D11SamplerState* samplerStateDumb = samplerState.get();
 	deviceContext->CSSetSamplers(0, 1, &samplerStateDumb);
 
-	ID3D11UnorderedAccessView* sphereUAVs[] = { rayPositionUAV.get(), rayDirectionUAV.get() };
-	deviceContext->CSSetUnorderedAccessViews(0, 2, sphereUAVs, nullptr);
+	ID3D11ShaderResourceView* traceSRVs[] = { rayPositionSRV[0].get(), rayDirectionSRV[0].get() };
+	deviceContext->CSSetShaderResources(0, 2, traceSRVs);
 
-	ID3D11Buffer* sphereBufferDumb[2] = { sphereBuffer.get(), triangleBuffer.get() };
-	deviceContext->CSSetConstantBuffers(0, 2, sphereBufferDumb);
+	ID3D11Buffer* traceBuffers[] = { sphereBuffer.get(), triangleBuffer.get() };
+	deviceContext->CSSetConstantBuffers(0, 2, traceBuffers);
+
+	ID3D11UnorderedAccessView* traceUAVs[] = { rayPositionUAV[1].get() };
+	deviceContext->CSSetUnorderedAccessViews(0, 1, traceUAVs, nullptr); do shit
 
 	trace.Bind(deviceContext.get());
 	deviceContext->Dispatch(40, 45, 1);
@@ -429,13 +468,23 @@ void MulticoreWindow::Draw()
 		gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
 
 	//////////////////////////////////////////////////
+	//Unbind
+	//////////////////////////////////////////////////
+	traceSRVs[0] = nullptr;
+	traceSRVs[1] = nullptr;
+	deviceContext->CSSetShaderResources(0, 2, traceSRVs);
+
+	traceBuffers[0] = nullptr;
+	traceBuffers[1] = nullptr;
+	deviceContext->CSSetConstantBuffers(0, 2, traceBuffers);
+
+	traceUAVs[0] = nullptr;
+	traceUAVs[1] = nullptr;
+	deviceContext->CSSetUnorderedAccessViews(0, 2, traceUAVs, nullptr);
+
+	//////////////////////////////////////////////////
 	//Forward rendering
 	//////////////////////////////////////////////////
-	sphereUAVs[0] = nullptr;
-	sphereUAVs[1] = nullptr;
-	sphereUAVs[2] = nullptr;
-	deviceContext->CSSetUnorderedAccessViews(0, 3, sphereUAVs, nullptr);
-
 	renderTargets[0] = backBufferRenderTarget.get();
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
@@ -609,7 +658,7 @@ ID3D11Buffer* MulticoreWindow::CreateBuffer(BUFFER_DATA_TYPES bufferDataType, D3
 	return CreateBuffer(bufferDataTypes, usage, bindFlags, cpuAccess);
 }
 
-bool MulticoreWindow::CreateUAV(int width, int height, ID3D11UnorderedAccessView** uav)
+bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAccessView** uav, ID3D11ShaderResourceView** srv)
 {
 	D3D11_TEXTURE2D_DESC desc;
 	ZeroMemory(&desc, sizeof(desc));
@@ -619,7 +668,7 @@ bool MulticoreWindow::CreateUAV(int width, int height, ID3D11UnorderedAccessView
 
 	desc.ArraySize = 1;
 	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	desc.CPUAccessFlags = 0;
 	desc.SampleDesc.Count = 1;
 	desc.SampleDesc.Quality = 0;
@@ -640,6 +689,12 @@ bool MulticoreWindow::CreateUAV(int width, int height, ID3D11UnorderedAccessView
 	if(FAILED(device->CreateUnorderedAccessView(textureDumb, nullptr, uav)))
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create UAV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
+		return false;
+	}
+
+	if(FAILED(device->CreateShaderResourceView(textureDumb, nullptr, srv)))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create SRV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
 		return false;
 	}
 

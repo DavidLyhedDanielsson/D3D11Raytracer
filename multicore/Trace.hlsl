@@ -1,8 +1,11 @@
 #include "Constants.hlsl"
 
-//RWTexture2D<float4> output : register(u0);
-RWTexture2D<float4> rayPositions : register(u0);
-RWTexture2D<float4> rayDirections : register(u1);
+RWTexture2D<float4> rayPositionsOut : register(u0);
+
+Texture2D<float4> rayPositions : register(t0);
+Texture2D<float4> rayDirections : register(t1);
+
+sampler textureSampler : register(s0);
 
 cbuffer sphereBuffer : register(b0)
 {
@@ -24,21 +27,23 @@ void main(uint3 threadID : SV_DispatchThreadID)
 {
 	float2 texCoords = threadID.xy / float2(1280.0f, 720.0f);
 
-	float4 rayPositionAndDepth = rayPositions[threadID.xy];
-	float3 rayDirection = rayDirections[threadID.xy].xyz;
+	float4 rayPositionAndDepth = rayPositions.SampleLevel(textureSampler, texCoords, 0);
+	float3 rayDirection = rayDirections.SampleLevel(textureSampler, texCoords, 0).xyz;
 	
 	float3 normal = float3(0.0f, 0.0f, 0.0f);
 
 	SphereTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal);
 	TriangleTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal);
 
+	//output[threadID.xy] = float4(1.0f, 1.0f, 0.0f, 1.0f);
+
 	if(dot(normal, normal) == 0.0f)
 		return;
 
 	float lightFac = dot(normalize(normal), LIGHT_DIR);
 
-	//output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
-	rayPositions[threadID.xy] = float4(rayPositionAndDepth.xyz + rayDirection * rayPositionAndDepth.w, rayPositionAndDepth.w);
+	output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
+	//rayPositionsOut[threadID.xy] = float4(rayPositionAndDepth.xyz + rayDirection * rayPositionAndDepth.w, rayPositionAndDepth.w);
 }
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal)
