@@ -116,6 +116,9 @@ private:
 	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV[2];
 
+	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
+	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
+
 	std::vector<unsigned int> indexData;
 
 	ComputeShader primaryRayGenerator;

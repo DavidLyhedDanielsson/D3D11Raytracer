@@ -2,6 +2,7 @@
 
 RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);
+RWTexture2D<float4> outputNormal : register(u2);
 
 cbuffer viewProjBuffer : register(b0)
 {
@@ -30,4 +31,5 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	outputPosition[threadID.xy] = float4(origin.xyz, FLOAT_MAX); //Use fourth channel as depth buffer
 	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
+	outputNormal[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 }

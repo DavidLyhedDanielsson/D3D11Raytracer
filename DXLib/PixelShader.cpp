@@ -9,11 +9,15 @@ PixelShader::~PixelShader()
 
 void PixelShader::Bind(ID3D11DeviceContext* context)
 {
+	BindResources<PixelShader>(context);
+
 	context->PSSetShader(shader.get(), nullptr, 0);
 }
 
 void PixelShader::Unbind(ID3D11DeviceContext* context)
 {
+	UnbindResources<PixelShader>(context);
+
 	context->PSSetShader(nullptr, nullptr, 0);
 }
 

@@ -29,7 +29,6 @@ public:
 	std::string SetVertexData(ID3D11Device* const device, std::vector<VERTEX_INPUT_DATA> inputData, std::vector<std::string> inputDataNames);
 
 private:
-	COMUniquePtr<ID3DBlob> sourceBlob;
 	COMUniquePtr<ID3D11InputLayout> inputLayout;
 };
 

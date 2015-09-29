@@ -28,6 +28,7 @@
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="PixelShader.cpp" />
     <ClCompile Include="Rect.cpp" />
+    <ClCompile Include="ShaderResourceBinds.cpp" />
     <ClCompile Include="SpriteRenderer.cpp" />
     <ClCompile Include="Texture2D.cpp" />
     <ClCompile Include="Timer.cpp" />
@@ -58,6 +59,7 @@
     <ClInclude Include="PlatformHelpers.h" />
     <ClInclude Include="Rect.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="ShaderResourceBinds.h" />
     <ClInclude Include="SpriteBatch.h" />
     <ClInclude Include="SpriteInfo.h" />
     <ClInclude Include="SpriteRenderer.h" />

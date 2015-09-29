@@ -55,6 +55,28 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 
 	whiteTexture = contentManager->Load<Texture2D>("", &whiteTextureParameters);
 
+	//////////////////////////////////////////////////
+	//ViewProjection buffer
+	//////////////////////////////////////////////////
+	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixOrthographicOffCenterRH(0.0f, 720.0f, 1280.0f, 0.0f, 0.0f, 1.0f));
+
+	D3D11_BUFFER_DESC viewProjBufferDesc;
+	viewProjBufferDesc.ByteWidth = sizeof(float) * 16;
+	viewProjBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	viewProjBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	viewProjBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	viewProjBufferDesc.MiscFlags = 0;
+	viewProjBufferDesc.StructureByteStride = 0;
+
+	ID3D11Buffer* viewProjBufferDumb = nullptr;
+	HRESULT hRes = device->CreateBuffer(&viewProjBufferDesc, nullptr, &viewProjBufferDumb);
+	viewProjBuffer.reset(viewProjBufferDumb);
+	if(FAILED(hRes))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer viewProj buffer");
+		return;
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	//Shaders
 	//////////////////////////////////////////////////////////////////////////
@@ -87,7 +109,7 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 	vertexDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 	ID3D11Buffer* vertexBufferDumb;
-	HRESULT hRes = device->CreateBuffer(&vertexDesc, nullptr, &vertexBufferDumb);
+	hRes = device->CreateBuffer(&vertexDesc, nullptr, &vertexBufferDumb);
 	vertexBuffer.reset(vertexBufferDumb);
 	if(FAILED(hRes))
 	{
@@ -212,28 +234,6 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer depth stencil state");
 		return;
 	}
-
-	//////////////////////////////////////////////////
-	//ViewProjection buffer
-	//////////////////////////////////////////////////
-	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixOrthographicOffCenterRH(0.0f, 720.0f, 1280.0f, 0.0f, 0.0f, 1.0f));
-
-	D3D11_BUFFER_DESC viewProjBufferDesc;
-	viewProjBufferDesc.ByteWidth = sizeof(float) * 16;
-	viewProjBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	viewProjBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	viewProjBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	viewProjBufferDesc.MiscFlags = 0;
-	viewProjBufferDesc.StructureByteStride = 0;
-
-	ID3D11Buffer* viewProjBufferDumb = nullptr;
-	hRes = device->CreateBuffer(&viewProjBufferDesc, nullptr, &viewProjBufferDumb);
-	viewProjBuffer.reset(viewProjBufferDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer viewProj buffer");
-		return;
-	}
 }
 
 void SpriteRenderer::Begin()
@@ -327,6 +327,9 @@ void SpriteRenderer::End()
 
 	ID3D11Buffer* viewProjBufferDumb = nullptr;
 	context->VSSetConstantBuffers(0, 1, &viewProjBufferDumb);
+
+	ID3D11ShaderResourceView* srvDumb = nullptr;
+	context->PSSetShaderResources(0, 1, &srvDumb);
 
 	//Set defaults
 	context->OMSetBlendState(defaultBlendState, defaultBlendFactors, defaultBlendMask);

@@ -21,27 +21,18 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, lightBuffer(nullptr, COMUniqueDeleter)
 	, sphereBuffer(nullptr, COMUniqueDeleter)
 	, triangleBuffer(nullptr, COMUniqueDeleter)
-	/*, rayDirectionUAV(nullptr, COMUniqueDeleter)
-	, rayPositionUAV(nullptr, COMUniqueDeleter)
-	, rayDirectionSRV(nullptr, COMUniqueDeleter)
-	, rayPositionSRV(nullptr, COMUniqueDeleter)*/
+	, rayNormalUAV(nullptr, COMUniqueDeleter)
+	, rayNormalSRV(nullptr, COMUniqueDeleter)
+	, rayDirectionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter) }
+	, rayPositionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter) }
+	, rayDirectionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter) }
+	, rayPositionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter) }
 	, primaryRayGenerator("main", "cs_5_0")
 	, trace("main", "cs_5_0")
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, drawConsole(false)
 {
-	rayDirectionUAV[0] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
-	rayDirectionUAV[1] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
-
-	rayPositionUAV[0] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
-	rayPositionUAV[1] = COMUniquePtr<ID3D11UnorderedAccessView>(NULL, COMUniqueDeleter);
-
-	rayDirectionSRV[0] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
-	rayDirectionSRV[1] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
-
-	rayPositionSRV[0] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
-	rayPositionSRV[1] = COMUniquePtr<ID3D11ShaderResourceView>(NULL, COMUniqueDeleter);
 }
 
 MulticoreWindow::~MulticoreWindow()
@@ -49,6 +40,27 @@ MulticoreWindow::~MulticoreWindow()
 
 bool MulticoreWindow::Init()
 {
+	//Content manager
+	contentManager.Init(device.get());
+	calibri16 = contentManager.Load<CharacterSet>("calibri16");
+
+	//Sprite renderer
+	spriteRenderer.Init(device.get(), deviceContext.get(), &contentManager, 1280, 720);
+
+	//////////////////////////////////////////////////
+	//Console
+	//////////////////////////////////////////////////
+	auto style = std::shared_ptr<GUIStyle>(console.GenerateDoomStyle(&contentManager));
+	auto background = std::unique_ptr<GUIBackground>(console.GenerateDoomStyleBackground(&contentManager));
+	auto backgroundStyle = std::shared_ptr<GUIStyle>(console.GenerateDoomStyleBackgroundStyle(&contentManager));
+
+	console.Init(Rect(0.0f, 0.0f, 1280.0f, 300.0f), style, background, backgroundStyle);
+	console.Autoexec();
+
+	guiManager.AddContainer(&console);
+
+	Logger::SetCallOnLog(std::bind(&Console::AddText, &console, std::placeholders::_1));
+
 	srand(time(NULL));
 
 	ID3D11Texture2D* backBufferDumb = nullptr;
@@ -82,13 +94,7 @@ bool MulticoreWindow::Init()
 	//////////////////////////////////////////////////
 	//Rays
 	//////////////////////////////////////////////////
-	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.cso", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
-
+	//Position
 	ID3D11UnorderedAccessView* rayPositionUAVDumb = nullptr;
 	ID3D11ShaderResourceView* rayPositionSRVDumb = nullptr;
 
@@ -107,8 +113,7 @@ bool MulticoreWindow::Init()
 	rayPositionUAV[1].reset(rayPositionUAVDumb);
 	rayPositionSRV[1].reset(rayPositionSRVDumb);
 
-
-
+	//Direction
 	ID3D11UnorderedAccessView* rayDirectionUAVDumb = nullptr;
 	ID3D11ShaderResourceView* rayDirectionSRVDumb = nullptr;
 
@@ -127,6 +132,29 @@ bool MulticoreWindow::Init()
 	rayDirectionUAV[1].reset(rayDirectionUAVDumb);
 	rayDirectionSRV[1].reset(rayDirectionSRVDumb);
 
+	//Normal
+	ID3D11UnorderedAccessView* rayNormalUAVDumb = nullptr;
+	ID3D11ShaderResourceView* rayNormalSRVDumb = nullptr;
+
+	if(!CreateUAVSRVCombo(width, height, &rayNormalUAVDumb, &rayNormalSRVDumb))
+		return false;
+
+	rayNormalUAV.reset(rayNormalUAVDumb);
+	rayNormalSRV.reset(rayNormalSRVDumb);
+
+	ShaderResourceBinds primaryResourceBinds;
+	primaryResourceBinds.AddResource(rayPositionUAV[0].get());
+	primaryResourceBinds.AddResource(rayDirectionUAV[0].get());
+	primaryResourceBinds.AddResource(rayNormalUAV.get());
+	primaryResourceBinds.AddResource(viewProjInverseBuffer.get());
+
+	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
 	//////////////////////////////////////////////////
 	//Pointlights
 	//////////////////////////////////////////////////
@@ -141,13 +169,6 @@ bool MulticoreWindow::Init()
 	//////////////////////////////////////////////////
 	//Trace
 	//////////////////////////////////////////////////
-	errorString = trace.CreateFromFile("Trace.cso", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
-
 	SphereBuffer sphereBufferData;
 	for(int z = 0; z < 4; ++z)
 		for(int y = 0; y < 4; ++y)
@@ -191,18 +212,38 @@ bool MulticoreWindow::Init()
 		return false;
 	}
 
+	ShaderResourceBinds traceResourceBinds;
+	traceResourceBinds.AddResource(samplerState.get());
+	traceResourceBinds.AddResource(rayPositionSRV[0].get());
+	traceResourceBinds.AddResource(rayDirectionSRV[0].get());
+	traceResourceBinds.AddResource(sphereBuffer.get());
+	traceResourceBinds.AddResource(triangleBuffer.get());
+	traceResourceBinds.AddResource(rayPositionUAV[1].get());
+	traceResourceBinds.AddResource(rayNormalUAV.get());
+	traceResourceBinds.AddResource(backbufferUAV.get());
+
+	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
+	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
+	//////////////////////////////////////////////////
+	//Input
+	//////////////////////////////////////////////////
 	Input::Init(hWnd);
 	Input::RegisterKeyCallback(std::bind(&MulticoreWindow::KeyEvent, this, std::placeholders::_1));
 	Input::RegisterMouseButtonCallback(std::bind(&MulticoreWindow::MouseEvent, this, std::placeholders::_1));
 	Input::RegisterCharCallback(std::bind(&MulticoreWindow::CharEvent, this, std::placeholders::_1));
 	Input::RegisterScrollCallback(std::bind(&MulticoreWindow::ScrollEvent, this, std::placeholders::_1));
-
-	//Content manager
-	contentManager.Init(device.get());
-	calibri16 = contentManager.Load<CharacterSet>("calibri16");
-
-	//Sprite renderer
-	spriteRenderer.Init(device.get(), deviceContext.get(), &contentManager, 1280, 720);
 
 	//////////////////////////////////////////////////
 	//Timing
@@ -268,18 +309,6 @@ bool MulticoreWindow::Init()
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add GPU tracks to graph: " + errorString);
 		return false;
 	}
-
-	//////////////////////////////////////////////////
-	//Console
-	//////////////////////////////////////////////////
-	auto style = std::shared_ptr<GUIStyle>(console.GenerateDoomStyle(&contentManager));
-	auto background = std::unique_ptr<GUIBackground>(console.GenerateDoomStyleBackground(&contentManager));
-	auto backgroundStyle = std::shared_ptr<GUIStyle>(console.GenerateDoomStyleBackgroundStyle(&contentManager));
-
-	console.Init(Rect(0.0f, 0.0f, 1280.0f, 300.0f), style, background, backgroundStyle);
-	console.Autoexec();
-
-	guiManager.AddContainer(&console);
 
 	//Etc
 	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XM_PIDIV2, 1280.0f / 720.0f, 0.01f, 100.0f);
@@ -423,39 +452,15 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	//Primary
 	//////////////////////////////////////////////////
-	ID3D11UnorderedAccessView* primaryUAVs[] = { rayPositionUAV[0].get(), rayDirectionUAV[0].get() };
-	deviceContext->CSSetUnorderedAccessViews(0, 2, primaryUAVs, nullptr);
-
-	ID3D11Buffer* viewProjInverseBufferDumb = viewProjInverseBuffer.get();
-	deviceContext->CSSetConstantBuffers(0, 1, &viewProjInverseBufferDumb);
-
 	primaryRayGenerator.Bind(deviceContext.get());
 	deviceContext->Dispatch(40, 45, 1);
 	primaryRayGenerator.Unbind(deviceContext.get());
-
-	viewProjInverseBufferDumb = nullptr;
-	deviceContext->CSSetConstantBuffers(0, 1, &viewProjInverseBufferDumb);
-
-	primaryUAVs[0] = nullptr;
-	primaryUAVs[1] = nullptr;
-	deviceContext->CSSetUnorderedAccessViews(0, 2, primaryUAVs, nullptr);
 
 	d3d11Timer.Stop("Primary");
 
 	//////////////////////////////////////////////////
 	//Trace
 	//////////////////////////////////////////////////
-	ID3D11SamplerState* samplerStateDumb = samplerState.get();
-	deviceContext->CSSetSamplers(0, 1, &samplerStateDumb);
-
-	ID3D11ShaderResourceView* traceSRVs[] = { rayPositionSRV[0].get(), rayDirectionSRV[0].get() };
-	deviceContext->CSSetShaderResources(0, 2, traceSRVs);
-
-	ID3D11Buffer* traceBuffers[] = { sphereBuffer.get(), triangleBuffer.get() };
-	deviceContext->CSSetConstantBuffers(0, 2, traceBuffers);
-
-	ID3D11UnorderedAccessView* traceUAVs[] = { rayPositionUAV[1].get() };
-	deviceContext->CSSetUnorderedAccessViews(0, 1, traceUAVs, nullptr); do shit
 
 	trace.Bind(deviceContext.get());
 	deviceContext->Dispatch(40, 45, 1);
@@ -470,7 +475,7 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	//Unbind
 	//////////////////////////////////////////////////
-	traceSRVs[0] = nullptr;
+	/*traceSRVs[0] = nullptr;
 	traceSRVs[1] = nullptr;
 	deviceContext->CSSetShaderResources(0, 2, traceSRVs);
 
@@ -480,7 +485,7 @@ void MulticoreWindow::Draw()
 
 	traceUAVs[0] = nullptr;
 	traceUAVs[1] = nullptr;
-	deviceContext->CSSetUnorderedAccessViews(0, 2, traceUAVs, nullptr);
+	deviceContext->CSSetUnorderedAccessViews(0, 2, traceUAVs, nullptr);*/
 
 	//////////////////////////////////////////////////
 	//Forward rendering

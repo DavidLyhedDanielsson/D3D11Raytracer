@@ -1,0 +1,8 @@
+[WARNING] Added more UAVs than expected to "Trace.cso"
+Stack trace:
+    Logger::Log
+    Logger::LogLine
+    ShaderResourceBinds::Init
+    Shader<ID3D11ComputeShader>::CreateFromFile
+    MulticoreWindow::Init
+    MulticoreWindow::Run

@@ -9,11 +9,15 @@ ComputeShader::~ComputeShader()
 
 void ComputeShader::Bind(ID3D11DeviceContext* context)
 {
+	BindResources<ComputeShader>(context);
+
 	context->CSSetShader(shader.get(), nullptr, 0);
 }
 
 void ComputeShader::Unbind(ID3D11DeviceContext* context)
 {
+	UnbindResources<ComputeShader>(context);
+
 	context->CSSetShader(nullptr, nullptr, 0);
 }
 

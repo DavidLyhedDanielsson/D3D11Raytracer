@@ -3,6 +3,8 @@
 
 #include "common.h"
 
+#include "ShaderResourceBinds.h"
+
 #include <d3dcompiler.h>
 
 #include <string>
@@ -13,6 +15,7 @@ class Shader
 public:
 	Shader(const std::string& entryPoint, const std::string& compileVersion)
 		: shader(nullptr, COMUniqueDeleter)
+		, shaderBlob(nullptr, COMUniqueDeleter)
 		, entryPoint(entryPoint)
 		, compileVersion(compileVersion)
 	{
@@ -22,6 +25,7 @@ public:
 
 	std::string CreateFromFile(const std::string& path, ID3D11Device* const device)
 	{
+		shaderPath = path;
 		std::string returnMessage;
 
 		if(path.find(".cso") == path.size() - 4)
@@ -32,14 +36,67 @@ public:
 		if(!returnMessage.empty())
 			return returnMessage;
 
+		ID3D11ShaderReflection* reflectionDumb = nullptr;
+		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
+		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb, COMUniqueDeleter);
+
+		return PostLoad(device);
+	}
+
+	std::string CreateFromFile(const std::string& path, ID3D11Device* const device, ShaderResourceBinds resourceBinds)
+	{
+		shaderPath = path;
+		std::string returnMessage;
+
+		if(path.find(".cso") == path.size() - 4)
+			returnMessage = LoadPrecompiledShader(path, device);
+		else
+			returnMessage = LoadAndCompileShader(path, device);
+
+		if(!returnMessage.empty())
+			return returnMessage;
+
+		ID3D11ShaderReflection* reflectionDumb = nullptr;
+		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
+		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb, COMUniqueDeleter);
+
+
+		this->resourceBinds = std::move(resourceBinds);
+		this->resourceBinds.Init(device, reflectionDumb, shaderPath);
+
 		return PostLoad(device);
 	}
 
 	virtual void Bind(ID3D11DeviceContext* context) = 0;
 	virtual void Unbind(ID3D11DeviceContext* context) = 0;
 
+	template<typename T>
+	void BindResources(ID3D11DeviceContext* context)
+	{
+		resourceBinds.Bind<T>(context);
+	}
+	template<typename T>
+	void UnbindResources(ID3D11DeviceContext* context)
+	{
+		resourceBinds.Unbind<T>(context);
+	}
+
+	ID3DBlob* GetBlob()
+	{
+		return shaderBlob.get();
+	}
+	std::string GetPath()
+	{
+		return shaderPath;
+	}
+
 protected:
 	COMUniquePtr<T> shader;
+	COMUniquePtr<ID3DBlob> shaderBlob;
+
+	std::string shaderPath;
+
+	ShaderResourceBinds resourceBinds;
 
 private:
 	std::string entryPoint;
@@ -51,7 +108,7 @@ private:
 
 		std::wstring widePath = std::wstring(path.begin(), path.end());
 		HRESULT hRes = D3DReadFileToBlob(widePath.c_str(), &shaderBlobDumb);
-		COMUniquePtr<ID3DBlob> shaderBlob(shaderBlobDumb, COMUniqueDeleter);
+		shaderBlob.reset(shaderBlobDumb);
 
 		if(FAILED(hRes))
 			return "Couldn't load shader at \"" + path + "\"";
@@ -78,9 +135,9 @@ private:
 		ID3DBlob* shaderBlobDumb = nullptr;
 		ID3DBlob* errorBlobDumb = nullptr;
 
-		HRESULT hRes = D3DCompileFromFile(wPath.c_str(), nullptr, nullptr, entryPoint.c_str(), compileVersion.c_str(), flags, 0, &shaderBlobDumb, &errorBlobDumb);
+		HRESULT hRes = D3DCompileFromFile(wPath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), compileVersion.c_str(), flags, 0, &shaderBlobDumb, &errorBlobDumb);
 
-		COMUniquePtr<ID3DBlob> shaderBlob(shaderBlobDumb, COMUniqueDeleter);
+		shaderBlob.reset(shaderBlobDumb);
 		COMUniquePtr<ID3DBlob> errorBlob(errorBlobDumb, COMUniqueDeleter);
 
 		if(FAILED(hRes))
