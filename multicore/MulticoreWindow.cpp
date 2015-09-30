@@ -149,7 +149,7 @@ bool MulticoreWindow::Init()
 	primaryResourceBinds.AddResource(rayNormalUAV.get(), 2);
 	primaryResourceBinds.AddResource(viewProjInverseBuffer.get(), 0);
 
-	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds);
+	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.cso", device.get(), primaryResourceBinds);
 	if(!errorString.empty())
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, errorString);
@@ -160,10 +160,10 @@ bool MulticoreWindow::Init()
 	//Pointlights
 	//////////////////////////////////////////////////
 	PointlightBuffer pointlightBufferData;
-	pointlightBufferData.lights[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 100.0f);
+	pointlightBufferData.lights[0] = DirectX::XMFLOAT4(0.0f, 0.0f, -5.0f, 100.0f);
 	pointlightBufferData.lightCount = 1;
 
-	lightBuffer.reset(CreateBuffer(sizeof(float) * 4 * 10 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &pointlightBufferData));
+	lightBuffer.reset(CreateBuffer(sizeof(float) * 4 * 10 + sizeof(int) * 4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, &pointlightBufferData));
 	if(lightBuffer == nullptr)
 		return false;
 
@@ -182,14 +182,32 @@ bool MulticoreWindow::Init()
 		return false;
 
 	TriangleBuffer triangleBufferData;
-	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, -5.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(-5.0f, -5.0f, 15.0f, 0.0f);
 	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(15.0f, -5.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(-5.0f, 15.0f, 15.0f, 0.0f);
 
 	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(15.0f, 15.0f, 15.0f, 0.0f);
-	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(-5.0f, 15.0f, 15.0f, 0.0f);
 	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(15.0f, -5.0f, 15.0f, 0.0f);
-	triangleBufferData.triangleCount = 2;
+
+	triangleBufferData.triangles[6] = DirectX::XMFLOAT4(-5.0f, -5.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[7] = DirectX::XMFLOAT4(-5.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[8] = DirectX::XMFLOAT4(-5.0f, -5.0f, -5.0f, 0.0f);
+
+	triangleBufferData.triangles[9] = DirectX::XMFLOAT4(-5.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[10] = DirectX::XMFLOAT4(-5.0f, 15.0f, -5.0f, 0.0f);
+	triangleBufferData.triangles[11] = DirectX::XMFLOAT4(-5.0f, -5.0f, -5.0f, 0.0f);
+
+	triangleBufferData.triangles[12] = DirectX::XMFLOAT4(15.0f, -5.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[13] = DirectX::XMFLOAT4(15.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[14] = DirectX::XMFLOAT4(15.0f, -5.0f, -5.0f, 0.0f);
+
+	triangleBufferData.triangles[15] = DirectX::XMFLOAT4(15.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[16] = DirectX::XMFLOAT4(15.0f, 15.0f, -5.0f, 0.0f);
+	triangleBufferData.triangles[17] = DirectX::XMFLOAT4(15.0f, -5.0f, -5.0f, 0.0f);
+
+
+	triangleBufferData.triangleCount = 6;
 
 	triangleBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64 * 3 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData));
 	if(triangleBuffer == nullptr)
@@ -203,6 +221,10 @@ bool MulticoreWindow::Init()
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	samplerDesc.MaxAnisotropy = 1;
+	samplerDesc.MinLOD = 0;
+	samplerDesc.MaxLOD = 0;
+
 
 	ID3D11SamplerState* samplerStateDumb;
 	hRes = device->CreateSamplerState(&samplerDesc, &samplerStateDumb);
@@ -215,12 +237,12 @@ bool MulticoreWindow::Init()
 
 	ShaderResourceBinds traceResourceBinds;
 	traceResourceBinds.AddResource(samplerState.get(), 0);
-	traceResourceBinds.AddResource(rayPositionSRV[0].get(), 0);
-	traceResourceBinds.AddResource(rayDirectionSRV[0].get(), 1);
 	traceResourceBinds.AddResource(sphereBuffer.get(), 0);
-	traceResourceBinds.AddResource(triangleBuffer.get(), 0);
+	traceResourceBinds.AddResource(triangleBuffer.get(), 1);
 	traceResourceBinds.AddResource(rayPositionUAV[1].get(), 0);
 	traceResourceBinds.AddResource(rayNormalUAV.get(), 1);
+	traceResourceBinds.AddResource(rayPositionSRV[0].get(), 0);
+	traceResourceBinds.AddResource(rayDirectionSRV[0].get(), 1);
 
 	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
 	if(!errorString.empty())
@@ -235,6 +257,9 @@ bool MulticoreWindow::Init()
 	shadeResourceBinds.AddResource(rayPositionSRV[1].get(), 0);
 	shadeResourceBinds.AddResource(rayNormalSRV.get(), 1);
 	shadeResourceBinds.AddResource(samplerState.get(), 0);
+	shadeResourceBinds.AddResource(lightBuffer.get(), 0);
+	shadeResourceBinds.AddResource(sphereBuffer.get(), 1);
+	shadeResourceBinds.AddResource(triangleBuffer.get(), 2);
 
 	errorString = shade.CreateFromFile("Shading.cso", device.get(), shadeResourceBinds);
 	if(!errorString.empty())
@@ -372,9 +397,13 @@ void MulticoreWindow::Run()
 	}
 }
 
+float sinVal = 0.0f;
+
 void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
 	double deltaMS = delta.count() * 1e-6;
+
+	sinVal += deltaMS * 0.0005f;
 
 	if(!drawConsole)
 	{
@@ -474,6 +503,16 @@ void MulticoreWindow::Draw()
 	trace.Unbind(deviceContext.get());
 
 	d3d11Timer.Stop("Trace");
+
+	PointlightBuffer pointlightBufferData;
+	pointlightBufferData.lights[0] = DirectX::XMFLOAT4(3.75f, std::sinf(sinVal) * 10.0f, -5.0f, 100.0f);
+	pointlightBufferData.lightCount = 1;
+
+	D3D11_MAPPED_SUBRESOURCE mappedLightBuffer;
+	deviceContext->Map(lightBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedLightBuffer);
+	memcpy(mappedLightBuffer.pData, &pointlightBufferData, sizeof(PointlightBuffer));
+	deviceContext->Unmap(lightBuffer.get(), 0);
+
 
 	shade.Bind(deviceContext.get());
 	deviceContext->Dispatch(40, 45, 1);

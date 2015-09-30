@@ -1,1 +1,0 @@
-[INFO] No SRV expected on slot 0 in shader "Shading.cso" (is it optimized away?)

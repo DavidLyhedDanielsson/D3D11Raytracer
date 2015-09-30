@@ -20,6 +20,15 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 	uavCount = static_cast<UINT>(uavs.size());
 	srvCount = static_cast<UINT>(srvs.size());
 
+	if(cbuffers.size() > 0)
+		cbuffersNullptr.resize(cbuffers.size(), nullptr);
+	if(samplers.size() > 0)
+		samplersNullptr.resize(samplers.size(), nullptr);
+	if(uavs.size() > 0)
+		uavsNullptr.resize(uavs.size(), nullptr);
+	if(srvs.size() > 0)
+		srvsNullptr.resize(srvs.size(), nullptr);
+
 	ConcatMap(cbuffers);
 	ConcatMap(samplers);
 	ConcatMap(uavs);
@@ -81,15 +90,6 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 		}
 	}
 
-	if(cbufferRegisters.size() > 0)
-		cbuffersNullptr.resize((*cbufferRegisters.rbegin()) + 1, nullptr);
-	if(samplerRegisters.size() > 0)
-		samplersNullptr.resize((*samplerRegisters.rbegin()) + 1, nullptr);
-	if(uavRegisters.size() > 0)
-		uavsNullptr.resize((*uavRegisters.rbegin()) + 1, nullptr);
-	if(srvRegisters.size() > 0)
-		srvsNullptr.resize((*srvRegisters.rbegin()) + 1, nullptr);
-
 	CheckBoundSlots(cbuffers, cbufferRegisters, "cbuffer", shaderPath);
 	CheckBoundSlots(samplers, samplerRegisters, "sampler", shaderPath);
 	CheckBoundSlots(uavs, uavRegisters, "UAV", shaderPath);
@@ -98,20 +98,32 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 
 void ShaderResourceBinds::AddResource(ID3D11Buffer* buffer, int slot)
 {
+	if(cbuffers.find(slot) != cbuffers.end())
+		Logger::LogLine(LOG_TYPE::WARNING, "Trying to bind multiple cbuffers to slot " + std::to_string(slot));
+
 	cbuffers[slot].push_back(buffer);
 }
 
 void ShaderResourceBinds::AddResource(ID3D11SamplerState* sampler, int slot)
 {
+	if(samplers.find(slot) != samplers.end())
+		Logger::LogLine(LOG_TYPE::WARNING, "Trying to bind multiple samplers to slot " + std::to_string(slot));
+
 	samplers[slot].push_back(sampler);
 }
 
 void ShaderResourceBinds::AddResource(ID3D11UnorderedAccessView* uav, int slot)
 {
+	if(uavs.find(slot) != uavs.end())
+		Logger::LogLine(LOG_TYPE::WARNING, "Trying to bind multiple UAVs to slot " + std::to_string(slot));
+
 	uavs[slot].push_back(uav);
 }
 
 void ShaderResourceBinds::AddResource(ID3D11ShaderResourceView* srv, int slot)
 {
+	if(srvs.find(slot) != srvs.end())
+		Logger::LogLine(LOG_TYPE::WARNING, "Trying to bind multiple SRVs to slot " + std::to_string(slot));
+
 	srvs[slot].push_back(srv);
 }
