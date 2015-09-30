@@ -1,6 +1,6 @@
 #include "ShaderResourceBinds.h"
 
-#include <map>
+#include <unordered_map>
 
 ShaderResourceBinds::ShaderResourceBinds()
 	: cbufferCount(0)
@@ -15,6 +15,21 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 	D3D11_SHADER_DESC desc;
 	reflection->GetDesc(&desc);
 
+	cbufferCount = static_cast<UINT>(cbuffers.size());
+	samplerCount = static_cast<UINT>(samplers.size());
+	uavCount = static_cast<UINT>(uavs.size());
+	srvCount = static_cast<UINT>(srvs.size());
+
+	ConcatMap(cbuffers);
+	ConcatMap(samplers);
+	ConcatMap(uavs);
+	ConcatMap(srvs);
+
+	std::set<UINT> cbufferRegisters;
+	std::set<UINT> samplerRegisters;
+	std::set<UINT> uavRegisters;
+	std::set<UINT> srvRegisters;
+
 	UINT boundResources = desc.BoundResources;
 	for(UINT i = 0; i < boundResources; i++)
 	{
@@ -24,16 +39,16 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 		switch(inputDesc.Type)
 		{
 			case D3D_SIT_CBUFFER:
-				++cbufferCount;
+				cbufferRegisters.insert(inputDesc.BindPoint);
 				break;
 			case D3D_SIT_SAMPLER:
-				++samplerCount;
+				samplerRegisters.insert(inputDesc.BindPoint);
 				break;
 			case D3D_SIT_UAV_RWTYPED:
-				++uavCount;
+				uavRegisters.insert(inputDesc.BindPoint);
 				break;
 			case D3D_SIT_TEXTURE:
-				++srvCount;
+				srvRegisters.insert(inputDesc.BindPoint);
 				break;
 			default:
 				unknownBuffers.emplace_back(inputDesc.Name);
@@ -41,48 +56,62 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 		}
 	}
 
-	cbuffersNullptr.resize(cbufferCount, nullptr);
-	samplersNullptr.resize(samplerCount, nullptr);
-	uavsNullptr.resize(uavCount, nullptr);
-	srvsNullptr.resize(srvCount, nullptr);
+	for(const auto& uavPair : uavs)
+	{
+		for(int i = 0, endI = static_cast<int>(uavPair.second.size()); i < endI; ++i)
+		{
+			int iOffset = uavPair.first;
 
-	if(cbuffers.size() > cbufferCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added more buffers than expected to \"" + shaderPath + "\"");
-	else if(cbuffers.size() < cbufferCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added fewer buffers than expected to \"" + shaderPath + "\"");
+			ID3D11Resource* uavResource = nullptr;
+			uavPair.second[i]->GetResource(&uavResource);
 
-	if(samplers.size() > samplerCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added more samplers than expected to \"" + shaderPath + "\"");
-	else if(samplers.size() < samplerCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added fewer samplers than expected to \"" + shaderPath + "\"");
+			for(const auto& srvPair : srvs)
+			{
+				for(int j = 0, endJ = static_cast<int>(srvPair.second.size()); j < endJ; ++j)
+				{
+					int jOffset = srvPair.first;
 
-	if(uavs.size() > uavCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added more UAVs than expected to \"" + shaderPath + "\"");
-	else if(uavs.size() < uavCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added fewer UAVs than expected to \"" + shaderPath + "\"");
+					ID3D11Resource* srvResource = nullptr;
+					srvPair.second[j]->GetResource(&srvResource);
 
-	if(srvs.size() > srvCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added more SRVs than expected to \"" + shaderPath + "\"");
-	else if(srvs.size() < srvCount)
-		Logger::LogLine(LOG_TYPE::WARNING, "Added fewer SRVs than expected to \"" + shaderPath + "\"");
+					if(uavResource == srvResource)
+						Logger::LogLine(LOG_TYPE::WARNING, "Binding the same resource to u" + std::to_string(i + iOffset) + " and t" + std::to_string(j + jOffset) + "\" in \"" + shaderPath + "\"");
+				}
+			}
+		}
+	}
+
+	if(cbufferRegisters.size() > 0)
+		cbuffersNullptr.resize((*cbufferRegisters.rbegin()) + 1, nullptr);
+	if(samplerRegisters.size() > 0)
+		samplersNullptr.resize((*samplerRegisters.rbegin()) + 1, nullptr);
+	if(uavRegisters.size() > 0)
+		uavsNullptr.resize((*uavRegisters.rbegin()) + 1, nullptr);
+	if(srvRegisters.size() > 0)
+		srvsNullptr.resize((*srvRegisters.rbegin()) + 1, nullptr);
+
+	CheckBoundSlots(cbuffers, cbufferRegisters, "cbuffer", shaderPath);
+	CheckBoundSlots(samplers, samplerRegisters, "sampler", shaderPath);
+	CheckBoundSlots(uavs, uavRegisters, "UAV", shaderPath);
+	CheckBoundSlots(srvs, srvRegisters, "SRV", shaderPath);
 }
 
-void ShaderResourceBinds::AddResource(ID3D11Buffer* buffer)
+void ShaderResourceBinds::AddResource(ID3D11Buffer* buffer, int slot)
 {
-	cbuffers.push_back(buffer);
+	cbuffers[slot].push_back(buffer);
 }
 
-void ShaderResourceBinds::AddResource(ID3D11SamplerState* sampler)
+void ShaderResourceBinds::AddResource(ID3D11SamplerState* sampler, int slot)
 {
-	samplers.push_back(sampler);
+	samplers[slot].push_back(sampler);
 }
 
-void ShaderResourceBinds::AddResource(ID3D11UnorderedAccessView* uav)
+void ShaderResourceBinds::AddResource(ID3D11UnorderedAccessView* uav, int slot)
 {
-	uavs.push_back(uav);
+	uavs[slot].push_back(uav);
 }
 
-void ShaderResourceBinds::AddResource(ID3D11ShaderResourceView* srv)
+void ShaderResourceBinds::AddResource(ID3D11ShaderResourceView* srv, int slot)
 {
-	srvs.push_back(srv);
+	srvs[slot].push_back(srv);
 }

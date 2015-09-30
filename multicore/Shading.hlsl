@@ -19,12 +19,24 @@ cbuffer sphereBuffer : register(b2)
 };
 
 RWTexture2D<float4> output : register(u0);
-RWTexture2D<float4> rayPositions : register(u1);
-RWTexture2D<float4> rayDirections : register(u2);
+
+Texture2D<float4> rayPositions : register(t0);
+Texture2D<float4> rayNormals : register(t1);
+
+sampler textureSampler : register(s0);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
+	float2 texCoords = threadID.xy / float2(1280.0f, 720.0f);
+	float3 normal = rayNormals.SampleLevel(textureSampler, texCoords, 0).xyz;
+
+	if(dot(normal, normal) == 0.0f)
+		return;
+
+	float lightFac = dot(normal, LIGHT_DIR);
+
+	output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
 }
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal)

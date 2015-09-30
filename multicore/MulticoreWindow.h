@@ -123,7 +123,7 @@ private:
 
 	ComputeShader primaryRayGenerator;
 	ComputeShader trace;
-	//ComputeShader rayTriangle;
+	ComputeShader shade;
 
 	VertexShader vertexShader;
 	PixelShader pixelShader;

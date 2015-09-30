@@ -1,8 +1,1 @@
-[WARNING] Added more UAVs than expected to "Trace.cso"
-Stack trace:
-    Logger::Log
-    Logger::LogLine
-    ShaderResourceBinds::Init
-    Shader<ID3D11ComputeShader>::CreateFromFile
-    MulticoreWindow::Init
-    MulticoreWindow::Run
+[INFO] No SRV expected on slot 0 in shader "Shading.cso" (is it optimized away?)

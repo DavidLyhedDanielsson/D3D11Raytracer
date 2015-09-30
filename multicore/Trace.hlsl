@@ -2,7 +2,6 @@
 
 RWTexture2D<float4> rayPositionsOut : register(u0);
 RWTexture2D<float4> rayNormalOut : register(u1);
-RWTexture2D<float4> output : register(u2);
 
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayDirections : register(t1);
@@ -40,12 +39,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	if(dot(normal, normal) == 0.0f)
 		return;
 
-	float lightFac = dot(normalize(normal), LIGHT_DIR);
-
-	//output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
 	rayPositionsOut[threadID.xy] = float4(rayPositionAndDepth.xyz + rayDirection * rayPositionAndDepth.w, rayPositionAndDepth.w);
 	rayNormalOut[threadID.xy] = float4(normal, rayPositionAndDepth.w);
-	//output[threadID.xy] = float4(1.0f, 1.0f, 0.0f, 1.0f);
 }
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal)

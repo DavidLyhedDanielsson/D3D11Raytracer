@@ -29,6 +29,7 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, rayPositionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter) }
 	, primaryRayGenerator("main", "cs_5_0")
 	, trace("main", "cs_5_0")
+	, shade("main", "cs_5_0")
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, drawConsole(false)
@@ -143,10 +144,10 @@ bool MulticoreWindow::Init()
 	rayNormalSRV.reset(rayNormalSRVDumb);
 
 	ShaderResourceBinds primaryResourceBinds;
-	primaryResourceBinds.AddResource(rayPositionUAV[0].get());
-	primaryResourceBinds.AddResource(rayDirectionUAV[0].get());
-	primaryResourceBinds.AddResource(rayNormalUAV.get());
-	primaryResourceBinds.AddResource(viewProjInverseBuffer.get());
+	primaryResourceBinds.AddResource(rayPositionUAV[0].get(), 0);
+	primaryResourceBinds.AddResource(rayDirectionUAV[0].get(), 1);
+	primaryResourceBinds.AddResource(rayNormalUAV.get(), 2);
+	primaryResourceBinds.AddResource(viewProjInverseBuffer.get(), 0);
 
 	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds);
 	if(!errorString.empty())
@@ -181,13 +182,13 @@ bool MulticoreWindow::Init()
 		return false;
 
 	TriangleBuffer triangleBufferData;
-	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, -5.0f, 0.0f, 0.0f);
-	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(5.0f, -5.0f, 0.0f, 0.0f);
-	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[0] = DirectX::XMFLOAT4(0.0f, -5.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[1] = DirectX::XMFLOAT4(15.0f, -5.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[2] = DirectX::XMFLOAT4(0.0f, 15.0f, 15.0f, 0.0f);
 
-	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(5.0f, 5.0f, 0.0f, 0.0f);
-	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 5.0f, 0.0f, 0.0f);
-	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(5.0f, -5.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[3] = DirectX::XMFLOAT4(15.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[4] = DirectX::XMFLOAT4(0.0f, 15.0f, 15.0f, 0.0f);
+	triangleBufferData.triangles[5] = DirectX::XMFLOAT4(15.0f, -5.0f, 15.0f, 0.0f);
 	triangleBufferData.triangleCount = 2;
 
 	triangleBuffer.reset(CreateBuffer(sizeof(float) * 4 * 64 * 3 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData));
@@ -197,7 +198,7 @@ bool MulticoreWindow::Init()
 	//Sampler
 	D3D11_SAMPLER_DESC samplerDesc;
 	memset(&samplerDesc, 0, sizeof(samplerDesc));
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -213,14 +214,13 @@ bool MulticoreWindow::Init()
 	}
 
 	ShaderResourceBinds traceResourceBinds;
-	traceResourceBinds.AddResource(samplerState.get());
-	traceResourceBinds.AddResource(rayPositionSRV[0].get());
-	traceResourceBinds.AddResource(rayDirectionSRV[0].get());
-	traceResourceBinds.AddResource(sphereBuffer.get());
-	traceResourceBinds.AddResource(triangleBuffer.get());
-	traceResourceBinds.AddResource(rayPositionUAV[1].get());
-	traceResourceBinds.AddResource(rayNormalUAV.get());
-	traceResourceBinds.AddResource(backbufferUAV.get());
+	traceResourceBinds.AddResource(samplerState.get(), 0);
+	traceResourceBinds.AddResource(rayPositionSRV[0].get(), 0);
+	traceResourceBinds.AddResource(rayDirectionSRV[0].get(), 1);
+	traceResourceBinds.AddResource(sphereBuffer.get(), 0);
+	traceResourceBinds.AddResource(triangleBuffer.get(), 0);
+	traceResourceBinds.AddResource(rayPositionUAV[1].get(), 0);
+	traceResourceBinds.AddResource(rayNormalUAV.get(), 1);
 
 	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
 	if(!errorString.empty())
@@ -229,7 +229,14 @@ bool MulticoreWindow::Init()
 		return false;
 	}
 
-	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
+	ShaderResourceBinds shadeResourceBinds;
+
+	shadeResourceBinds.AddResource(backbufferUAV.get(), 0);
+	shadeResourceBinds.AddResource(rayPositionSRV[1].get(), 0);
+	shadeResourceBinds.AddResource(rayNormalSRV.get(), 1);
+	shadeResourceBinds.AddResource(samplerState.get(), 0);
+
+	errorString = shade.CreateFromFile("Shading.cso", device.get(), shadeResourceBinds);
 	if(!errorString.empty())
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, errorString);
@@ -275,13 +282,13 @@ bool MulticoreWindow::Init()
 #ifdef _DEBUG
 	int gpuMSAverage = 10;
 #else
-	int gpuMSAverage = 50;
+	int gpuMSAverage = 10;
 #endif
 
 	std::vector<Track> gpuTracks;
 	std::vector<std::string> gpuTrackNames;
 
-	std::vector<std::string> timerQueries{ "Primary", "Trace"};
+	std::vector<std::string> timerQueries{ "Primary", "Trace", "Shade"};
 
 	if(!d3d11Timer.Init(device.get(), deviceContext.get(), timerQueries))
 	{
@@ -467,6 +474,12 @@ void MulticoreWindow::Draw()
 	trace.Unbind(deviceContext.get());
 
 	d3d11Timer.Stop("Trace");
+
+	shade.Bind(deviceContext.get());
+	deviceContext->Dispatch(40, 45, 1);
+	shade.Unbind(deviceContext.get());
+
+	d3d11Timer.Stop("Shade");
 
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
 	for(const auto& pair : d3d11Times)

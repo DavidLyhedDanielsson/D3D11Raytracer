@@ -349,6 +349,7 @@ std::string DX11Window::CreateDevice()
 	ID3D11DeviceContext* deviceContext;
 
 	HRESULT hRes = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags, &featureLevels[0], 2, D3D11_SDK_VERSION, &device, &chosenFeatureLevel, &deviceContext);
+	//HRESULT hRes = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, flags, &featureLevels[0], 2, D3D11_SDK_VERSION, &device, &chosenFeatureLevel, &deviceContext);
 
 	this->device.reset(device);
 	this->deviceContext.reset(deviceContext);

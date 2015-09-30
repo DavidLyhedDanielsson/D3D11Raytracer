@@ -156,8 +156,7 @@ void Logger::Log(LOG_TYPE logType, const std::string& text)
 			return; //Don't write anything to file
 		}
 	}
-
-	if(consoleLogLevel &= CONSOLE_LOG_LEVEL::DEBUG_STRING)
+	else if(consoleLogLevel &= CONSOLE_LOG_LEVEL::DEBUG_STRING)
 		OutputDebugStringA(message.c_str());
 	else if(consoleLogLevel &= CONSOLE_LOG_LEVEL::DEBUG_STRING_EXCLUSIVE)
 	{
@@ -177,6 +176,9 @@ void Logger::Log(LOG_TYPE logType, const std::string& text)
 		out.write(&message[0], message.size());
 		out.close();
 	}
+
+	if(message.back() == '\n')
+		message.pop_back();
 
 	if(CallOnLog != nullptr)
 		CallOnLog(message);
@@ -245,8 +247,8 @@ void Logger::Print(std::string message)
 {
     if(consoleLogLevel &= CONSOLE_LOG_LEVEL::DEBUG_STRING)
 		OutputDebugStringA(message.c_str());
-    else
-        std::cout << message;
+	
+	std::cout << message;
 }
 
 void Logger::PrintStackTrace(bool print)
