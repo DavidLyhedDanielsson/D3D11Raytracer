@@ -26,8 +26,8 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
-	float4 rayPositionAndDepth = Sample(threadID, rayPositions);
-	float3 rayDirection = Sample(threadID, rayDirections).xyz;
+	float4 rayPositionAndDepth = rayPositions[threadID.xy];
+	float3 rayDirection = rayDirections[threadID.xy].xyz;
 	
 	float3 normal = float3(0.0f, 0.0f, 0.0f);
 

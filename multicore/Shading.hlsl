@@ -31,11 +31,12 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition);
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
-	float3 normal = Sample(threadID, rayNormals).xyz;
+	float3 normal = rayNormals[threadID.xy].xyz;
 	if(dot(normal, normal) == 0.0f)
 		return;
 
-	float4 rayPositionAndDepth = Sample(threadID, rayPositions);
+	//float4 rayPositionAndDepth = Sample(threadID, rayPositions);
+	float4 rayPositionAndDepth = rayPositions[threadID.xy];
 
 	if(SphereTrace(rayPositionAndDepth.xyz, lights[0].xyz) && TriangleTrace(rayPositionAndDepth.xyz, lights[0].xyz))
 	{

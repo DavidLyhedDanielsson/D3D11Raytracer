@@ -27,11 +27,16 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, rayPositionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr, COMUniqueDeleter) }
 	, rayDirectionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter) }
 	, rayPositionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter), COMUniquePtr<ID3D11ShaderResourceView>(nullptr, COMUniqueDeleter) }
+	, bulbProjMatrixBuffer(nullptr, COMUniqueDeleter)
+	, bulbInstanceBuffer(nullptr, COMUniqueDeleter)
+	, bulbVertexBuffer(nullptr, COMUniqueDeleter)
+	, billboardBlend(nullptr, COMUniqueDeleter)
+	, bulbTexture(nullptr)
 	, primaryRayGenerator("main", "cs_5_0")
 	, trace("main", "cs_5_0")
 	, shade("main", "cs_5_0")
-	, vertexShader("main", "vs_5_0")
-	, pixelShader("main", "ps_5_0")
+	, billboardVertexShader("main", "vs_5_0")
+	, billboardPixelShader("main", "ps_5_0")
 	, drawConsole(false)
 {
 }
@@ -216,7 +221,7 @@ bool MulticoreWindow::Init()
 	//Sampler
 	D3D11_SAMPLER_DESC samplerDesc;
 	memset(&samplerDesc, 0, sizeof(samplerDesc));
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
@@ -236,7 +241,7 @@ bool MulticoreWindow::Init()
 	}
 
 	ShaderResourceBinds traceResourceBinds;
-	traceResourceBinds.AddResource(samplerState.get(), 0);
+	//traceResourceBinds.AddResource(samplerState.get(), 0);
 	traceResourceBinds.AddResource(sphereBuffer.get(), 0);
 	traceResourceBinds.AddResource(triangleBuffer.get(), 1);
 	traceResourceBinds.AddResource(rayPositionUAV[1].get(), 0);
@@ -256,7 +261,7 @@ bool MulticoreWindow::Init()
 	shadeResourceBinds.AddResource(backbufferUAV.get(), 0);
 	shadeResourceBinds.AddResource(rayPositionSRV[1].get(), 0);
 	shadeResourceBinds.AddResource(rayNormalSRV.get(), 1);
-	shadeResourceBinds.AddResource(samplerState.get(), 0);
+	//shadeResourceBinds.AddResource(samplerState.get(), 0);
 	shadeResourceBinds.AddResource(lightBuffer.get(), 0);
 	shadeResourceBinds.AddResource(sphereBuffer.get(), 1);
 	shadeResourceBinds.AddResource(triangleBuffer.get(), 2);
@@ -276,6 +281,125 @@ bool MulticoreWindow::Init()
 	Input::RegisterMouseButtonCallback(std::bind(&MulticoreWindow::MouseEvent, this, std::placeholders::_1));
 	Input::RegisterCharCallback(std::bind(&MulticoreWindow::CharEvent, this, std::placeholders::_1));
 	Input::RegisterScrollCallback(std::bind(&MulticoreWindow::ScrollEvent, this, std::placeholders::_1));
+
+	//////////////////////////////////////////////////
+	//Bulb
+	//////////////////////////////////////////////////
+	//ShaderResourceBinds bulbResourceBinds;
+
+	errorString = billboardVertexShader.CreateFromFile("BillboardVertexShader.cso", device.get());
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
+	billboardVertexShader.SetVertexData(device.get(), 
+		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT2, VERTEX_INPUT_DATA::FLOAT4X4 }
+	, std::vector<std::string> { "POSITION", "COLOR", "TEX_COORD", "WORLD_MATRIX" }
+	, std::vector<bool> { false, false, false, true });
+
+	errorString = billboardPixelShader.CreateFromFile("BillboardPixelShader.cso", device.get());
+	if(!errorString.empty())
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, errorString);
+		return false;
+	}
+
+	D3D11_BUFFER_DESC bulbBufferDesc;
+	ZeroMemory(&bulbBufferDesc, sizeof(bulbBufferDesc));
+	bulbBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bulbBufferDesc.ByteWidth = sizeof(BulbInstanceData) * MAX_LIGHTS;
+	bulbBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	bulbBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+
+	ID3D11Buffer* bulbInstanceBufferDumb = nullptr;
+	hRes = device->CreateBuffer(&bulbBufferDesc, nullptr, &bulbInstanceBufferDumb);
+	bulbInstanceBuffer.reset(bulbInstanceBufferDumb);
+	if(FAILED(hRes))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create bulb buffer");
+		return false;
+	}
+
+	bulbBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bulbBufferDesc.ByteWidth = sizeof(BulbInstanceData) * MAX_LIGHTS;
+	bulbBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	bulbBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+
+	ID3D11Buffer* bulbProjMatrixDumb = nullptr;
+	hRes = device->CreateBuffer(&bulbBufferDesc, nullptr, &bulbProjMatrixDumb);
+	bulbProjMatrixBuffer.reset(bulbProjMatrixDumb);
+	if(FAILED(hRes))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create bulb buffer");
+		return false;
+	}
+
+	//Just a plane with tex coords
+	bulbBufferDesc.ByteWidth = sizeof(Vertex) * 6;
+	bulbBufferDesc.CPUAccessFlags = 0;
+	bulbBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	bulbBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+	std::vector<Vertex> bulbVertices;
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f));
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, -0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f));
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f));
+
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, -0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f));
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, -0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f));
+	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f));
+
+	ID3D11Buffer* bulbVertexBufferDumb = bulbVertexBuffer.get();
+
+	D3D11_SUBRESOURCE_DATA bulbVertexBufferData;
+	bulbVertexBufferData.pSysMem = &bulbVertices[0];
+
+	hRes = device->CreateBuffer(&bulbBufferDesc, &bulbVertexBufferData, &bulbVertexBufferDumb);
+	bulbVertexBuffer.reset(bulbVertexBufferDumb);
+	if(FAILED(hRes))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create bulb vertex buffer");
+		return false;
+	}
+
+	for(int i = 0; i < 10; i++)
+	{
+		DirectX::XMMATRIX bulbWorldMatrix = DirectX::XMMatrixTranslation(2.0f * i, 0.0f, 0.0f);
+		DirectX::XMStoreFloat4x4(&bulbInstanceData[i].worldMatrix, bulbWorldMatrix);
+	}
+
+	bulbTexture = contentManager.Load<Texture2D>("Bulb.dds");
+	if(bulbTexture == nullptr)
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't load bulb texture");
+		return false;
+	}
+
+	//////////////////////////////////////////////////
+	//Blending
+	//////////////////////////////////////////////////
+	D3D11_BLEND_DESC blendDesc;
+	blendDesc.AlphaToCoverageEnable = false;
+	blendDesc.IndependentBlendEnable = false;
+	blendDesc.RenderTarget[0].BlendEnable = true;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	ID3D11BlendState* blendStateDumb;
+	hRes = device->CreateBlendState(&blendDesc, &blendStateDumb);
+	billboardBlend.reset(blendStateDumb);
+	if(FAILED(hRes))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't load bulb texture");
+		return false;
+	}
 
 	//////////////////////////////////////////////////
 	//Timing
@@ -450,12 +574,13 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 
 void MulticoreWindow::Draw()
 {
-	float colors[] = { 44.0f / 255.0f, 87.0f / 255.0f, 120.0f / 255.0f, 1.0f};
+	float colors[] = { 44.0f / 255.0f, 87.0f / 255.0f, 120.0f / 255.0f, 1.0f };
 	deviceContext->ClearRenderTargetView(backBufferRenderTarget.get(), colors);
 
 	//Update viewProjMatrix and viewProjInverseMatrix
 	DirectX::XMFLOAT4X4 viewMatrix = camera.GetViewMatrix();
 	DirectX::XMFLOAT4X4 projectionMatrix = camera.GetProjectionMatrix();
+	DirectX::XMFLOAT4X4 viewProjectionMatrix;
 
 	DirectX::XMMATRIX xmViewMatrix = DirectX::XMLoadFloat4x4(&viewMatrix);
 	DirectX::XMMATRIX xmProjectionMatrix = DirectX::XMLoadFloat4x4(&projectionMatrix);
@@ -464,6 +589,7 @@ void MulticoreWindow::Draw()
 
 	ViewProjBuffer viewProjBuffer;
 
+	DirectX::XMStoreFloat4x4(&viewProjectionMatrix, xmViewProjMatrix);
 	DirectX::XMStoreFloat4x4(&viewProjBuffer.viewProjMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
 
 	D3D11_MAPPED_SUBRESOURCE mappedViewProjMatrixBuffer;
@@ -550,6 +676,59 @@ void MulticoreWindow::Draw()
 	deviceContext->RSSetState(rasterizerState.get());
 	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	//////////////////////////////////////////////////
+	//Bulbs
+	//////////////////////////////////////////////////
+	DirectX::XMMATRIX asdf = DirectX::XMMatrixTranslation(pointlightBufferData.lights[0].x, pointlightBufferData.lights[0].y, pointlightBufferData.lights[0].z);
+	DirectX::XMStoreFloat4x4(&bulbInstanceData[0].worldMatrix, asdf);
+
+	D3D11_MAPPED_SUBRESOURCE mappedBulbBuffer;
+	ZeroMemory(&mappedBulbBuffer, sizeof(mappedBulbBuffer));
+	if(FAILED(deviceContext->Map(bulbInstanceBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBulbBuffer)))
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't map buffer");
+		return;
+	}
+	memcpy(mappedBulbBuffer.pData, &bulbInstanceData[0], sizeof(BulbInstanceData) * MAX_LIGHTS);
+	deviceContext->Unmap(bulbInstanceBuffer.get(), 0);
+
+	D3D11_MAPPED_SUBRESOURCE mappedBulbMatrixBuffer;
+	ZeroMemory(&mappedBulbMatrixBuffer, sizeof(mappedBulbMatrixBuffer));
+	if(FAILED(deviceContext->Map(bulbProjMatrixBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBulbMatrixBuffer)))
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't map buffer");
+		return;
+	}
+	memcpy(mappedBulbMatrixBuffer.pData, &viewProjectionMatrix, sizeof(float) * 16);
+	deviceContext->Unmap(bulbProjMatrixBuffer.get(), 0);
+
+	ID3D11Buffer* bulbBuffers[] = { bulbProjMatrixBuffer.get(), bulbInstanceBuffer.get() };
+	deviceContext->VSSetConstantBuffers(0, 2, bulbBuffers);
+
+	UINT bulbStride = sizeof(Vertex);
+	UINT bulbOffset = 0;
+
+	ID3D11Buffer* bulbVertexBuffers[] = { bulbVertexBuffer.get() };
+	deviceContext->IASetVertexBuffers(0, 1, bulbVertexBuffers, &bulbStride, &bulbOffset);
+
+	ID3D11ShaderResourceView* bulbTextureDumb = bulbTexture->GetTextureResourceView();
+	deviceContext->PSSetShaderResources(0, 1, &bulbTextureDumb);
+
+	ID3D11SamplerState* samplerStateDumb = samplerState.get();
+	deviceContext->PSSetSamplers(0, 1, &samplerStateDumb);
+
+	float blendFac[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	deviceContext->OMSetBlendState(billboardBlend.get(), blendFac, 0xFFFFFFFF);
+
+	billboardVertexShader.Bind(deviceContext.get());
+	billboardPixelShader.Bind(deviceContext.get());
+	deviceContext->DrawInstanced(6, 1, 0, 0);
+	billboardVertexShader.Unbind(deviceContext.get());
+	billboardPixelShader.Unbind(deviceContext.get());
+
+	//////////////////////////////////////////////////
+	//Sprites
+	//////////////////////////////////////////////////
 	spriteRenderer.Begin();
 
 	guiManager.Draw(&spriteRenderer);

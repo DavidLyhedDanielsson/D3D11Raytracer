@@ -32,6 +32,10 @@ enum class BUFFER_DATA_TYPES
 	, FLOAT4
 };
 
+const static int MAX_LIGHTS = 10;
+const static int MAX_SPHERES = 64;
+const static int MAX_TRIANGLES = 64;
+
 namespace
 {
 	struct Vertex
@@ -43,9 +47,22 @@ namespace
 
 		}
 
+		Vertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color, DirectX::XMFLOAT2 texCoord)
+			: position(position)
+			, color(color)
+			, texCoord(texCoord)
+		{
+
+		}
+
 		DirectX::XMFLOAT3 position;
 		DirectX::XMFLOAT3 color;
-		DirectX::XMFLOAT2 padding;
+		DirectX::XMFLOAT2 texCoord;
+	};
+
+	struct BulbInstanceData
+	{
+		DirectX::XMFLOAT4X4 worldMatrix;
 	};
 
 	struct ViewProjBuffer 
@@ -55,19 +72,19 @@ namespace
 
 	struct PointlightBuffer
 	{
-		DirectX::XMFLOAT4 lights[10];
+		DirectX::XMFLOAT4 lights[MAX_LIGHTS];
 		int lightCount;
 	};
 
 	struct SphereBuffer
 	{
-		DirectX::XMFLOAT4 spheres[64];
+		DirectX::XMFLOAT4 spheres[MAX_SPHERES];
 		int sphereCount;
 	};
 
 	struct TriangleBuffer
 	{
-		DirectX::XMFLOAT4 triangles[64 * 3];
+		DirectX::XMFLOAT4 triangles[MAX_TRIANGLES * 3];
 		int triangleCount;
 	};
 }
@@ -119,14 +136,22 @@ private:
 	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
 
+	COMUniquePtr<ID3D11BlendState> billboardBlend;
+
 	std::vector<unsigned int> indexData;
 
 	ComputeShader primaryRayGenerator;
 	ComputeShader trace;
 	ComputeShader shade;
 
-	VertexShader vertexShader;
-	PixelShader pixelShader;
+	VertexShader billboardVertexShader;
+	PixelShader billboardPixelShader;
+	COMUniquePtr<ID3D11Buffer> bulbProjMatrixBuffer;
+	COMUniquePtr<ID3D11Buffer> bulbInstanceBuffer;
+	COMUniquePtr<ID3D11Buffer> bulbVertexBuffer;
+
+	BulbInstanceData bulbInstanceData[MAX_LIGHTS];
+	Texture2D* bulbTexture;
 
 	ContentManager contentManager;
 	SpriteRenderer spriteRenderer;

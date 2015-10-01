@@ -11,6 +11,7 @@ enum class VERTEX_INPUT_DATA
 	, FLOAT2
 	, FLOAT3
 	, FLOAT4
+	, FLOAT4X4
 };
 
 class VertexShader 
@@ -27,6 +28,7 @@ public:
 	bool CreateShader(ID3DBlob* shaderBlob, ID3D11Device* const device, std::vector<VERTEX_INPUT_DATA> inputData, std::vector<std::string> inputDataNames);
 
 	std::string SetVertexData(ID3D11Device* const device, std::vector<VERTEX_INPUT_DATA> inputData, std::vector<std::string> inputDataNames);
+	std::string SetVertexData(ID3D11Device* const device, std::vector<VERTEX_INPUT_DATA> inputData, std::vector<std::string> inputDataNames, std::vector<bool> perInstance);
 
 private:
 	COMUniquePtr<ID3D11InputLayout> inputLayout;
