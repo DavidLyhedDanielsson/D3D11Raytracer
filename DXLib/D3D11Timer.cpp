@@ -5,9 +5,9 @@
 #endif
 
 D3D11Timer::D3D11Timer()
-	: disjointQuery(nullptr, COMUniqueDeleter)
-	, startTimeQuery(nullptr, COMUniqueDeleter)
-	, stopTimeQuery(nullptr, COMUniqueDeleter)
+	: disjointQuery(nullptr)
+	, startTimeQuery(nullptr)
+	, stopTimeQuery(nullptr)
 {}
 
 D3D11Timer::~D3D11Timer()

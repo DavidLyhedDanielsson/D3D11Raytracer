@@ -14,8 +14,8 @@ class Shader
 {
 public:
 	Shader(const std::string& entryPoint, const std::string& compileVersion)
-		: shader(nullptr, COMUniqueDeleter)
-		, shaderBlob(nullptr, COMUniqueDeleter)
+		: shader(nullptr)
+		, shaderBlob(nullptr)
 		, entryPoint(entryPoint)
 		, compileVersion(compileVersion)
 	{
@@ -38,7 +38,7 @@ public:
 
 		ID3D11ShaderReflection* reflectionDumb = nullptr;
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
-		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb, COMUniqueDeleter);
+		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
 
 		return PostLoad(device);
 	}
@@ -58,7 +58,7 @@ public:
 
 		ID3D11ShaderReflection* reflectionDumb = nullptr;
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
-		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb, COMUniqueDeleter);
+		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
 
 
 		this->resourceBinds = std::move(resourceBinds);
@@ -138,7 +138,7 @@ private:
 		HRESULT hRes = D3DCompileFromFile(wPath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, entryPoint.c_str(), compileVersion.c_str(), flags, 0, &shaderBlobDumb, &errorBlobDumb);
 
 		shaderBlob.reset(shaderBlobDumb);
-		COMUniquePtr<ID3DBlob> errorBlob(errorBlobDumb, COMUniqueDeleter);
+		COMUniquePtr<ID3DBlob> errorBlob(errorBlobDumb);
 
 		if(FAILED(hRes))
 		{

@@ -25,37 +25,49 @@ Texture2D<float4> rayNormals : register(t1);
 
 sampler textureSampler : register(s0);
 
-bool SphereTrace(float3 rayPosition, float3 lightPosition);
-bool TriangleTrace(float3 rayPosition, float3 lightPosition);
+bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
+bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
+
+const static float AMBIENT_FAC = 0.25f;
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
 	float3 normal = rayNormals[threadID.xy].xyz;
-	if(dot(normal, normal) == 0.0f)
-		return;
+	float lightFac = AMBIENT_FAC;
 
-	//float4 rayPositionAndDepth = Sample(threadID, rayPositions);
-	float4 rayPositionAndDepth = rayPositions[threadID.xy];
-
-	if(SphereTrace(rayPositionAndDepth.xyz, lights[0].xyz) && TriangleTrace(rayPositionAndDepth.xyz, lights[0].xyz))
+	if(dot(normal, normal) != 0.0f)
 	{
-		output[threadID.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+		float4 rayPositionAndDepth = rayPositions[threadID.xy];
+
+		for(int i = 0; i < lightCount; i++)
+		{
+			float3 rayLight = lights[i].xyz - rayPositionAndDepth.xyz;
+			float distanceToLight = length(rayLight);
+			float3 rayDirection = normalize(rayLight);
+
+			if(distanceToLight > lights[i].w)
+				continue;
+
+			if(SphereTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection))
+			{
+				float attenuation = 1.0f - min((distanceToLight / lights[i].w), 1.0f);
+
+				float3 rayLightDir = normalize(lights[i].xyz - rayPositionAndDepth.xyz);
+			
+				//Diffuse lighting
+				lightFac += max(0.0f, dot(rayLightDir, normal)) * attenuation;
+			}
+		}
 	}
-	else
-		output[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
-		
+
+	output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
 }
 
 
-bool SphereTrace(float3 rayPosition, float3 lightPosition)
+bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection)
 {
 	int closestSphereIndex = -1;
-
-	float3 rayLight = lightPosition - rayPosition;
-
-	float distanceToLight = length(rayLight);
-	float3 rayDirection = normalize(rayLight);
 
 	for(int i = 0; i < sphereCount; ++i)
 	{
@@ -81,14 +93,9 @@ bool SphereTrace(float3 rayPosition, float3 lightPosition)
 	return true;
 }
 
-bool TriangleTrace(float3 rayPosition, float3 lightPosition)
+bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection)
 {
 	int closestTriangleIndex = -1;
-
-	float3 rayLight = lightPosition - rayPosition;
-
-	float distanceToLight = length(rayLight);
-	float3 rayDirection = normalize(rayLight);
 
 	for(int i = 0; i < triangleCount; ++i)
 	{

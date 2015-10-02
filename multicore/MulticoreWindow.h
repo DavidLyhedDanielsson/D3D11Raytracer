@@ -32,7 +32,7 @@ enum class BUFFER_DATA_TYPES
 	, FLOAT4
 };
 
-const static int MAX_LIGHTS = 10;
+const static int MAX_POINT_LIGHTS = 10;
 const static int MAX_SPHERES = 64;
 const static int MAX_TRIANGLES = 64;
 
@@ -72,7 +72,7 @@ namespace
 
 	struct PointlightBuffer
 	{
-		DirectX::XMFLOAT4 lights[MAX_LIGHTS];
+		DirectX::XMFLOAT4 lights[MAX_POINT_LIGHTS];
 		int lightCount;
 	};
 
@@ -116,7 +116,9 @@ private:
 
 	std::unordered_set<int> keyMap;
 
-	COMUniquePtr<ID3D11SamplerState> samplerState;
+	ID3D11BlendState* billboardBlendState;
+	ID3D11SamplerState* billboardSamplerState;
+	ID3D11RasterizerState* billboardRasterizerState;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
 	COMUniquePtr<ID3D11Buffer> vertexBuffer;
@@ -124,7 +126,6 @@ private:
 
 	COMUniquePtr<ID3D11Buffer> viewProjMatrixBuffer;
 	COMUniquePtr<ID3D11Buffer> viewProjInverseBuffer;
-	COMUniquePtr<ID3D11Buffer> lightBuffer;
 	COMUniquePtr<ID3D11Buffer> sphereBuffer;
 	COMUniquePtr<ID3D11Buffer> triangleBuffer;
 
@@ -136,7 +137,10 @@ private:
 	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
 
-	COMUniquePtr<ID3D11BlendState> billboardBlend;
+	//Point lights
+	COMUniquePtr<ID3D11Buffer> pointLightBuffer;
+	PointlightBuffer pointLightBufferData;
+
 
 	std::vector<unsigned int> indexData;
 
@@ -150,7 +154,7 @@ private:
 	COMUniquePtr<ID3D11Buffer> bulbInstanceBuffer;
 	COMUniquePtr<ID3D11Buffer> bulbVertexBuffer;
 
-	BulbInstanceData bulbInstanceData[MAX_LIGHTS];
+	BulbInstanceData bulbInstanceData[MAX_POINT_LIGHTS];
 	Texture2D* bulbTexture;
 
 	ContentManager contentManager;
@@ -169,23 +173,35 @@ private:
 	Console console;
 	bool drawConsole;
 
-	ID3D11Buffer* CreateBuffer(const std::vector<BUFFER_DATA_TYPES>& bufferDataTypes
+
+	bool InitSRVs();
+	bool InitRaytraceShaders();
+
+	bool InitBulb();
+	bool InitPointLights();
+	bool InitGraphs();
+	bool InitRoom();
+
+	void InitInput();
+	void InitConsole();
+
+	COMUniquePtr<ID3D11Buffer> CreateBuffer(const std::vector<BUFFER_DATA_TYPES>& bufferDataTypes
 		, D3D11_USAGE usage
 		, D3D11_BIND_FLAG bindFlags
 		, D3D11_CPU_ACCESS_FLAG cpuAccess
 		, void* initialData = nullptr);
-	ID3D11Buffer* CreateBuffer(BUFFER_DATA_TYPES bufferDataType
+	COMUniquePtr<ID3D11Buffer> CreateBuffer(BUFFER_DATA_TYPES bufferDataType
 		, D3D11_USAGE usage
 		, D3D11_BIND_FLAG bindFlags
 		, D3D11_CPU_ACCESS_FLAG cpuAccess
 		, void* initialData = nullptr);
-	ID3D11Buffer* CreateBuffer(UINT size
+	COMUniquePtr<ID3D11Buffer> CreateBuffer(UINT size
 		, D3D11_USAGE usage
 		, D3D11_BIND_FLAG bindFlags
 		, D3D11_CPU_ACCESS_FLAG cpuAccess
 		, void* initialData = nullptr);
 
-	bool CreateUAVSRVCombo(int width, int height, ID3D11UnorderedAccessView** uav, ID3D11ShaderResourceView** srv);
+	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
 
 	bool GenerateCubePrimitive(std::vector<unsigned int> &indexData, ID3D11Device* device, ID3D11Buffer** vertexBuffer, ID3D11Buffer** indexBuffer);
 };

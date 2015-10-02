@@ -19,15 +19,19 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BlendStates.cpp" />
     <ClCompile Include="CharacterSet.cpp" />
     <ClCompile Include="Content.cpp" />
     <ClCompile Include="ContentManager.cpp" />
     <ClCompile Include="D3D11Timer.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
+    <ClCompile Include="DepthStencilStates.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="PixelShader.cpp" />
+    <ClCompile Include="RasterizerStates.cpp" />
     <ClCompile Include="Rect.cpp" />
+    <ClCompile Include="SamplerStates.cpp" />
     <ClCompile Include="ShaderResourceBinds.cpp" />
     <ClCompile Include="SpriteRenderer.cpp" />
     <ClCompile Include="Texture2D.cpp" />
@@ -39,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BatchData.h" />
+    <ClInclude Include="BlendStates.h" />
     <ClInclude Include="Character.h" />
     <ClInclude Include="CharacterBlock.h" />
     <ClInclude Include="CharacterSet.h" />
@@ -50,6 +55,7 @@
     <ClInclude Include="D3D11Timer.h" />
     <ClInclude Include="DDS.h" />
     <ClInclude Include="DDSTextureLoader.h" />
+    <ClInclude Include="DepthStencilStates.h" />
     <ClInclude Include="DirectXHelpers.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="KeyState.h" />
@@ -57,13 +63,16 @@
     <ClInclude Include="Pch.h" />
     <ClInclude Include="PixelShader.h" />
     <ClInclude Include="PlatformHelpers.h" />
+    <ClInclude Include="RasterizerStates.h" />
     <ClInclude Include="Rect.h" />
+    <ClInclude Include="SamplerStates.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="ShaderResourceBinds.h" />
     <ClInclude Include="SpriteBatch.h" />
     <ClInclude Include="SpriteInfo.h" />
     <ClInclude Include="SpriteRenderer.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="States.h" />
     <ClInclude Include="Texture2D.h" />
     <ClInclude Include="Texture2DCreateParameters.h" />
     <ClInclude Include="Texture2DParameters.h" />

@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <DXLib/input.h>
+#include <DXLib/States.h>
 
 #ifdef VERBOSE
 #include "Logger.h"
@@ -11,12 +12,12 @@
 DX11Window::DX11Window(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: hInstance(hInstance)
 	, hWnd(0)
-	, device(nullptr, COMUniqueDeleter)
-	, deviceContext(nullptr, COMUniqueDeleter)
-	, swapChain(nullptr, COMUniqueDeleter)
-	, backBufferRenderTarget(nullptr, COMUniqueDeleter)
-	, depthStencilView(nullptr, COMUniqueDeleter)
-	, rasterizerState(nullptr, COMUniqueDeleter)
+	, device(nullptr)
+	, deviceContext(nullptr)
+	, swapChain(nullptr)
+	, backBufferRenderTarget(nullptr)
+	, depthStencilView(nullptr)
+	, rasterizerState(nullptr)
 	, width(width)
 	, height(height)
 {
@@ -215,9 +216,9 @@ std::string DX11Window::CreateSwapChain()
 
 	desc.Flags = 0;
 
-	COMUniquePtr<IDXGIDevice> dxgiDevice(nullptr, COMUniqueDeleter);
-	COMUniquePtr<IDXGIAdapter> dxgiAdapter(nullptr, COMUniqueDeleter);
-	COMUniquePtr<IDXGIFactory> dxgiFactory(nullptr, COMUniqueDeleter);
+	COMUniquePtr<IDXGIDevice> dxgiDevice(nullptr);
+	COMUniquePtr<IDXGIAdapter> dxgiAdapter(nullptr);
+	COMUniquePtr<IDXGIFactory> dxgiFactory(nullptr);
 
 	IDXGIDevice* dxgiDeviceDumb;
 	if(FAILED(device->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDeviceDumb))))
@@ -247,7 +248,7 @@ std::string DX11Window::CreateRenderTargetView()
 	ID3D11RenderTargetView* backBufferRenderTarget;
 
 	swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBufferDumb));
-	COMUniquePtr<ID3D11Texture2D> backBuffer(backBufferDumb, COMUniqueDeleter);
+	COMUniquePtr<ID3D11Texture2D> backBuffer(backBufferDumb);
 
 	device->CreateRenderTargetView(backBufferDumb, nullptr, &backBufferRenderTarget);
 	this->backBufferRenderTarget.reset(backBufferRenderTarget);
@@ -275,7 +276,7 @@ std::string DX11Window::CreateDepthStencilBuffer()
 
 	if(FAILED(device->CreateTexture2D(&desc, nullptr, &depthStencilBufferDumb)))
 		return "Couldn't create depthStencilBuffer";
-	COMUniquePtr<ID3D11Texture2D> depthStencilBuffer(depthStencilBufferDumb, COMUniqueDeleter);
+	COMUniquePtr<ID3D11Texture2D> depthStencilBuffer(depthStencilBufferDumb);
 
 	if(FAILED(device->CreateDepthStencilView(depthStencilBuffer.get(), nullptr, &depthStencilView)))
 		return "Couldn't create depthStencilView";
@@ -366,6 +367,12 @@ std::string DX11Window::CreateDevice()
 	else
 		Logger::LogLine(LOG_TYPE::INFO, "DX11Window created with feature level 11.0")
 #endif
+
+	std::string errorString = States::InitStates(device);
+	if(!errorString.empty())
+		return errorString;
+
+
 	return "";
 }
 

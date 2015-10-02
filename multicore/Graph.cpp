@@ -7,12 +7,12 @@
 #include <queue>
 
 Graph::Graph()
-	: vertexBuffer(nullptr, COMUniqueDeleter)
-	, indexBuffer(nullptr, COMUniqueDeleter)
-	//, backgroundVertexBuffer(nullptr, COMUniqueDeleter)
-	//, backgroundIndexBuffer(nullptr, COMUniqueDeleter)
-	, depthStencilState(nullptr, COMUniqueDeleter)
-	, blendState(nullptr, COMUniqueDeleter)
+	: vertexBuffer(nullptr)
+	, indexBuffer(nullptr)
+	//, backgroundVertexBuffer(nullptr)
+	//, backgroundIndexBuffer(nullptr)
+	, depthStencilState(nullptr)
+	, blendState(nullptr)
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
 	, backgroundIndicies(0)

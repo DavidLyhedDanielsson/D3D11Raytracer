@@ -6,12 +6,17 @@
 #include <Windows.h>
 #include <DirectXMath.h>
 
-inline void COMUniqueDeleter(IUnknown* comObject)
+struct COMUniqueDeleter 
 {
-	if(comObject != nullptr)
-		comObject->Release();
-}
+	void operator()(IUnknown* comObject) const
+	{
+		if(comObject != nullptr)
+			comObject->Release();
+	}
+};
 
 template<typename T>
-using COMUniquePtr = std::unique_ptr<T, decltype(&COMUniqueDeleter)>;
+using COMUniquePtr = std::unique_ptr<T, COMUniqueDeleter>;
+
+#define ZeroStruct(x) memset(&x, 0, sizeof(x));
 #endif // Common_h__

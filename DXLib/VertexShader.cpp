@@ -2,7 +2,7 @@
 
 VertexShader::VertexShader(const std::string& entryPoint, const std::string& compileVersion)
 	: Shader(entryPoint, compileVersion)
-	, inputLayout(nullptr, COMUniqueDeleter)
+	, inputLayout(nullptr)
 {}
 
 VertexShader::~VertexShader()

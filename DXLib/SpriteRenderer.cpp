@@ -2,6 +2,11 @@
 #include "texture2DCreateParameters.h"
 #include "logger.h"
 
+#include "SamplerStates.h"
+#include "DepthStencilStates.h"
+#include "BlendStates.h"
+#include "RasterizerStates.h"
+
 SpriteRenderer::SpriteRenderer()
 	: vertexBufferArrayInserts(0)
 	, bufferInserts(0)
@@ -10,13 +15,13 @@ SpriteRenderer::SpriteRenderer()
 	, drawOffset(0)
 	, vertexShader("main", "vs_5_0")
 	, pixelShader("main", "ps_5_0")
-	, vertexBuffer(nullptr, COMUniqueDeleter)
-	, indexBuffer(nullptr, COMUniqueDeleter)
-	, samplerState(nullptr, COMUniqueDeleter)
-	, rasterizerState(nullptr, COMUniqueDeleter)
-	, blendState(nullptr, COMUniqueDeleter)
-	, viewProjBuffer(nullptr, COMUniqueDeleter)
-	, depthStencilState(nullptr, COMUniqueDeleter)
+	, vertexBuffer(nullptr)
+	, indexBuffer(nullptr)
+	, samplerState(nullptr)
+	, rasterizerState(nullptr)
+	, blendState(nullptr)
+	, viewProjBuffer(nullptr)
+	, depthStencilState(nullptr)
 {
 }
 
@@ -133,107 +138,10 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 		return;
 	}
 
-	//////////////////////////////////////////////////
-	//Sampler
-	//////////////////////////////////////////////////
-	D3D11_SAMPLER_DESC samplerDesc;
-	memset(&samplerDesc, 0, sizeof(samplerDesc));
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-
-	ID3D11SamplerState* samplerStateDumb;
-	hRes = device->CreateSamplerState(&samplerDesc, &samplerStateDumb);
-	samplerState.reset(samplerStateDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer sampler state");
-		return;
-	}
-
-	//////////////////////////////////////////////////
-	//Rasterizer
-	//////////////////////////////////////////////////
-	D3D11_RASTERIZER_DESC rasterizerDesc;
-	rasterizerDesc.FillMode = D3D11_FILL_SOLID;
-	rasterizerDesc.CullMode = D3D11_CULL_NONE;
-	rasterizerDesc.FrontCounterClockwise = true;
-	rasterizerDesc.DepthBias = false;
-	rasterizerDesc.DepthBiasClamp = 0;
-	rasterizerDesc.SlopeScaledDepthBias = 0;
-	rasterizerDesc.DepthClipEnable = true;
-	rasterizerDesc.ScissorEnable = false;
-	rasterizerDesc.MultisampleEnable = false;
-	rasterizerDesc.AntialiasedLineEnable = false;
-
-	ID3D11RasterizerState* rasterizerStateDumb = nullptr;
-
-	hRes = device->CreateRasterizerState(&rasterizerDesc, &rasterizerStateDumb);
-	rasterizerState.reset(rasterizerStateDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer rasterizer state");
-		return;
-	}
-
-
-	//////////////////////////////////////////////////
-	//Blending
-	//////////////////////////////////////////////////
-	D3D11_BLEND_DESC blendDesc;
-	blendDesc.AlphaToCoverageEnable = false;
-	blendDesc.IndependentBlendEnable = false;
-	blendDesc.RenderTarget[0].BlendEnable = true;
-	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-	ID3D11BlendState* blendStateDumb;
-	hRes = device->CreateBlendState(&blendDesc, &blendStateDumb);
-	blendState.reset(blendStateDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer blend state");
-		return;
-	}
-
-	//////////////////////////////////////////////////
-	//Depth stencil
-	//////////////////////////////////////////////////
-	D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
-	depthStencilDesc.DepthEnable = FALSE;
-	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-	depthStencilDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
-	depthStencilDesc.StencilEnable = FALSE;
-	depthStencilDesc.StencilReadMask = 0xFF;
-	depthStencilDesc.StencilWriteMask = 0xFF;
-
-	// Stencil operations if pixel is front-facing
-	depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-	depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
-	depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-	depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-	// Stencil operations if pixel is back-facing
-	depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-	depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
-	depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-	depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-	ID3D11DepthStencilState* depthStencilStateDumb;
-	hRes = device->CreateDepthStencilState(&depthStencilDesc, &depthStencilStateDumb);
-	depthStencilState.reset(depthStencilStateDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create sprite renderer depth stencil state");
-		return;
-	}
+	samplerState = SamplerStates::linearClamp;
+	rasterizerState = RasterizerStates::solid;
+	blendState = BlendStates::singleDefault;
+	depthStencilState = DepthStencilStates::off;
 }
 
 void SpriteRenderer::Begin()
@@ -271,15 +179,14 @@ void SpriteRenderer::Begin()
 	vertexShader.Bind(context);
 	pixelShader.Bind(context);
 
-	ID3D11SamplerState* samplerStateDumb = samplerState.get();
-	context->PSSetSamplers(0, 1, &samplerStateDumb);
+	context->PSSetSamplers(0, 1, &samplerState);
 
 	float blendFactors[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	context->OMSetBlendState(blendState.get(), blendFactors, 0xFFFFFFFF);
+	context->OMSetBlendState(blendState, blendFactors, 0xFFFFFFFF);
 
-	context->RSSetState(rasterizerState.get());
+	context->RSSetState(rasterizerState);
 
-	context->OMSetDepthStencilState(depthStencilState.get(), 0xffffffff);
+	context->OMSetDepthStencilState(depthStencilState, 0xffffffff);
 
 	//////////////////////////////////////////////////
 	//Update constant buffers

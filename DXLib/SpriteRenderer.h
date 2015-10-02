@@ -64,11 +64,11 @@ private:
 
 	COMUniquePtr<ID3D11Buffer> vertexBuffer;
 	COMUniquePtr<ID3D11Buffer> indexBuffer;
-	COMUniquePtr<ID3D11SamplerState> samplerState;
+	ID3D11SamplerState* samplerState;
 
-	COMUniquePtr<ID3D11RasterizerState> rasterizerState;
-	COMUniquePtr<ID3D11BlendState> blendState;
-	COMUniquePtr<ID3D11DepthStencilState> depthStencilState;
+	ID3D11RasterizerState* rasterizerState;
+	ID3D11BlendState* blendState;
+	ID3D11DepthStencilState* depthStencilState;
 	
 	//Defaults to restore
 	ID3D11RasterizerState* defaultRasterizerState;
