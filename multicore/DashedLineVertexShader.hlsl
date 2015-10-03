@@ -1,3 +1,5 @@
+#include "Constants.hlsl"
+
 struct VSIn
 {
 	float2 position : POSITION;
@@ -16,7 +18,7 @@ VSOut main(VSIn inData)
 {
 	VSOut outData;
 
-	float2 outPosition = (inData.position / float2(1280.0f, 720.0f)) * 2.0f;
+	float2 outPosition = (inData.position / float2(SCREEN_RES_X, SCREEN_RES_Y)) * 2.0f;
 	outPosition.x -= 1.0f;
 	outPosition.y = 1.0f - outPosition.y;
 

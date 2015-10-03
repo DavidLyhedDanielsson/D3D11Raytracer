@@ -23,6 +23,18 @@ public:
 	}
 	virtual ~Shader() = default;
 
+	std::string Recreate(ID3D11Device* device)
+	{
+		std::string returnMessage;
+
+		if(shaderPath.find(".cso") == shaderPath.size() - 4)
+			returnMessage = LoadPrecompiledShader(shaderPath, device);
+		else
+			returnMessage = LoadAndCompileShader(shaderPath, device);
+
+		return returnMessage;
+	}
+
 	std::string CreateFromFile(const std::string& path, ID3D11Device* const device)
 	{
 		shaderPath = path;
@@ -40,7 +52,7 @@ public:
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
 		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
 
-		return PostLoad(device);
+		return "";
 	}
 
 	std::string CreateFromFile(const std::string& path, ID3D11Device* const device, ShaderResourceBinds resourceBinds)
@@ -60,11 +72,10 @@ public:
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
 		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
 
-
 		this->resourceBinds = std::move(resourceBinds);
 		this->resourceBinds.Init(device, reflectionDumb, shaderPath);
 
-		return PostLoad(device);
+		return "";
 	}
 
 	virtual void Bind(ID3D11DeviceContext* context) = 0;
@@ -154,7 +165,6 @@ private:
 		return "";
 	}
 	virtual bool CreateShader(ID3DBlob* shaderBlob, ID3D11Device* const device) = 0;
-	virtual std::string PostLoad(ID3D11Device* const device) { return ""; }
 };
 
 #endif // Shader_h__

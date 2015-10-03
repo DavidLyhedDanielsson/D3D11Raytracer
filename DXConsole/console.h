@@ -143,6 +143,8 @@ public:
 	*/
 	void PrintAutoexecWatches();
 
+	//TODO: Pause autoexec controls
+
 	void OnMouseEnter() override;
 	void OnMouseExit() override;
 	void OnMouseDown(const KeyState& keyState, const DirectX::XMFLOAT2& mousePosition) override;
@@ -230,6 +232,28 @@ protected:
 	* \see CommandCallMethod
 	*/
 	Argument PrintAutoexecWatchesInternal(const std::vector<Argument>& arguments);
+
+	/**
+	* Called when PauseAutoexec is executed
+	*
+	* \see Argument
+	* \see CommandCallMethod
+	*/
+	Argument PauseAutoexecInternal(const std::vector<Argument>& arguments);
+	/**
+	* Called when ResumeAutoexec is executed
+	*
+	* \see Argument
+	* \see CommandCallMethod
+	*/
+	Argument ResumeAutoexecInternal(const std::vector<Argument>& arguments);
+	/**
+	* Called when ApplyPausedAutoexecWatches is executed
+	*
+	* \see Argument
+	* \see CommandCallMethod
+	*/
+	Argument ApplyPausedAutoexecWatchesInteral(const std::vector<Argument>& arguments);
 
 	//this->draw is always true since Draw should always be called
 	//This is whether or not to draw the actual console

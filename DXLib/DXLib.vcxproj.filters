@@ -19,6 +19,12 @@
     <Filter Include="Source Files\states">
       <UniqueIdentifier>{28c9c09b-0575-4e8e-8fd1-d113c04c3832}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Shader">
+      <UniqueIdentifier>{58b04f3d-a307-443b-933e-8b664d558883}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Shader">
+      <UniqueIdentifier>{1b6c9412-4ece-40cf-85bd-9d2a5d1cdfb4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSTextureLoader.cpp">
@@ -28,9 +34,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Logger.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="PixelShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Rect.cpp">
@@ -43,9 +46,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Timer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="VertexShader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="XmlAttribute.cpp">
@@ -83,6 +83,15 @@
     </ClCompile>
     <ClCompile Include="RasterizerStates.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PixelShader.cpp">
+      <Filter>Source Files\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="VertexShader.cpp">
+      <Filter>Source Files\Shader</Filter>
+    </ClCompile>
+    <ClCompile Include="DXBuffer.cpp">
+      <Filter>Source Files\Shader</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -188,9 +197,6 @@
     <ClInclude Include="D3D11Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ShaderResourceBinds.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="BlendStates.h">
       <Filter>Header Files\states</Filter>
     </ClInclude>
@@ -205,6 +211,12 @@
     </ClInclude>
     <ClInclude Include="RasterizerStates.h">
       <Filter>Header Files\states</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderResourceBinds.h">
+      <Filter>Header Files\Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="DXBuffer.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

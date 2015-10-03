@@ -183,6 +183,7 @@ std::string VertexShader::SetVertexData(ID3D11Device* const device, std::vector<
 
 				//offset += sizeof(float) * 4;
 				desc = { inputDataNames[i].c_str(), 2, format, 1, D3D11_APPEND_ALIGNED_ELEMENT , D3D11_INPUT_PER_INSTANCE_DATA, 1 };
+				inputDesc.emplace_back(desc);
 
 				//offset += sizeof(float) * 4;
 				desc = { inputDataNames[i].c_str(), 3, format, 1, D3D11_APPEND_ALIGNED_ELEMENT , D3D11_INPUT_PER_INSTANCE_DATA, 1};

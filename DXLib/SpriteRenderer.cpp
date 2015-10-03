@@ -63,7 +63,7 @@ void SpriteRenderer::Init(ID3D11Device* device, ID3D11DeviceContext* context, Co
 	//////////////////////////////////////////////////
 	//ViewProjection buffer
 	//////////////////////////////////////////////////
-	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixOrthographicOffCenterRH(0.0f, 720.0f, 1280.0f, 0.0f, 0.0f, 1.0f));
+	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixOrthographicOffCenterRH(0.0f, static_cast<float>(yRes), static_cast<float>(xRes), 0.0f, 0.0f, 1.0f));
 
 	D3D11_BUFFER_DESC viewProjBufferDesc;
 	viewProjBufferDesc.ByteWidth = sizeof(float) * 16;

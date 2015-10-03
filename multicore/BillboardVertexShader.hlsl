@@ -6,15 +6,12 @@ cbuffer cameraData : register(b0)
 	float3 cameraPosition;
 };
 
-cbuffer cbPerObject : register(b1)
-{
-	float4x4 worldMatrix[MAX_LIGHTS];
-};
 
 struct VSIn
 {
 	float3 position : POSITION;
 	float2 texCoord : TEX_COORD;
+	float4x4 worldMatrix : WORLD_MATRIX;
 	uint instanceID : SV_InstanceID;
 };
 
@@ -28,7 +25,7 @@ VSOut main(VSIn inData)
 {
 	VSOut outData;
 
-	outData.position = mul(mul(worldMatrix[inData.instanceID], float4(inData.position, 1.0f)), viewProjMatrix);
+	outData.position = mul(mul(inData.worldMatrix, float4(inData.position, 1.0f)), viewProjMatrix);
 	outData.texCoord = inData.texCoord;
 
 	return outData;

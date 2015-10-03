@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="BlendStates.cpp" />
     <ClCompile Include="CharacterSet.cpp" />
+    <ClCompile Include="DXBuffer.cpp" />
     <ClCompile Include="Content.cpp" />
     <ClCompile Include="ContentManager.cpp" />
     <ClCompile Include="D3D11Timer.cpp" />
@@ -47,6 +48,7 @@
     <ClInclude Include="Character.h" />
     <ClInclude Include="CharacterBlock.h" />
     <ClInclude Include="CharacterSet.h" />
+    <ClInclude Include="DXBuffer.h" />
     <ClInclude Include="ConstructedString.h" />
     <ClInclude Include="Content.h" />
     <ClInclude Include="ContentCreationParameters.h" />

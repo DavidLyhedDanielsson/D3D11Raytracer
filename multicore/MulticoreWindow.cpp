@@ -3,12 +3,15 @@
 #include <thread>
 #include <vector>
 #include <functional>
+#include <cmath>
 
 #include <DXLib/Logger.h>
 #include <DXLib/input.h>
 #include <DXLib/States.h>
 
 #include <DXConsole/console.h>
+#include <DXConsole/commandGetSet.h>
+#include <DXConsole/commandCallMethod.h>
 
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
@@ -17,20 +20,12 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, backbufferUAV(nullptr)
 	, vertexBuffer(nullptr)
 	, indexBuffer(nullptr)
-	, viewProjMatrixBuffer(nullptr)
-	, viewProjInverseBuffer(nullptr)
-	, pointLightBuffer(nullptr)
-	, sphereBuffer(nullptr)
-	, triangleBuffer(nullptr)
 	, rayNormalUAV(nullptr)
 	, rayNormalSRV(nullptr)
 	, rayDirectionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr) }
 	, rayPositionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr) }
 	, rayDirectionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr), COMUniquePtr<ID3D11ShaderResourceView>(nullptr) }
 	, rayPositionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr), COMUniquePtr<ID3D11ShaderResourceView>(nullptr) }
-	, bulbProjMatrixBuffer(nullptr)
-	, bulbInstanceBuffer(nullptr)
-	, bulbVertexBuffer(nullptr)
 	, billboardBlendState(nullptr)
 	, bulbTexture(nullptr)
 	, primaryRayGenerator("main", "cs_5_0")
@@ -47,14 +42,17 @@ MulticoreWindow::~MulticoreWindow()
 
 bool MulticoreWindow::Init()
 {
-	srand(time(NULL));
+	srand(static_cast<unsigned int>(time(nullptr)));
+
+	dispatchX = width / 32;
+	dispatchY = height / 16;
 
 	//Content manager
 	contentManager.Init(device.get());
 	calibri16 = contentManager.Load<CharacterSet>("calibri16");
 
 	//Sprite renderer
-	spriteRenderer.Init(device.get(), deviceContext.get(), &contentManager, 1280, 720);
+	spriteRenderer.Init(device.get(), deviceContext.get(), &contentManager, width, height);
 
 	InitConsole();
 	InitInput();
@@ -72,9 +70,8 @@ bool MulticoreWindow::Init()
 		return false;
 	if(!InitGraphs())
 		return false;
-
 	//Etc
-	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XM_PIDIV2, 1280.0f / 720.0f, 0.01f, 100.0f);
+	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 
 	POINT midPoint;
 	midPoint.x = 640;
@@ -82,6 +79,8 @@ bool MulticoreWindow::Init()
 
 	ClientToScreen(hWnd, &midPoint);
 	SetCursorPos(midPoint.x, midPoint.y);
+
+	console.Autoexec();
 
 	return true;
 }
@@ -129,12 +128,14 @@ void MulticoreWindow::Run()
 }
 
 float sinVal = 0.0f;
+float otherSinVal = 0.0f;
 
 void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
-	double deltaMS = delta.count() * 1e-6;
+	float deltaMS = delta.count() * 1e-6f;
 
-	sinVal += deltaMS * 0.0005f;
+	sinVal += deltaMS * lightVerticalSpeed;
+	otherSinVal += deltaMS * lightHorizontalSpeed;
 
 	if(!drawConsole)
 	{
@@ -146,13 +147,12 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		midPoint.x = 640;
 		midPoint.y = 360;
 
-		float xDelta = cursorPosition.x - midPoint.x;
-		float yDelta = cursorPosition.y - midPoint.y;
+		float xDelta = static_cast<float>(cursorPosition.x - midPoint.x);
+		float yDelta = static_cast<float>(cursorPosition.y - midPoint.y);
 
 		float sensitivity = 0.001f;
 
 		camera.Rotate(DirectX::XMFLOAT2(xDelta * sensitivity, yDelta * sensitivity));
-
 		ClientToScreen(hWnd, &midPoint);
 		SetCursorPos(midPoint.x, midPoint.y);
 
@@ -184,33 +184,8 @@ void MulticoreWindow::Draw()
 	float colors[] = { 44.0f / 255.0f, 87.0f / 255.0f, 120.0f / 255.0f, 1.0f };
 	deviceContext->ClearRenderTargetView(backBufferRenderTarget.get(), colors);
 
-	//Update viewProjMatrix and viewProjInverseMatrix
-	DirectX::XMFLOAT4X4 viewMatrix = camera.GetViewMatrix();
-	DirectX::XMFLOAT4X4 projectionMatrix = camera.GetProjectionMatrix();
-	DirectX::XMFLOAT4X4 viewProjectionMatrix;
-
-	DirectX::XMMATRIX xmViewMatrix = DirectX::XMLoadFloat4x4(&viewMatrix);
-	DirectX::XMMATRIX xmProjectionMatrix = DirectX::XMLoadFloat4x4(&projectionMatrix);
-
-	DirectX::XMMATRIX xmViewProjMatrix = DirectX::XMMatrixMultiplyTranspose(xmViewMatrix, xmProjectionMatrix);
-
-	ViewProjBuffer viewProjBuffer;
-
-	DirectX::XMStoreFloat4x4(&viewProjectionMatrix, xmViewProjMatrix);
-	DirectX::XMStoreFloat4x4(&viewProjBuffer.viewProjMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
-
-	D3D11_MAPPED_SUBRESOURCE mappedViewProjMatrixBuffer;
-	if(FAILED(deviceContext->Map(viewProjInverseBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedViewProjMatrixBuffer)))
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't map buffer");
-		return;
-	}
-
-	std::memcpy(mappedViewProjMatrixBuffer.pData, &viewProjBuffer, sizeof(float) * 32);
-
-	deviceContext->Unmap(viewProjInverseBuffer.get(), 0);
-
-	d3d11Timer.Start();
+	DrawUpdateMVP();
+	DrawUpdatePointlights();
 
 	//////////////////////////////////////////////////
 	//Rays
@@ -218,39 +193,12 @@ void MulticoreWindow::Draw()
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
-	//////////////////////////////////////////////////
-	//Primary
-	//////////////////////////////////////////////////
-	primaryRayGenerator.Bind(deviceContext.get());
-	deviceContext->Dispatch(40, 45, 1);
-	primaryRayGenerator.Unbind(deviceContext.get());
-
+	d3d11Timer.Start();
+	DrawRayPrimary();
 	d3d11Timer.Stop("Primary");
-
-	//////////////////////////////////////////////////
-	//Trace
-	//////////////////////////////////////////////////
-
-	trace.Bind(deviceContext.get());
-	deviceContext->Dispatch(40, 45, 1);
-	trace.Unbind(deviceContext.get());
-
+	DrawRayIntersection();
 	d3d11Timer.Stop("Trace");
-
-	pointLightBufferData.lights[0].y = (1.0f + std::sinf(sinVal)) * 4.0f + 0.5f;
-	pointLightBufferData.lights[1].y = (1.0f + std::sinf(sinVal)) * 4.0f + 0.5f;
-	pointLightBufferData.lights[2].y = (1.0f + std::sinf(sinVal)) * 4.0f + 0.5f;
-	pointLightBufferData.lights[3].y = (1.0f + std::sinf(sinVal)) * 4.0f + 0.5f;
-
-	D3D11_MAPPED_SUBRESOURCE mappedLightBuffer;
-	deviceContext->Map(pointLightBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedLightBuffer);
-	memcpy(mappedLightBuffer.pData, &pointLightBufferData, sizeof(PointlightBuffer));
-	deviceContext->Unmap(pointLightBuffer.get(), 0);
-
-	shade.Bind(deviceContext.get());
-	deviceContext->Dispatch(40, 45, 1);
-	shade.Unbind(deviceContext.get());
-
+	DrawRayShading();
 	d3d11Timer.Stop("Shade");
 
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
@@ -271,55 +219,7 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	//Bulbs
 	//////////////////////////////////////////////////
-	for(int i = 0; i < pointLightBufferData.lightCount; i++)
-	{
-		DirectX::XMMATRIX worldMatrix = DirectX::XMMatrixTranslation(pointLightBufferData.lights[i].x, pointLightBufferData.lights[i].y, pointLightBufferData.lights[i].z);
-		DirectX::XMStoreFloat4x4(&bulbInstanceData[i].worldMatrix, worldMatrix);
-	}
-
-	D3D11_MAPPED_SUBRESOURCE mappedBulbBuffer;
-	ZeroMemory(&mappedBulbBuffer, sizeof(mappedBulbBuffer));
-	if(FAILED(deviceContext->Map(bulbInstanceBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBulbBuffer)))
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't map buffer");
-		return;
-	}
-	memcpy(mappedBulbBuffer.pData, &bulbInstanceData[0], sizeof(BulbInstanceData) * MAX_POINT_LIGHTS);
-	deviceContext->Unmap(bulbInstanceBuffer.get(), 0);
-
-	D3D11_MAPPED_SUBRESOURCE mappedBulbMatrixBuffer;
-	ZeroMemory(&mappedBulbMatrixBuffer, sizeof(mappedBulbMatrixBuffer));
-	if(FAILED(deviceContext->Map(bulbProjMatrixBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBulbMatrixBuffer)))
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't map buffer");
-		return;
-	}
-	memcpy(mappedBulbMatrixBuffer.pData, &viewProjectionMatrix, sizeof(float) * 16);
-	deviceContext->Unmap(bulbProjMatrixBuffer.get(), 0);
-
-	ID3D11Buffer* bulbBuffers[] = { bulbProjMatrixBuffer.get(), bulbInstanceBuffer.get() };
-	deviceContext->VSSetConstantBuffers(0, 2, bulbBuffers);
-
-	UINT bulbStride = sizeof(Vertex);
-	UINT bulbOffset = 0;
-
-	ID3D11Buffer* bulbVertexBuffers[] = { bulbVertexBuffer.get() };
-	deviceContext->IASetVertexBuffers(0, 1, bulbVertexBuffers, &bulbStride, &bulbOffset);
-
-	ID3D11ShaderResourceView* bulbTextureDumb = bulbTexture->GetTextureResourceView();
-	deviceContext->PSSetShaderResources(0, 1, &bulbTextureDumb);
-
-	deviceContext->PSSetSamplers(0, 1, &billboardSamplerState);
-
-	float blendFac[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	deviceContext->OMSetBlendState(billboardBlendState, blendFac, 0xFFFFFFFF);
-	deviceContext->RSSetState(billboardRasterizerState);
-
-	billboardVertexShader.Bind(deviceContext.get());
-	billboardPixelShader.Bind(deviceContext.get());
-	deviceContext->DrawInstanced(6, pointLightBufferData.lightCount, 0, 0);
-	billboardVertexShader.Unbind(deviceContext.get());
-	billboardPixelShader.Unbind(deviceContext.get());
+	DrawBulbs();
 
 	//////////////////////////////////////////////////
 	//Sprites
@@ -455,13 +355,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//////////////////////////////////////////////////
 	//Cbuffers
 	//////////////////////////////////////////////////
-	viewProjMatrixBuffer = CreateBuffer(BUFFER_DATA_TYPES::MAT4X4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE);
-	if(viewProjMatrixBuffer == nullptr)
-		return false;
-
-	viewProjInverseBuffer = CreateBuffer(BUFFER_DATA_TYPES::MAT4X4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE);
-	if(viewProjInverseBuffer == nullptr)
-		return false;
+	LogErrorReturnFalse(viewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create view proj buffer: ");
+	LogErrorReturnFalse(viewProjInverseBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create view proj inverse buffer: ");
 
 	//////////////////////////////////////////////////
 	//Primary rays
@@ -470,32 +365,22 @@ bool MulticoreWindow::InitRaytraceShaders()
 	primaryResourceBinds.AddResource(rayPositionUAV[0].get(), 0);
 	primaryResourceBinds.AddResource(rayDirectionUAV[0].get(), 1);
 	primaryResourceBinds.AddResource(rayNormalUAV.get(), 2);
-	primaryResourceBinds.AddResource(viewProjInverseBuffer.get(), 0);
+	primaryResourceBinds.AddResource(viewProjInverseBuffer.GetBuffer(), 0);
 
-	std::string errorString = primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.cso", device.get(), primaryResourceBinds);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
+	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds), "");
 
 	//////////////////////////////////////////////////
 	//Intersection
 	//////////////////////////////////////////////////
 	ShaderResourceBinds traceResourceBinds;
-	traceResourceBinds.AddResource(sphereBuffer.get(), 0);
-	traceResourceBinds.AddResource(triangleBuffer.get(), 1);
+	traceResourceBinds.AddResource(sphereBuffer.GetBuffer(), 0);
+	traceResourceBinds.AddResource(triangleBuffer.GetBuffer(), 1);
 	traceResourceBinds.AddResource(rayPositionUAV[1].get(), 0);
 	traceResourceBinds.AddResource(rayNormalUAV.get(), 1);
 	traceResourceBinds.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBinds.AddResource(rayDirectionSRV[0].get(), 1);
 
-	errorString = trace.CreateFromFile("Trace.cso", device.get(), traceResourceBinds);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
+	LogErrorReturnFalse(trace.CreateFromFile("Trace.hlsl", device.get(), traceResourceBinds), "");
 
 	//////////////////////////////////////////////////
 	//Coloring
@@ -505,41 +390,29 @@ bool MulticoreWindow::InitRaytraceShaders()
 	shadeResourceBinds.AddResource(backbufferUAV.get(), 0);
 	shadeResourceBinds.AddResource(rayPositionSRV[1].get(), 0);
 	shadeResourceBinds.AddResource(rayNormalSRV.get(), 1);
-	shadeResourceBinds.AddResource(pointLightBuffer.get(), 0);
-	shadeResourceBinds.AddResource(sphereBuffer.get(), 1);
-	shadeResourceBinds.AddResource(triangleBuffer.get(), 2);
+	shadeResourceBinds.AddResource(pointLightBuffer.GetBuffer(), 0);
+	shadeResourceBinds.AddResource(sphereBuffer.GetBuffer(), 1);
+	shadeResourceBinds.AddResource(triangleBuffer.GetBuffer(), 2);
+	shadeResourceBinds.AddResource(pointlightAttenuationBuffer.GetBuffer(), 3);
 
-	errorString = shade.CreateFromFile("Shading.cso", device.get(), shadeResourceBinds);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
+	LogErrorReturnFalse(shade.CreateFromFile("Shading.hlsl", device.get(), shadeResourceBinds), "");
+
+	auto reloadShadersCommand = new CommandCallMethod("ReloadShaders", std::bind(&MulticoreWindow::ReloadRaytraceShaders, this, std::placeholders::_1), false);
+	if(!console.AddCommand(reloadShadersCommand))
+		delete reloadShadersCommand;
+
+	return true;
 }
 
 bool MulticoreWindow::InitBulb()
 {
-	std::string errorString = billboardPixelShader.CreateFromFile("BillboardPixelShader.cso", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
-
-	errorString = billboardVertexShader.CreateFromFile("BillboardVertexShader.cso", device.get());
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, errorString);
-		return false;
-	}
+	LogErrorReturnFalse(billboardPixelShader.CreateFromFile("BillboardPixelShader.cso", device.get()), "Couldnt' load bulb shader: ");
+	LogErrorReturnFalse(billboardVertexShader.CreateFromFile("BillboardVertexShader.cso", device.get()), "Couldnt' load bulb shader: ");
 
 	billboardVertexShader.SetVertexData(device.get(),
 		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT2, VERTEX_INPUT_DATA::FLOAT4X4 }
 	, std::vector<std::string> { "POSITION", "COLOR", "TEX_COORD", "WORLD_MATRIX" }
 	, std::vector<bool> { false, false, false, true });
-
-	bulbInstanceBuffer = CreateBuffer(sizeof(BulbInstanceData) * MAX_POINT_LIGHTS, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, nullptr);
-	bulbProjMatrixBuffer = CreateBuffer(BUFFER_DATA_TYPES::MAT4X4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, nullptr);
 
 	std::vector<Vertex> bulbVertices;
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f));
@@ -550,7 +423,9 @@ bool MulticoreWindow::InitBulb()
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, -0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f));
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f));
 
-	bulbVertexBuffer = CreateBuffer(sizeof(Vertex) * 6, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &bulbVertices[0]);
+	LogErrorReturnFalse(bulbInstanceBuffer.Create<Float4x4BufferData>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_POINT_LIGHTS), "Couldn't create bulb instance buffer: ");
+	LogErrorReturnFalse(bulbVertexBuffer.Create<Vertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &bulbVertices[0]), "Couldn't create bulb vertex buffer: ");
+	LogErrorReturnFalse(bulbProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create bult projection matrix buffer: ");
 
 	bulbTexture = contentManager.Load<Texture2D>("Bulb.dds");
 	if(bulbTexture == nullptr)
@@ -562,19 +437,70 @@ bool MulticoreWindow::InitBulb()
 	billboardBlendState = BlendStates::singleDefault;
 	billboardSamplerState = SamplerStates::linearClamp;
 	billboardRasterizerState = RasterizerStates::solid;
+
+	return true;
 }
 
 bool MulticoreWindow::InitPointLights()
 {
-	pointLightBufferData.lights[0] = DirectX::XMFLOAT4(0.0f, 0.0f, -5.0f, 10.0f);
-	pointLightBufferData.lights[1] = DirectX::XMFLOAT4(0.0f, 0.0f, 5.0f, 10.0f);
-	pointLightBufferData.lights[2] = DirectX::XMFLOAT4(-5.0f, 0.0f, 0.0f, 10.0f);
-	pointLightBufferData.lights[3] = DirectX::XMFLOAT4(5.0f, 0.0f, 0.0f, 10.0f);
-	pointLightBufferData.lightCount = 4;
+	LogErrorReturnFalse(pointlightAttenuationBuffer.Create<LightAttenuationBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
 
-	pointLightBuffer = CreateBuffer(sizeof(float) * 4 * MAX_POINT_LIGHTS + sizeof(int) * 4, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, &pointLightBufferData);
-	if(pointLightBuffer == nullptr)
-		return false;
+	pointlightAttenuationBufferData.factors[0] = 1.0f;
+	pointlightAttenuationBufferData.factors[1] = 1.0f;
+	pointlightAttenuationBufferData.factors[2] = 1.0f;
+
+	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
+
+	lightRadius = 100.0f;
+
+	pointLightBufferData.lightCount = 4;
+	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
+		pointLightBufferData.lights[i].w = lightRadius;
+
+	LogErrorReturnFalse(pointLightBuffer.Create<PointlightBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
+
+	lightRotationRadius = 5.0f;
+	lightMinHeight = 0.5f;
+	lightMaxHeight = 5.0f;
+
+	lightVerticalSpeed = 0.0001f;
+	lightHorizontalSpeed = 0.0001f;
+
+	lightSinValMult = 1.0f;
+	lightOtherSinValMult = 1.0f;
+
+	auto lightRotationRadiusCommand = new CommandGetSet<float>("lightRotationRadius", &lightRotationRadius);
+	auto lightRadiusCommand = new CommandGetSet<float>("lightRadius", &lightRadius);
+	auto lightMinHeightCommand = new CommandGetSet<float>("lightMinHeight", &lightMinHeight);
+	auto lightMaxHeightCommand = new CommandGetSet<float>("lightMaxHeight", &lightMaxHeight);
+	auto lightVerticalSpeedCommand = new CommandGetSet<float>("lightVerticalSpeed", &lightVerticalSpeed);
+	auto lightHorizontalSpeedCommand = new CommandGetSet<float>("lightHorizontalSpeed", &lightHorizontalSpeed);
+	auto lightSinValMultCommand = new CommandGetSet<float>("lightSinValMult", &lightSinValMult);
+	auto lightOtherSinValMultCommand = new CommandGetSet<float>("lightOtherSinValMult", &lightOtherSinValMult);
+
+	if(!console.AddCommand(lightRotationRadiusCommand))
+		delete lightRotationRadiusCommand;
+	if(!console.AddCommand(lightRadiusCommand))
+		delete lightRadiusCommand;
+	if(!console.AddCommand(lightMinHeightCommand))
+		delete lightMinHeightCommand;
+	if(!console.AddCommand(lightMaxHeightCommand))
+		delete lightMaxHeightCommand;
+	if(!console.AddCommand(lightVerticalSpeedCommand))
+		delete lightVerticalSpeedCommand;
+	if(!console.AddCommand(lightHorizontalSpeedCommand))
+		delete lightHorizontalSpeedCommand;
+	if(!console.AddCommand(lightSinValMultCommand))
+		delete lightSinValMultCommand;
+	if(!console.AddCommand(lightOtherSinValMultCommand))
+		delete lightOtherSinValMultCommand;
+
+	auto setNumberOfLights = new CommandCallMethod("SetNumberOfLights", std::bind(&MulticoreWindow::SetNumberOfLights, this, std::placeholders::_1), false);
+	if(!console.AddCommand(setNumberOfLights))
+		delete setNumberOfLights;
+	auto setLightAttenuationFactors = new CommandCallMethod("SetLightAttenuationFactors", std::bind(&MulticoreWindow::SetLightAttenuationFactors, this, std::placeholders::_1), false);
+	if(!console.AddCommand(setLightAttenuationFactors))
+		delete setLightAttenuationFactors;
 
 	return true;
 }
@@ -593,7 +519,7 @@ bool MulticoreWindow::InitGraphs()
 	std::vector<Track> cpuTracks{ Track(cpuMSAverage, 1.0f) };
 	std::vector<std::string> cpuTrackNames{ "Update", "Draw" };
 
-	std::string errorString = cpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1);
+	std::string errorString = cpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1, width, height);
 	if(!errorString.empty())
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize CPU graph: " + errorString);
@@ -632,7 +558,7 @@ bool MulticoreWindow::InitGraphs()
 		gpuTracks.emplace_back(gpuMSAverage, 1.0f);
 	}
 
-	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 10.0f, 1);
+	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 10.0f, 1, width, height);
 	if(!errorString.empty())
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize GPU graph: " + errorString);
@@ -645,11 +571,13 @@ bool MulticoreWindow::InitGraphs()
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add GPU tracks to graph: " + errorString);
 		return false;
 	}
+
+	return true;
 }
 
 bool MulticoreWindow::InitRoom()
 {
-	SphereBuffer sphereBufferData;
+	SphereBufferData sphereBufferData;
 	sphereBufferData.sphereCount = 5;
 	sphereBufferData.spheres[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 2.5f);
 	sphereBufferData.spheres[1] = DirectX::XMFLOAT4(0.0f, 1.0f, -2.0f, 1.0f);
@@ -657,7 +585,25 @@ bool MulticoreWindow::InitRoom()
 	sphereBufferData.spheres[3] = DirectX::XMFLOAT4(-2.0f, 1.0f, 0.0f, 1.0f);
 	sphereBufferData.spheres[4] = DirectX::XMFLOAT4(2.0f, 1.0f, 0.0f, 1.0f);
 
-	TriangleBuffer triangleBufferData;
+	float rotationIncrease = DirectX::XM_2PI * 0.1f;
+	float heightIncrease = 0.2f;
+
+	float rotationValue = 0.0f;
+	float heightValue = 4.0f;
+
+	float radius = 2.0f;
+
+	for(int i = 5; i < 35; i++)
+	{
+		sphereBufferData.spheres[i] = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
+
+		rotationValue += rotationIncrease;
+		heightValue += heightIncrease;
+
+		++sphereBufferData.sphereCount;
+	}
+
+	TriangleBufferData triangleBufferData;
 	triangleBufferData.triangleCount = 12;
 
 	float height = 10.0f;
@@ -718,18 +664,10 @@ bool MulticoreWindow::InitRoom()
 	triangleBufferData.triangles[35] = DirectX::XMFLOAT4(-size, height, size, 0.0f);
 
 	//////////////////////////////////////////////////
-	//Spheres
+	//Buffers
 	//////////////////////////////////////////////////
-	sphereBuffer = CreateBuffer(sizeof(float) * 4 * 64 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData);
-	if(sphereBuffer == nullptr)
-		return false;
-
-	//////////////////////////////////////////////////
-	//Triangles
-	//////////////////////////////////////////////////
-	triangleBuffer = CreateBuffer(sizeof(float) * 4 * 64 * 3 + sizeof(int) * 4, D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData);
-	if(triangleBuffer == nullptr)
-		return false;
+	LogErrorReturnFalse(sphereBuffer.Create<SphereBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
+	LogErrorReturnFalse(triangleBuffer.Create<TriangleBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData), "Couldn't create triangle buffer: ");
 
 	return true;
 }
@@ -749,106 +687,180 @@ void MulticoreWindow::InitConsole()
 	auto background = std::unique_ptr<GUIBackground>(console.GenerateDoomStyleBackground(&contentManager));
 	auto backgroundStyle = std::shared_ptr<GUIStyle>(console.GenerateDoomStyleBackgroundStyle(&contentManager));
 
-	console.Init(Rect(0.0f, 0.0f, 1280.0f, 300.0f), style, background, backgroundStyle);
-	console.Autoexec();
+	console.Init(Rect(0.0f, 0.0f, static_cast<float>(this->width), 300.0f), style, background, backgroundStyle);
 
 	guiManager.AddContainer(&console);
 
 	Logger::SetCallOnLog(std::bind(&Console::AddText, &console, std::placeholders::_1));
 }
 
-COMUniquePtr<ID3D11Buffer> MulticoreWindow::CreateBuffer(const std::vector<BUFFER_DATA_TYPES>& bufferDataTypes, D3D11_USAGE usage, D3D11_BIND_FLAG bindFlags, D3D11_CPU_ACCESS_FLAG cpuAccess, void* initialData /*= nullptr*/)
+void MulticoreWindow::DrawUpdatePointlights()
 {
-	unsigned int size = 0;
+	//First light is special and extra cool
+	pointLightBufferData.lights[0].x = 0.0f;
+	pointLightBufferData.lights[0].y = ((1.0f + std::sinf(sinVal)) * 0.5f) * (9.8f - 3.5f) + 3.5f;
+	pointLightBufferData.lights[0].z = 0.0f;
+	pointLightBufferData.lights[0].w = lightRadius;
 
-	for(BUFFER_DATA_TYPES dataType : bufferDataTypes)
+	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
+	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
+
+	for(int i = 1; i < pointLightBufferData.lightCount; i++)
 	{
-		switch(dataType)
-		{
-			case BUFFER_DATA_TYPES::MAT4X4:
-				size += sizeof(float) * 16;
-				break;
-			case BUFFER_DATA_TYPES::INT:
-				size += sizeof(int);
-				break;
-			case BUFFER_DATA_TYPES::FLOAT1:
-				size += sizeof(float);
-				break;
-			case BUFFER_DATA_TYPES::FLOAT2:
-				size += sizeof(float) * 2;
-				break;
-			case BUFFER_DATA_TYPES::FLOAT3:
-				size += sizeof(float) * 3;
-				break;
-			case BUFFER_DATA_TYPES::FLOAT4:
-				size += sizeof(float) * 4;
-				break;
-			default:
-				"Couldn't find buffer data type";
-				break;
-
-		}
+		pointLightBufferData.lights[i].x = std::cosf(otherSinVal + angleIncrease * i) * lightRotationRadius;
+		pointLightBufferData.lights[i].y = ((1.0f + std::sinf(sinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
+		pointLightBufferData.lights[i].z = std::sinf(otherSinVal + angleIncrease * i) * lightRotationRadius;
+		pointLightBufferData.lights[i].w = lightRadius;
 	}
 
-	D3D11_BUFFER_DESC viewProjBufferDesc;
-	viewProjBufferDesc.ByteWidth = size;
-	viewProjBufferDesc.Usage = usage;
-	viewProjBufferDesc.BindFlags = bindFlags;
-	viewProjBufferDesc.CPUAccessFlags = cpuAccess;
-	viewProjBufferDesc.MiscFlags = 0;
-	viewProjBufferDesc.StructureByteStride = 0;
-
-	D3D11_SUBRESOURCE_DATA data;
-	ZeroMemory(&data, sizeof(data));
-	data.pSysMem = initialData;
-
-	COMUniquePtr<ID3D11Buffer> returnBuffer = nullptr;
-	ID3D11Buffer* returnBufferDumb = nullptr;
-
-	HRESULT hRes = device->CreateBuffer(&viewProjBufferDesc, (initialData == nullptr ? nullptr : &data), &returnBufferDumb);
-	returnBuffer.reset(returnBufferDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create buffer with size " + std::to_string(size));
-		return nullptr;
-	}
-
-	return std::move(returnBuffer);
+	pointLightBuffer.Update(deviceContext.get(), &pointLightBufferData);
 }
 
-COMUniquePtr<ID3D11Buffer> MulticoreWindow::CreateBuffer(UINT size, D3D11_USAGE usage, D3D11_BIND_FLAG bindFlags, D3D11_CPU_ACCESS_FLAG cpuAccess, void* initialData /*= nullptr*/)
+void MulticoreWindow::DrawUpdateMVP()
 {
-	D3D11_BUFFER_DESC viewProjBufferDesc;
-	viewProjBufferDesc.ByteWidth = size;
-	viewProjBufferDesc.Usage = usage;
-	viewProjBufferDesc.BindFlags = bindFlags;
-	viewProjBufferDesc.CPUAccessFlags = cpuAccess;
-	viewProjBufferDesc.MiscFlags = 0;
-	viewProjBufferDesc.StructureByteStride = 0;
+	DirectX::XMFLOAT4X4 viewMatrix = camera.GetViewMatrix();
+	DirectX::XMFLOAT4X4 projectionMatrix = camera.GetProjectionMatrix();
+	DirectX::XMFLOAT4X4 viewProjectionMatrix;
 
-	D3D11_SUBRESOURCE_DATA data;
-	ZeroMemory(&data, sizeof(data));
-	data.pSysMem = initialData;
+	DirectX::XMMATRIX xmViewMatrix = DirectX::XMLoadFloat4x4(&viewMatrix);
+	DirectX::XMMATRIX xmProjectionMatrix = DirectX::XMLoadFloat4x4(&projectionMatrix);
 
-	COMUniquePtr<ID3D11Buffer> returnBuffer = nullptr;
-	ID3D11Buffer* returnBufferDumb = nullptr;
+	DirectX::XMMATRIX xmViewProjMatrix = DirectX::XMMatrixMultiplyTranspose(xmViewMatrix, xmProjectionMatrix);
 
-	HRESULT hRes = device->CreateBuffer(&viewProjBufferDesc, (initialData == nullptr ? nullptr : &data), &returnBufferDumb);
-	returnBuffer.reset(returnBufferDumb);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create buffer with size " + std::to_string(size));
-		return nullptr;
-	}
+	Float4x4BufferData viewProjBuffer;
 
-	return std::move(returnBuffer);
+	DirectX::XMStoreFloat4x4(&viewProjectionMatrix, xmViewProjMatrix);
+	DirectX::XMStoreFloat4x4(&viewProjBuffer.matrix, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
+
+	viewProjInverseBuffer.Update(deviceContext.get(), &viewProjBuffer);
+
+	//Bulb viewProjection
+	bulbProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
 }
 
-COMUniquePtr<ID3D11Buffer> MulticoreWindow::CreateBuffer(BUFFER_DATA_TYPES bufferDataType, D3D11_USAGE usage, D3D11_BIND_FLAG bindFlags, D3D11_CPU_ACCESS_FLAG cpuAccess, void* initialData /*= nullptr*/)
+void MulticoreWindow::DrawRayPrimary()
 {
-	std::vector<BUFFER_DATA_TYPES> bufferDataTypes = { bufferDataType };
+	primaryRayGenerator.Bind(deviceContext.get());
+	deviceContext->Dispatch(dispatchX, dispatchY, 1);
+	primaryRayGenerator.Unbind(deviceContext.get());
+}
 
-	return std::move(CreateBuffer(bufferDataTypes, usage, bindFlags, cpuAccess));
+void MulticoreWindow::DrawRayIntersection()
+{
+	trace.Bind(deviceContext.get());
+	deviceContext->Dispatch(dispatchX, dispatchY, 1);
+	trace.Unbind(deviceContext.get());
+}
+
+void MulticoreWindow::DrawRayShading()
+{
+	shade.Bind(deviceContext.get());
+	deviceContext->Dispatch(dispatchX, dispatchY, 1);
+	shade.Unbind(deviceContext.get());
+}
+
+void MulticoreWindow::DrawBulbs()
+{
+	for(int i = 0; i < pointLightBufferData.lightCount; i++)
+	{
+		DirectX::XMMATRIX worldMatrix = DirectX::XMMatrixTranslation(pointLightBufferData.lights[i].x, pointLightBufferData.lights[i].y, pointLightBufferData.lights[i].z);
+		DirectX::XMStoreFloat4x4(&bulbInstanceData[i].matrix, worldMatrix);
+	}
+
+	bulbInstanceBuffer.Update(deviceContext.get(), &bulbInstanceData);
+
+	ID3D11Buffer* bulbBuffers[] = { bulbProjMatrixBuffer.GetBuffer() };
+	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
+
+	UINT bulbStrides[] = { sizeof(Vertex), sizeof(Float4x4BufferData) };
+	UINT bulbOffsets[] = { 0, 0 };
+
+	ID3D11Buffer* bulbVertexBuffers[] = { bulbVertexBuffer.GetBuffer(), bulbInstanceBuffer.GetBuffer() };
+	deviceContext->IASetVertexBuffers(0, 2, bulbVertexBuffers, bulbStrides, bulbOffsets);
+
+	ID3D11ShaderResourceView* bulbTextureDumb = bulbTexture->GetTextureResourceView();
+	deviceContext->PSSetShaderResources(0, 1, &bulbTextureDumb);
+
+	deviceContext->PSSetSamplers(0, 1, &billboardSamplerState);
+
+	float blendFac[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	deviceContext->OMSetBlendState(billboardBlendState, blendFac, 0xFFFFFFFF);
+	deviceContext->RSSetState(billboardRasterizerState);
+
+	billboardVertexShader.Bind(deviceContext.get());
+	billboardPixelShader.Bind(deviceContext.get());
+	deviceContext->DrawInstanced(6, pointLightBufferData.lightCount, 0, 0);
+	billboardVertexShader.Unbind(deviceContext.get());
+	billboardPixelShader.Unbind(deviceContext.get());
+}
+
+Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argument)
+{
+	if(argument.size() != 1)
+		return "Expected 1 argument";
+
+	if(argument.front().values.size() != 1)
+		return "Expected 1 argument";
+
+	int newCount = 0;
+
+	try
+	{
+		newCount = std::stoi(argument.front().values.front());
+	}
+	catch(std::invalid_argument& ex)
+	{
+		return "Couldn't convert argument to an int";
+	}
+	catch(std::out_of_range& ex)
+	{
+		return "Expected 0-10 lights";
+	}
+
+	if(newCount > 10 || newCount < 0)
+		return "Expected 0-10 lights";
+
+	for(int i = pointLightBufferData.lightCount, end = newCount; i < newCount; ++i)
+		pointLightBufferData.lights[i].w = lightRadius;
+
+	pointLightBufferData.lightCount = newCount;
+
+	return "lightCount set";
+}
+
+Argument MulticoreWindow::SetLightAttenuationFactors(const std::vector<Argument>& argument)
+{
+	if(argument.size() > 3)
+		return "Expected 3 arguments";
+
+	for(int i = 0; i < argument.size(); i++)
+	{
+		float factor;
+
+		if(!(argument[i] >> factor))
+			return "Couldn't convert second argument to float";
+
+		pointlightAttenuationBufferData.factors[i] = factor;
+	}
+
+	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
+
+	return "Updated attenuation factors";
+}
+
+Argument MulticoreWindow::ReloadRaytraceShaders(const std::vector<Argument>& argument)
+{
+	std::string errorString = primaryRayGenerator.Recreate(device.get());
+	if(!errorString.empty())
+		return "Couldn't reload primary ray shader: " + errorString;
+	errorString = trace.Recreate(device.get());
+	if(!errorString.empty())
+		return "Couldn't reload primary ray shader: " + errorString;
+	errorString = shade.Recreate(device.get());
+	if(!errorString.empty())
+		return "Couldn't reload primary ray shader: " + errorString;
+
+	return "Successfully reloaded shaders";
 }
 
 bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv)
@@ -894,93 +906,6 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 	if(FAILED(hRes))
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create SRV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height));
-		return false;
-	}
-
-	return true;
-}
-
-bool MulticoreWindow::GenerateCubePrimitive(std::vector<unsigned int> &indexData, ID3D11Device* device, ID3D11Buffer** vertexBuffer, ID3D11Buffer** indexBuffer)
-{
-	std::vector<Vertex> vertexData;
-	//Front face
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	//Back face
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	//Left face
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	//Right face
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	//Top face
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, 5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	//Bottom face
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, 5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-	vertexData.emplace_back(DirectX::XMFLOAT3(-5.0f, -5.0f, -5.0f), DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f));
-
-	for(int i = 0; i < vertexData.size(); i += 4)
-	{
-		indexData.push_back(i);
-		indexData.push_back(i + 1);
-		indexData.push_back(i + 2);
-
-		indexData.push_back(i + 2);
-		indexData.push_back(i + 1);
-		indexData.push_back(i + 3);
-	}
-
-	D3D11_SUBRESOURCE_DATA vertexDataDesc;
-	ZeroMemory(&vertexDataDesc, sizeof(vertexDataDesc));
-	vertexDataDesc.pSysMem = &vertexData[0];
-
-	D3D11_SUBRESOURCE_DATA indexDataDesc;
-	ZeroMemory(&indexDataDesc, sizeof(indexDataDesc));
-	indexDataDesc.pSysMem = &indexData[0];
-
-	D3D11_BUFFER_DESC vertexDesc;
-	ZeroMemory(&vertexDesc, sizeof(vertexDesc));
-	vertexDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexDesc.ByteWidth = sizeof(Vertex) * vertexData.size();
-	vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-	D3D11_BUFFER_DESC indexDesc;
-	ZeroMemory(&indexDesc, sizeof(indexDesc));
-	indexDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexDesc.ByteWidth = sizeof(unsigned int) * indexData.size();
-	indexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-
-	HRESULT hRes = device->CreateBuffer(&vertexDesc, &vertexDataDesc, vertexBuffer);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create vertex buffer");
-		return false;
-	}
-
-	hRes = device->CreateBuffer(&indexDesc, &indexDataDesc, indexBuffer);
-	if(FAILED(hRes))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create index buffer");
 		return false;
 	}
 

@@ -141,15 +141,48 @@ public:
 	* can't be created
 	*/
 	bool WriteAutoexec(const std::string& path);
+
+	/**
+	* Pauses autoexec watches
+	* 
+	* Watches can be applied with ApplyPausedWatches() or ApplySelectedPausedChanges()
+	*/
+	void PauseAutoexecWatching();
+	/**
+	* Resumes autoexec watches
+	*
+	* \see ApplySelectedPausedChanges() to be able to choose which changes are applied
+	*
+	* \param applyChanges whether or not to apply \b ALL changed parameters since pausing
+	*/
+	void ResumeAutoexecWatching(bool applyChanges);
+
+	/**
+	* Applies all changes since autoexec watching was paused
+	*/
+	void ApplyPausedChanges();
+
+	/**
+	* Applies the given paused watches
+	*
+	* \param watches name of which watches to apply
+	* \returns a list of which variables \b couldn't be applied (non-existent name)
+	*/
+	std::vector<std::string> ApplySelectedPausedChanges(const std::vector<std::string>& watches);
 private:
 	//<function, arguments>
 	std::unordered_map<std::string, std::string> autoexecWatchesVariables;
 	std::unordered_map<std::string, std::string> autoexecWatchesFunctions;
 
+	std::unordered_map<std::string, std::string> pausedAutoexecWatchesVariables;
+	std::unordered_map<std::string, std::string> pausedAutoexecWatchesFunctions;
+
 	std::unordered_set<std::string> removedWatches;
 
 	bool autoexecLoaded;
 	bool autoexecFound;
+
+	bool paused;
 
 	/**
 	* \see ConsoleCommandManager::TrimTextFrontBack for documentation

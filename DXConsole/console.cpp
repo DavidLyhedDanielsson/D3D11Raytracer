@@ -17,6 +17,7 @@
 #include "commandDumpConsole.h"
 #include "commandPrint.h"
 #include "commandCallMethod.h"
+#include "commandGetSet.h"
 
 Console::Console()
 	: completeListBackground(nullptr)
@@ -163,18 +164,33 @@ void Console::Init(Rect area, const std::shared_ptr<GUIStyle>& style, std::uniqu
 
 	if(this->style->autoexecFile != "")
 	{
-		std::string addAutoexecWatchname = this->style->preferLowercaseFunctions ? "console_addAutoexecWatch" : "Console_AddAutoexecWatch";
-		CommandCallMethod* AddAutoexecWatch = new CommandCallMethod(addAutoexecWatchname, std::bind(&Console::AddAutoexecWatchInternal, this, std::placeholders::_1), true);
-		if(!AddCommand(AddAutoexecWatch))
-			delete AddAutoexecWatch;
+		std::string pauseAutoexecName = this->style->preferLowercaseFunctions ? "console_pauseAutoexec" : "console_PauseAutoexec";
+		CommandCallMethod* PauseAutoexec = new CommandCallMethod(pauseAutoexecName, std::bind(&Console::PauseAutoexecInternal, this, std::placeholders::_1), true);
+		if(!AddCommand(PauseAutoexec))
+			delete PauseAutoexec;
 
-		std::string removeAutoexecWatchname = this->style->preferLowercaseFunctions ? "console_removeAutoexecWatch" : "Console_RemoveAutoexecWatch";
-		CommandCallMethod* RemoveAutoexecWatch = new CommandCallMethod(removeAutoexecWatchname, std::bind(&Console::RemoveAutoexecWatchInternal, this, std::placeholders::_1), true);
+		std::string resumeAutoexecName = this->style->preferLowercaseFunctions ? "console_resumeAutoexec" : "console_ResumeAutoexec";
+		CommandCallMethod* ResumeAutoexec = new CommandCallMethod(resumeAutoexecName, std::bind(&Console::ResumeAutoexecInternal, this, std::placeholders::_1), true);
+		if(!AddCommand(ResumeAutoexec))
+			delete ResumeAutoexec;
+
+		std::string applyPausedAutoexecWatchesName = this->style->preferLowercaseFunctions ? "console_applyPausedAutoexecWatches" : "console_ApplyPausedAutoexecWatches";
+		CommandCallMethod* applyPausedAutoexecWatches = new CommandCallMethod(applyPausedAutoexecWatchesName, std::bind(&Console::ApplyPausedAutoexecWatchesInteral, this, std::placeholders::_1), true);
+		if(!AddCommand(applyPausedAutoexecWatches))
+			delete applyPausedAutoexecWatches;
+
+		std::string addAutoexecWatchName = this->style->preferLowercaseFunctions ? "console_addAutoexecWatch" : "console_AddAutoexecWatch";
+		CommandCallMethod* addAutoexecWatch = new CommandCallMethod(addAutoexecWatchName, std::bind(&Console::AddAutoexecWatchInternal, this, std::placeholders::_1), true);
+		if(!AddCommand(addAutoexecWatch))
+			delete addAutoexecWatch;
+
+		std::string removeAutoexecWatchName = this->style->preferLowercaseFunctions ? "console_removeAutoexecWatch" : "Console_RemoveAutoexecWatch";
+		CommandCallMethod* RemoveAutoexecWatch = new CommandCallMethod(removeAutoexecWatchName, std::bind(&Console::RemoveAutoexecWatchInternal, this, std::placeholders::_1), true);
 		if(!AddCommand(RemoveAutoexecWatch))
 			delete RemoveAutoexecWatch;
 
-		std::string printAutoexecWatches = this->style->preferLowercaseFunctions ? "console_printAutoexecWatches" : "Console_PrintAutoexecWatches";
-		CommandCallMethod* PrintAutoexecWatches = new CommandCallMethod(printAutoexecWatches, std::bind(&Console::PrintAutoexecWatchesInternal, this, std::placeholders::_1), true);
+		std::string printAutoexecWatchesName = this->style->preferLowercaseFunctions ? "console_printAutoexecWatches" : "Console_PrintAutoexecWatches";
+		CommandCallMethod* PrintAutoexecWatches = new CommandCallMethod(printAutoexecWatchesName, std::bind(&Console::PrintAutoexecWatchesInternal, this, std::placeholders::_1), true);
 		if(!AddCommand(PrintAutoexecWatches))
 			delete PrintAutoexecWatches;
 	}
@@ -1347,4 +1363,65 @@ Argument Console::PrintAutoexecWatchesInternal(const std::vector<Argument>& argu
 	PrintAutoexecWatches();
 
 	return Argument();
+}
+
+Argument Console::PauseAutoexecInternal(const std::vector<Argument>& arguments)
+{
+	autoexecManager.PauseAutoexecWatching();
+
+	return "Paused autoexec watching";
+}
+
+Argument Console::ResumeAutoexecInternal(const std::vector<Argument>& arguments)
+{
+	if(arguments.size() == 0)
+	{
+		autoexecManager.ResumeAutoexecWatching(false);
+
+		return "Resumed autoexec watching";
+	}
+	else
+	{
+		bool applyChanges;
+
+		if(!(arguments.front() >> applyChanges))
+			return "Couldn't convert first parameter to a bool";
+
+		autoexecManager.ResumeAutoexecWatching(applyChanges);
+
+		return "Resumed autoexec watching and applied all changes";
+	}
+}
+
+Argument Console::ApplyPausedAutoexecWatchesInteral(const std::vector<Argument>& arguments)
+{
+	if(arguments.size() == 0)
+	{
+		autoexecManager.ApplyPausedChanges();
+
+		return "Successfully applied all paused watches";
+	}
+	else
+	{
+		std::vector<std::string> watchesToApply;
+
+		for(const Argument& watch : arguments)
+			watchesToApply.emplace_back(watch.values.front());
+
+		std::vector<std::string> nonappliedWatches = autoexecManager.ApplySelectedPausedChanges(watchesToApply);
+
+		if(nonappliedWatches.size() == 0)
+			return "Successfully applied " + std::to_string(watchesToApply.size() - nonappliedWatches.size()) + " paused watch" + (watchesToApply.size() > 0 ? "es" : 0);
+		else
+		{
+			std::string returnString = "Couldn't apply " + std::to_string(nonappliedWatches.size()) + " watches: ";
+
+			for(const std::string& name : nonappliedWatches)
+				returnString += name + ", ";
+
+			returnString.erase(returnString.size() - 2, 2);
+
+			return returnString;
+		}
+	}
 }

@@ -15,7 +15,7 @@ public:
 		, value(value)
 	{ }
 
-	~CommandGetSet() {}
+	virtual ~CommandGetSet() {}
 
 	virtual Argument Execute(const ContextPointers* const contextPointers, const std::vector<Argument>& arguments) override
 	{
@@ -49,7 +49,6 @@ public:
 				//Use sstream since it already has overloads for >> for primitive data types
 				*value >> returnArgument;
 				returnArgument.values.front().insert(0, name + " = ");
-
 
 				returnArgument.type = arguments.size() == 1 ? arguments.front().type : Argument::TYPE::UNKNOWN;
 			}

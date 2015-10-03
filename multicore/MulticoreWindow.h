@@ -11,6 +11,7 @@
 #include <DXLib/spriteRenderer.h>
 #include <DXLib/keyState.h>
 #include <DXLib/D3D11Timer.h>
+#include <DXLib/DXBuffer.h>
 
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
@@ -22,6 +23,7 @@
 #include "Graph.h"
 #include "ComputeShader.h"
 
+/*
 enum class BUFFER_DATA_TYPES
 {
 	MAT4X4
@@ -30,11 +32,21 @@ enum class BUFFER_DATA_TYPES
 	, FLOAT2
 	, FLOAT3
 	, FLOAT4
-};
+};*/
 
 const static int MAX_POINT_LIGHTS = 10;
 const static int MAX_SPHERES = 64;
 const static int MAX_TRIANGLES = 64;
+
+#define LogErrorReturnFalse(functionCall, messagePrefix)				\
+{																		\
+	std::string errorString = functionCall;								\
+	if(!errorString.empty())											\
+	{																	\
+		Logger::LogLine(LOG_TYPE::FATAL, messagePrefix + errorString);	\
+		return false;													\
+	}																	\
+} 
 
 namespace
 {
@@ -60,29 +72,29 @@ namespace
 		DirectX::XMFLOAT2 texCoord;
 	};
 
-	struct BulbInstanceData
+	struct Float4x4BufferData 
 	{
-		DirectX::XMFLOAT4X4 worldMatrix;
+		DirectX::XMFLOAT4X4 matrix;
 	};
 
-	struct ViewProjBuffer 
+	struct LightAttenuationBufferData
 	{
-		DirectX::XMFLOAT4X4 viewProjMatrixInverse;
+		float factors[3];
 	};
 
-	struct PointlightBuffer
+	struct PointlightBufferData
 	{
 		DirectX::XMFLOAT4 lights[MAX_POINT_LIGHTS];
 		int lightCount;
 	};
 
-	struct SphereBuffer
+	struct SphereBufferData
 	{
 		DirectX::XMFLOAT4 spheres[MAX_SPHERES];
 		int sphereCount;
 	};
 
-	struct TriangleBuffer
+	struct TriangleBufferData
 	{
 		DirectX::XMFLOAT4 triangles[MAX_TRIANGLES * 3];
 		int triangleCount;
@@ -110,6 +122,9 @@ public:
 	void ScrollEvent(int distance);
 
 private:
+	int dispatchX;
+	int dispatchY;
+
 	bool paused;
 
 	FPSCamera camera;
@@ -124,10 +139,10 @@ private:
 	COMUniquePtr<ID3D11Buffer> vertexBuffer;
 	COMUniquePtr<ID3D11Buffer> indexBuffer;
 
-	COMUniquePtr<ID3D11Buffer> viewProjMatrixBuffer;
-	COMUniquePtr<ID3D11Buffer> viewProjInverseBuffer;
-	COMUniquePtr<ID3D11Buffer> sphereBuffer;
-	COMUniquePtr<ID3D11Buffer> triangleBuffer;
+	DXBuffer viewProjMatrixBuffer;
+	DXBuffer viewProjInverseBuffer;
+	DXBuffer sphereBuffer;
+	DXBuffer triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
 	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
@@ -138,9 +153,22 @@ private:
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
 
 	//Point lights
-	COMUniquePtr<ID3D11Buffer> pointLightBuffer;
-	PointlightBuffer pointLightBufferData;
+	DXBuffer pointlightAttenuationBuffer;
+	DXBuffer pointLightBuffer;
+	PointlightBufferData pointLightBufferData;
+	LightAttenuationBufferData pointlightAttenuationBufferData;
 
+	float lightRadius;
+
+	float lightSinValMult;
+	float lightOtherSinValMult;
+
+	float lightRotationRadius;
+	float lightMinHeight;
+	float lightMaxHeight;
+
+	float lightVerticalSpeed;
+	float lightHorizontalSpeed;
 
 	std::vector<unsigned int> indexData;
 
@@ -150,11 +178,11 @@ private:
 
 	VertexShader billboardVertexShader;
 	PixelShader billboardPixelShader;
-	COMUniquePtr<ID3D11Buffer> bulbProjMatrixBuffer;
-	COMUniquePtr<ID3D11Buffer> bulbInstanceBuffer;
-	COMUniquePtr<ID3D11Buffer> bulbVertexBuffer;
+	DXBuffer bulbProjMatrixBuffer;
+	DXBuffer bulbInstanceBuffer;
+	DXBuffer bulbVertexBuffer;
 
-	BulbInstanceData bulbInstanceData[MAX_POINT_LIGHTS];
+	Float4x4BufferData bulbInstanceData[MAX_POINT_LIGHTS];
 	Texture2D* bulbTexture;
 
 	ContentManager contentManager;
@@ -185,24 +213,19 @@ private:
 	void InitInput();
 	void InitConsole();
 
-	COMUniquePtr<ID3D11Buffer> CreateBuffer(const std::vector<BUFFER_DATA_TYPES>& bufferDataTypes
-		, D3D11_USAGE usage
-		, D3D11_BIND_FLAG bindFlags
-		, D3D11_CPU_ACCESS_FLAG cpuAccess
-		, void* initialData = nullptr);
-	COMUniquePtr<ID3D11Buffer> CreateBuffer(BUFFER_DATA_TYPES bufferDataType
-		, D3D11_USAGE usage
-		, D3D11_BIND_FLAG bindFlags
-		, D3D11_CPU_ACCESS_FLAG cpuAccess
-		, void* initialData = nullptr);
-	COMUniquePtr<ID3D11Buffer> CreateBuffer(UINT size
-		, D3D11_USAGE usage
-		, D3D11_BIND_FLAG bindFlags
-		, D3D11_CPU_ACCESS_FLAG cpuAccess
-		, void* initialData = nullptr);
+	void DrawUpdatePointlights();
+
+	void DrawUpdateMVP();
+	void DrawRayPrimary();
+	void DrawRayIntersection();
+	void DrawRayShading();
+
+	void DrawBulbs();
+
+	Argument SetNumberOfLights(const std::vector<Argument>& argument);
+	Argument SetLightAttenuationFactors(const std::vector<Argument>& argument);
+	Argument ReloadRaytraceShaders(const std::vector<Argument>& argument);
 
 	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
-
-	bool GenerateCubePrimitive(std::vector<unsigned int> &indexData, ID3D11Device* device, ID3D11Buffer** vertexBuffer, ID3D11Buffer** indexBuffer);
 };
 

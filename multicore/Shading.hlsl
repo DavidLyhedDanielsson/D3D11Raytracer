@@ -18,6 +18,13 @@ cbuffer triangleBuffer : register(b2)
 	int triangleCount;
 };
 
+cbuffer attenuationBuffer : register(b3)
+{
+	float a;
+	float b;
+	float c;
+};
+
 RWTexture2D<float4> output : register(u0);
 
 Texture2D<float4> rayPositions : register(t0);
@@ -46,13 +53,13 @@ void main(uint3 threadID : SV_DispatchThreadID)
 			float distanceToLight = length(rayLight);
 			float3 rayDirection = normalize(rayLight);
 
-			if(distanceToLight > lights[i].w)
-				continue;
+			//if(distanceToLight > lights[i].w * 5.0f)
+			//	continue;
 
 			if(SphereTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection))
 			{
-				float attenuation = 1.0f - min((distanceToLight / lights[i].w), 1.0f);
-
+				float attenuation = lights[i].w / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
+				
 				float3 rayLightDir = normalize(lights[i].xyz - rayPositionAndDepth.xyz);
 			
 				//Diffuse lighting
@@ -61,6 +68,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		}
 	}
 
+	lightFac = saturate(lightFac);
 	output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
 }
 

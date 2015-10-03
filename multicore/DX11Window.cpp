@@ -292,8 +292,8 @@ void DX11Window::SetScissorRect()
 
 	scissorRect.top = 0;
 	scissorRect.left = 0;
-	scissorRect.bottom = 720;
-	scissorRect.right = 1280;
+	scissorRect.bottom = height;
+	scissorRect.right = width;
 
 	deviceContext->RSSetScissorRects(1, &scissorRect);
 }
@@ -301,8 +301,8 @@ void DX11Window::SetScissorRect()
 void DX11Window::SetViewport()
 {
 	D3D11_VIEWPORT viewPort;
-	viewPort.Width = 1280.0f;
-	viewPort.Height = 720.0f;
+	viewPort.Width = static_cast<float>(width);
+	viewPort.Height = static_cast<float>(height);
 	viewPort.TopLeftX = 0.0f;
 	viewPort.TopLeftY = 0.0f;
 	viewPort.MinDepth = 0.0f;

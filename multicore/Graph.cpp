@@ -38,7 +38,7 @@ Graph::Graph()
 Graph::~Graph()
 {}
 
-std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints)
+std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight)
 {
 	this->device = device;
 	this->deviceContext = context;
@@ -46,6 +46,8 @@ std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, Cont
 	this->height = size.y;
 	this->yMax = yMax;
 	this->avgPoints = avgPoints;
+	this->screenWidth = backbufferWidth;
+	this->screenHeight = backbufferHeight;
 
 	this->position.x = position.x;
 	this->position.y = position.y;

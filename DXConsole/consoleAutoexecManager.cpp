@@ -7,14 +7,25 @@
 ConsoleAutoexecManager::ConsoleAutoexecManager()
 	: autoexecLoaded(false)
 	, autoexecFound(false)
+	, paused(false)
 {}
 
 void ConsoleAutoexecManager::FunctionExecuted(const std::string& function, const std::string& arguments)
 {
-	if(autoexecWatchesVariables.count(function) > 0)
-		autoexecWatchesVariables[function] = arguments;
-	else if(autoexecWatchesFunctions.count(function) > 0)
-		autoexecWatchesFunctions[function] = arguments;
+	if(!paused)
+	{
+		if(autoexecWatchesVariables.count(function) > 0)
+			autoexecWatchesVariables[function] = arguments;
+		else if(autoexecWatchesFunctions.count(function) > 0)
+			autoexecWatchesFunctions[function] = arguments;
+	}
+	else
+	{
+		if(autoexecWatchesVariables.count(function) > 0)
+			pausedAutoexecWatchesVariables[function] = arguments;
+		else if(autoexecWatchesFunctions.count(function) > 0)
+			pausedAutoexecWatchesFunctions[function] = arguments;
+	}
 }
 
 bool ConsoleAutoexecManager::AddAutoexecWatch(const std::string& command, ConsoleCommandManager& commandManager)
@@ -247,6 +258,53 @@ bool ConsoleAutoexecManager::WriteAutoexec(const std::string& path)
 	std::rename((path + ".tmp").c_str(), path.c_str());
 
 	return true;
+}
+
+void ConsoleAutoexecManager::PauseAutoexecWatching()
+{
+	paused = true;
+}
+
+void ConsoleAutoexecManager::ResumeAutoexecWatching(bool applyChanges)
+{
+	paused = false;
+
+	if(applyChanges)
+		ApplyPausedChanges();
+}
+
+void ConsoleAutoexecManager::ApplyPausedChanges()
+{
+	for(auto pair : pausedAutoexecWatchesVariables)
+	{
+		if(autoexecWatchesVariables.count(pair.first) > 0)
+			autoexecWatchesVariables[pair.first] = pair.second;
+	}
+
+	for(auto pair : pausedAutoexecWatchesFunctions)
+	{
+		if(autoexecWatchesFunctions.count(pair.first) > 0)
+			autoexecWatchesFunctions[pair.first] = pair.second;
+	}
+}
+
+std::vector<std::string> ConsoleAutoexecManager::ApplySelectedPausedChanges(const std::vector<std::string>& watches)
+{
+	std::set<std::string> nonappliedChanges;
+
+	for(auto name : watches)
+	{
+		if(autoexecWatchesVariables.count(name) > 0)
+			autoexecWatchesVariables[name] = pausedAutoexecWatchesVariables[name];
+		else if(autoexecWatchesFunctions.count(name) > 0)
+			autoexecWatchesFunctions[name] = pausedAutoexecWatchesFunctions[name];
+		else
+			nonappliedChanges.emplace(name);
+	}
+
+	std::vector<std::string> nonappliedChangesVector;
+	nonappliedChangesVector.insert(nonappliedChangesVector.end(), nonappliedChanges.begin(), nonappliedChanges.end());
+	return nonappliedChangesVector;
 }
 
 std::string ConsoleAutoexecManager::TrimTextFrontBack(const std::string& text)

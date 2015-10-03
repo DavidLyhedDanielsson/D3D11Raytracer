@@ -13,7 +13,7 @@ cbuffer viewProjBuffer : register(b0)
 void main(uint3 threadID : SV_DispatchThreadID)
 {
 	//Convert threadID to NDC coords
-	float2 ndcCoords = threadID.xy / float2(1280.0f, 720.0f) * 2.0f;
+	float2 ndcCoords = threadID.xy / float2(SCREEN_RES_X, SCREEN_RES_Y) * 2.0f;
 
 	ndcCoords.x -= 1.0f;
 	ndcCoords.y = 1.0f - ndcCoords.y;

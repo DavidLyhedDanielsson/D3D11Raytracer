@@ -149,7 +149,7 @@ public:
 	Graph();
 	~Graph();
 
-	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints);
+	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight);
 
 	std::string AddTrack(std::string name, Track track);
 	std::string AddTracks(std::vector<std::string> trackNames, std::vector<Track> tracks);
@@ -162,9 +162,8 @@ public:
 	int GetBackgroundWidth() const;
 
 private:
-	//TODO: non-static
-	const static int X_SCREEN_SIZE = 1280;
-	const static int Y_SCREEN_SIZE = 720;
+	int screenWidth;
+	int screenHeight;
 	
 	int backgroundWidth;
 	int legendHeight;
