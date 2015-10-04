@@ -81,7 +81,7 @@ public:
 		return "";
 	}
 
-	virtual void Bind(ID3D11DeviceContext* context) = 0;
+	virtual void Bind(ID3D11DeviceContext* context, int config = 0) = 0;
 	virtual void Unbind(ID3D11DeviceContext* context) = 0;
 
 	template<typename T>

@@ -7,9 +7,9 @@ ComputeShader::ComputeShader(const std::string& entryPoint, const std::string& c
 ComputeShader::~ComputeShader()
 {}
 
-void ComputeShader::Bind(ID3D11DeviceContext* context)
+void ComputeShader::Bind(ID3D11DeviceContext* context, int config)
 {
-	BindResources<ComputeShader>(context);
+	BindResources<ComputeShader>(context, config);
 
 	context->CSSetShader(shader.get(), nullptr, 0);
 }

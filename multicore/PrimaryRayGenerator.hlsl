@@ -3,6 +3,7 @@
 RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);
 RWTexture2D<float4> outputNormal : register(u2);
+RWTexture2D<float4> outputColor : register(u3);
 
 cbuffer viewProjBuffer : register(b0)
 {
@@ -29,7 +30,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float4 origin = mul(float4(minNDC, 1.0f), viewProjMatrixInv);
 	origin /= origin.w;
 
-	outputPosition[threadID.xy] = float4(origin.xyz, FLOAT_MAX); //Use fourth channel as depth buffer
+	outputPosition[threadID.xy] = float4(origin.xyz, 0.0f);
 	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
 	outputNormal[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
+	outputColor[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 }

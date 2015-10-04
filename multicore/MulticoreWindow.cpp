@@ -204,24 +204,45 @@ void MulticoreWindow::Draw()
 
 	//for(int i = 0; i < 2; ++i)
 	//{
-		DrawRayIntersection();
+		DrawRayIntersection(0);
 		d3d11Timer.Stop("Trace0");
-		DrawRayShading();
+		DrawRayShading(0);
 		d3d11Timer.Stop("Shade0");
 	//}
 
-	DrawComposit();
+		DrawRayIntersection(1);
+		d3d11Timer.Stop("Trace1");
+		DrawRayShading(1);
+		d3d11Timer.Stop("Shade1");
+
+		DrawRayIntersection(0);
+		d3d11Timer.Stop("Trace2");
+		DrawRayShading(0);
+		d3d11Timer.Stop("Shade2");
+
+		DrawRayIntersection(1);
+		d3d11Timer.Stop("Trace3");
+		DrawRayShading(1);
+		d3d11Timer.Stop("Shade3");
+
+	DrawComposit(1);
 
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
+
+	float traceTime = 0.0f;
+	float shadeTime = 0.0f;
 	for(const auto& pair : d3d11Times)
 	{
 		if(pair.first.compare(0, 5, "Trace") == 0)
-			gpuGraph.AddValueToTrack("Trace", static_cast<float>(pair.second));
+			traceTime += static_cast<float>(pair.second);
 		else if(pair.first.compare(0, 5, "Shade") == 0)
-			gpuGraph.AddValueToTrack("Trace", static_cast<float>(pair.second));
+			shadeTime += static_cast<float>(pair.second);
 		else
 			gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
 	}
+
+	gpuGraph.AddValueToTrack("Trace", traceTime);
+	gpuGraph.AddValueToTrack("Shade", shadeTime);
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -396,15 +417,9 @@ bool MulticoreWindow::InitRaytraceShaders()
 	primaryResourceBinds0.AddResource(rayPositionUAV[0].get(), 0);
 	primaryResourceBinds0.AddResource(rayDirectionUAV[0].get(), 1);
 	primaryResourceBinds0.AddResource(rayNormalUAV.get(), 2);
+	primaryResourceBinds0.AddResource(outputColorUAV[1].get(), 3);
 
-	ShaderResourceBinds primaryResourceBinds1;
-	primaryResourceBinds1.AddResource(viewProjInverseBuffer.GetBuffer(), 0);
-
-	primaryResourceBinds1.AddResource(rayPositionUAV[1].get(), 0);
-	primaryResourceBinds1.AddResource(rayDirectionUAV[1].get(), 1);
-	primaryResourceBinds1.AddResource(rayNormalUAV.get(), 2);
-
-	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds0, primaryResourceBinds1), "");
+	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds0), "");
 
 	//////////////////////////////////////////////////
 	//Intersection
@@ -836,23 +851,23 @@ void MulticoreWindow::DrawRayPrimary()
 	primaryRayGenerator.Unbind(deviceContext.get());
 }
 
-void MulticoreWindow::DrawRayIntersection()
+void MulticoreWindow::DrawRayIntersection(int config)
 {
-	traceShader.Bind(deviceContext.get());
+	traceShader.Bind(deviceContext.get(), config);
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
 	traceShader.Unbind(deviceContext.get());
 }
 
-void MulticoreWindow::DrawRayShading()
+void MulticoreWindow::DrawRayShading(int config)
 {
-	intersectionShader.Bind(deviceContext.get());
+	intersectionShader.Bind(deviceContext.get(), config);
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
 	intersectionShader.Unbind(deviceContext.get());
 }
 
-void MulticoreWindow::DrawComposit()
+void MulticoreWindow::DrawComposit(int config)
 {
-	compositShader.Bind(deviceContext.get());
+	compositShader.Bind(deviceContext.get(), config);
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
 	compositShader.Unbind(deviceContext.get());
 }
@@ -906,11 +921,11 @@ Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argumen
 	{
 		newCount = std::stoi(argument.front().values.front());
 	}
-	catch(std::invalid_argument& ex)
+	catch(std::invalid_argument&)
 	{
 		return "Couldn't convert argument to an int";
 	}
-	catch(std::out_of_range& ex)
+	catch(std::out_of_range&)
 	{
 		return "Expected 0-10 lights";
 	}

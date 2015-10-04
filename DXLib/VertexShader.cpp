@@ -8,9 +8,9 @@ VertexShader::VertexShader(const std::string& entryPoint, const std::string& com
 VertexShader::~VertexShader()
 {}
 
-void VertexShader::Bind(ID3D11DeviceContext* context)
+void VertexShader::Bind(ID3D11DeviceContext* context, int config)
 {
-	BindResources<VertexShader>(context);
+	BindResources<VertexShader>(context, config);
 
 	context->IASetInputLayout(inputLayout.get());
 

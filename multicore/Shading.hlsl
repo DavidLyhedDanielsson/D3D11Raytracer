@@ -53,17 +53,17 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	if(dot(normal, normal) != 0.0f)
 	{
-		float4 rayPositionAndDepth = rayPositions[threadID.xy];
+		float3 rayPosition = rayPositions[threadID.xy].xyz;
 		
 		for(int i = 0; i < lightCount; i++)
 		{
-			float3 rayLight = lights[i].xyz - rayPositionAndDepth.xyz;
+			float3 rayLight = lights[i].xyz - rayPosition;
 			float distanceToLight = length(rayLight);
 			float3 rayDirection = normalize(rayLight);
 
-			if(SphereTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection))
+			if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
 			{
-				float3 rayLightDir = normalize(lights[i].xyz - rayPositionAndDepth.xyz);
+				float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
 			
 				//Diffuse lighting
 				float diffuseFac = max(0.0f, dot(rayLightDir, normal));
@@ -73,7 +73,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 				if(diffuseFac > 0.0f)
 				{
 					//Specular lighting
-					float3 rayCamera = normalize(cameraPosition - rayPositionAndDepth.xyz);
+					float3 rayCamera = normalize(cameraPosition - rayPosition);
 
 					float3 reflection = reflect(-rayDirection, normal);
 					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
@@ -86,9 +86,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	lightFac = saturate(lightFac);
 
+	float3 oldColor = backbufferIn[threadID.xy].xyz;
 	float3 color = rayColors[threadID.xy].xyz;
 
-	backbufferOut[threadID.xy] = float4(color * lightFac, 1.0f);
+	backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, 1.0f);
 }
 
 

@@ -29,7 +29,7 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
-	float4 rayPositionAndDepth = rayPositions[threadID.xy];
+	float4 rayPosition = rayPositions[threadID.xy];
 	float3 rayDirection = rayDirections[threadID.xy].xyz;
 	
 	float3 normal = float3(0.0f, 0.0f, 0.0f);
@@ -38,14 +38,17 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	int closestSphere = -1;
 	int closestTriangle = -1;
 
-	SphereTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal, closestSphere);
-	TriangleTrace(rayPositionAndDepth.xyz, rayDirection, rayPositionAndDepth.w, normal, closestTriangle);
+	float depth = FLOAT_MAX;
+
+	SphereTrace(rayPosition.xyz, rayDirection, depth, normal, closestSphere);
+	TriangleTrace(rayPosition.xyz, rayDirection, depth, normal, closestTriangle);
 	
 	if(dot(normal, normal) == 0.0f)
 		return;
 
-	rayPositionsOut[threadID.xy] = float4(rayPositionAndDepth.xyz + rayDirection * rayPositionAndDepth.w, rayPositionAndDepth.w);
-	rayNormalOut[threadID.xy] = float4(normal, rayPositionAndDepth.w);
+	rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, 0.0f);
+	rayDirectionsOut[threadID.xy] = float4(reflect(rayDirection, normal), 0.0f);
+	rayNormalOut[threadID.xy] = float4(normal, 0.0f);
 
 	if(closestTriangle != -1)
 		rayColorOut[threadID.xy] = float4(0.4f, 0.2f, 0.2f, 1.0f);
@@ -75,7 +78,7 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, ino
 		float distance = -a - sqrt(root);
 
 		if(distance < depth
-			&& distance >= 0.0f)
+			&& distance >= 0.05f)
 		{
 			closestSphereIndex = i;
 			depth = distance; //TODO: Local variable?
@@ -114,7 +117,7 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 		float x = dot(v0ray, cross(rayDirection, v0v2)) * prediv;
 		float y = dot(rayDirection, precross) * prediv;
 
-		if(distance >= 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
+		if(distance >= 0.05f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
 			&& distance < depth)
 		{
 			closestTriangleIndex = i;

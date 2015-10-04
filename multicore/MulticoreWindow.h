@@ -233,9 +233,9 @@ private:
 
 	void DrawUpdateMVP();
 	void DrawRayPrimary();
-	void DrawRayIntersection();
-	void DrawRayShading();
-	void DrawComposit();
+	void DrawRayIntersection(int config);
+	void DrawRayShading(int config);
+	void DrawComposit(int config);
 
 	void DrawBulbs();
 

@@ -7,9 +7,9 @@ PixelShader::PixelShader(const std::string& entryPoint, const std::string& compi
 PixelShader::~PixelShader()
 {}
 
-void PixelShader::Bind(ID3D11DeviceContext* context)
+void PixelShader::Bind(ID3D11DeviceContext* context, int config)
 {
-	BindResources<PixelShader>(context);
+	BindResources<PixelShader>(context, config);
 
 	context->PSSetShader(shader.get(), nullptr, 0);
 }
