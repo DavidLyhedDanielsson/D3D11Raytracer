@@ -163,6 +163,8 @@ private:
 
 	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
+	
+	int rayBounces;
 
 	//Point lights
 	DXBuffer pointlightAttenuationBuffer;
@@ -183,7 +185,7 @@ private:
 	float lightVerticalSpeed;
 	float lightHorizontalSpeed;
 
-	const static int MAX_BOUNCES = 10;
+	const static int MAX_BOUNCES = 20;
 
 	std::vector<unsigned int> indexData;
 

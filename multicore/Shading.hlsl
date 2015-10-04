@@ -86,8 +86,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	lightFac = saturate(lightFac);
 
-	float3 oldColor = backbufferIn[threadID.xy].xyz;
-	float3 color = rayColors[threadID.xy].xyz;
+	float3 oldColor = backbufferIn[threadID.xy].xyz * 0.5f;
+	float3 color = rayColors[threadID.xy].xyz * 1.0;
 
 	backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, 1.0f);
 }

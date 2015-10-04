@@ -62,6 +62,11 @@ bool MulticoreWindow::Init()
 	InitConsole();
 	InitInput();
 
+	rayBounces = 1;
+	auto rayBouncesCommand = new CommandGetSet<int>("RayBounces", &rayBounces);
+	if(!console.AddCommand(rayBouncesCommand))
+		delete rayBouncesCommand;
+
 	if(!InitSRVs())
 		return false;
 	if(!InitRoom())
@@ -202,30 +207,15 @@ void MulticoreWindow::Draw()
 	DrawRayPrimary();
 	d3d11Timer.Stop("Primary");
 
-	//for(int i = 0; i < 2; ++i)
-	//{
-		DrawRayIntersection(0);
-		d3d11Timer.Stop("Trace0");
-		DrawRayShading(0);
-		d3d11Timer.Stop("Shade0");
-	//}
+	for(int i = 0; i < rayBounces; ++i)
+	{
+		DrawRayIntersection(i % 2);
+		d3d11Timer.Stop("Trace" + std::to_string(i));
+		DrawRayShading(i % 2);
+		d3d11Timer.Stop("Shade" + std::to_string(i));
+	}
 
-		DrawRayIntersection(1);
-		d3d11Timer.Stop("Trace1");
-		DrawRayShading(1);
-		d3d11Timer.Stop("Shade1");
-
-		DrawRayIntersection(0);
-		d3d11Timer.Stop("Trace2");
-		DrawRayShading(0);
-		d3d11Timer.Stop("Shade2");
-
-		DrawRayIntersection(1);
-		d3d11Timer.Stop("Trace3");
-		DrawRayShading(1);
-		d3d11Timer.Stop("Shade3");
-
-	DrawComposit(1);
+	DrawComposit((rayBounces + 1) % 2);
 
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
 

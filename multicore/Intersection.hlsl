@@ -78,7 +78,7 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, ino
 		float distance = -a - sqrt(root);
 
 		if(distance < depth
-			&& distance >= 0.05f)
+			&& distance >= 0.0005f)
 		{
 			closestSphereIndex = i;
 			depth = distance; //TODO: Local variable?
@@ -117,7 +117,7 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 		float x = dot(v0ray, cross(rayDirection, v0v2)) * prediv;
 		float y = dot(rayDirection, precross) * prediv;
 
-		if(distance >= 0.05f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
+		if(distance >= 0.0005f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
 			&& distance < depth)
 		{
 			closestTriangleIndex = i;
