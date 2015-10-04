@@ -70,13 +70,16 @@
     <FxCompile Include="Shading.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="Trace.hlsl">
+    <FxCompile Include="Intersection.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="BillboardPixelShader.hlsl">
+    <FxCompile Include="Composit.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="BillboardVertexShader.hlsl">
+    <FxCompile Include="BulbVertexShader.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="BulbPixelShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

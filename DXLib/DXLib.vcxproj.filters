@@ -93,6 +93,9 @@
     <ClCompile Include="DXBuffer.cpp">
       <Filter>Source Files\Shader</Filter>
     </ClCompile>
+    <ClCompile Include="OBJFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDSTextureLoader.h">
@@ -216,6 +219,9 @@
       <Filter>Header Files\Shader</Filter>
     </ClInclude>
     <ClInclude Include="DXBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OBJFile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -166,7 +166,7 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="BillboardPixelShader.hlsl">
+    <FxCompile Include="BulbPixelShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
@@ -175,7 +175,7 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
     </FxCompile>
-    <FxCompile Include="BillboardVertexShader.hlsl">
+    <FxCompile Include="BulbVertexShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
@@ -183,6 +183,17 @@
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(Filename).cso</ObjectFileOutput>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="Composit.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(Filename).cso</ObjectFileOutput>
     </FxCompile>
     <FxCompile Include="Constants.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -229,7 +240,7 @@
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename).cso</ObjectFileOutput>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_DEBUG</PreprocessorDefinitions>
     </FxCompile>
-    <FxCompile Include="Trace.hlsl">
+    <FxCompile Include="Intersection.hlsl">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

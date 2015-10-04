@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <set>
 
 #include "Common.h"
 
@@ -28,6 +29,7 @@ private:
 	COMUniquePtr<ID3D11Query> stopTimeQuery;
 
 	std::map<std::string, ID3D11Query*> queries;
+	std::set<std::string> stoppedQueries;
 	std::vector<std::string> stopOrder;
 
 	ID3D11DeviceContext* deviceContext;

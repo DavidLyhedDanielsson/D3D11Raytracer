@@ -55,7 +55,8 @@ public:
 		return "";
 	}
 
-	std::string CreateFromFile(const std::string& path, ID3D11Device* const device, ShaderResourceBinds resourceBinds)
+	template<typename... ResourceBinds>
+	std::string CreateFromFile(const std::string& path, ID3D11Device* const device, ResourceBinds... resourceBinds)
 	{
 		shaderPath = path;
 		std::string returnMessage;
@@ -68,12 +69,14 @@ public:
 		if(!returnMessage.empty())
 			return returnMessage;
 
+		this->resourceBinds = { resourceBinds... };
+
 		ID3D11ShaderReflection* reflectionDumb = nullptr;
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
 		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
 
-		this->resourceBinds = std::move(resourceBinds);
-		this->resourceBinds.Init(device, reflectionDumb, shaderPath);
+		for(int i = 0; i < static_cast<int>(this->resourceBinds.size()); ++i)
+			this->resourceBinds[i].Init(device, reflectionDumb, shaderPath);
 
 		return "";
 	}
@@ -82,14 +85,18 @@ public:
 	virtual void Unbind(ID3D11DeviceContext* context) = 0;
 
 	template<typename T>
-	void BindResources(ID3D11DeviceContext* context)
+	void BindResources(ID3D11DeviceContext* context, int configuration = 0)
 	{
-		resourceBinds.Bind<T>(context);
+		boundConfiguration = configuration;
+
+		if(resourceBinds.size() > 0)
+			resourceBinds[boundConfiguration].Bind<T>(context);
 	}
 	template<typename T>
 	void UnbindResources(ID3D11DeviceContext* context)
 	{
-		resourceBinds.Unbind<T>(context);
+		if(resourceBinds.size() > 0)
+			resourceBinds[boundConfiguration].Unbind<T>(context);
 	}
 
 	ID3DBlob* GetBlob()
@@ -107,7 +114,8 @@ protected:
 
 	std::string shaderPath;
 
-	ShaderResourceBinds resourceBinds;
+	std::vector<ShaderResourceBinds> resourceBinds;
+	int boundConfiguration;
 
 private:
 	std::string entryPoint;

@@ -62,7 +62,7 @@ void ContentManager::Unload(Content* content)
 
 	if(path == "") //"Local" content, it's not in contentMap
 	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Trying to unload content where path = "". Make sure to only load content through ContentManager");
+		Logger::LogLine(LOG_TYPE::WARNING, "Trying to unload content where path = \"\". Make sure to only load content through ContentManager");
 		return;
 	}
 

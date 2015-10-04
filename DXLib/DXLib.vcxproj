@@ -29,6 +29,7 @@
     <ClCompile Include="DepthStencilStates.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="OBJFile.cpp" />
     <ClCompile Include="PixelShader.cpp" />
     <ClCompile Include="RasterizerStates.cpp" />
     <ClCompile Include="Rect.cpp" />
@@ -62,6 +63,7 @@
     <ClInclude Include="Input.h" />
     <ClInclude Include="KeyState.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="OBJFile.h" />
     <ClInclude Include="Pch.h" />
     <ClInclude Include="PixelShader.h" />
     <ClInclude Include="PlatformHelpers.h" />

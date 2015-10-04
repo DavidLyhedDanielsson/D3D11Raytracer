@@ -72,6 +72,11 @@ namespace
 		DirectX::XMFLOAT2 texCoord;
 	};
 
+	struct CameraPositionBufferData
+	{
+		DirectX::XMFLOAT3 position;
+	};
+
 	struct Float4x4BufferData 
 	{
 		DirectX::XMFLOAT4X4 matrix;
@@ -91,6 +96,8 @@ namespace
 	struct SphereBufferData
 	{
 		DirectX::XMFLOAT4 spheres[MAX_SPHERES];
+		DirectX::XMFLOAT4 colors[MAX_SPHERES];
+
 		int sphereCount;
 	};
 
@@ -144,8 +151,13 @@ private:
 	DXBuffer sphereBuffer;
 	DXBuffer triangleBuffer;
 
+	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
+	COMUniquePtr<ID3D11ShaderResourceView> outputColorSRV[2];
+
+	COMUniquePtr<ID3D11UnorderedAccessView> rayColorUAV;
 	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
 	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
+	COMUniquePtr<ID3D11ShaderResourceView> rayColorSRV;
 	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV[2];
 
@@ -155,6 +167,7 @@ private:
 	//Point lights
 	DXBuffer pointlightAttenuationBuffer;
 	DXBuffer pointLightBuffer;
+	DXBuffer cameraPositionBuffer;
 	PointlightBufferData pointLightBufferData;
 	LightAttenuationBufferData pointlightAttenuationBufferData;
 
@@ -170,14 +183,17 @@ private:
 	float lightVerticalSpeed;
 	float lightHorizontalSpeed;
 
+	const static int MAX_BOUNCES = 10;
+
 	std::vector<unsigned int> indexData;
 
 	ComputeShader primaryRayGenerator;
-	ComputeShader trace;
-	ComputeShader shade;
+	ComputeShader traceShader;
+	ComputeShader intersectionShader;
+	ComputeShader compositShader;
 
-	VertexShader billboardVertexShader;
-	PixelShader billboardPixelShader;
+	VertexShader bulbVertexShader;
+	PixelShader bulbPixelShader;
 	DXBuffer bulbProjMatrixBuffer;
 	DXBuffer bulbInstanceBuffer;
 	DXBuffer bulbVertexBuffer;
@@ -219,6 +235,7 @@ private:
 	void DrawRayPrimary();
 	void DrawRayIntersection();
 	void DrawRayShading();
+	void DrawComposit();
 
 	void DrawBulbs();
 

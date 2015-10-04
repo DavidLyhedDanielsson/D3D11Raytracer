@@ -62,8 +62,8 @@ int DictionaryEntry::GetIndexCharacterSize() const
 
 bool DictionaryEntry::Matches(const std::string& text) const
 {
+	int matchIndex = 0; //Number of matching indicies
 	int prevMatchIndex = 0;
-	int matchIndex = 0;
 
 	for(int i = 0, end = static_cast<int>(indexCharacters.size()); i < end; i++)
 	{
@@ -77,9 +77,6 @@ bool DictionaryEntry::Matches(const std::string& text) const
 			if(matchIndex > 0)
 			{
 				int currMatchIndex = matchIndex;
-				matchIndex -= static_cast<int>(substr.size());
-				if(matchIndex < prevMatchIndex)
-					matchIndex = prevMatchIndex;
 
 				bool found = false;
 
@@ -119,8 +116,14 @@ bool DictionaryEntry::Matches(const std::string& text) const
 				break;
 		}
 
-		prevMatchIndex = matchIndex;
-		matchIndex += substrIndex;
+		//If the previous match was better, use it
+		if(prevMatchIndex > matchIndex)
+			matchIndex = prevMatchIndex;
+		else
+		{
+			prevMatchIndex = matchIndex;
+			matchIndex += substrIndex;
+		}
 
 		if(matchIndex == text.size())
 			return true;

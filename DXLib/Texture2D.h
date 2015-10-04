@@ -5,7 +5,8 @@
 
 #include <DirectXMath.h>
 
-class Texture2D : public Content
+class Texture2D 
+	: public Content
 {
 public:
 	Texture2D();

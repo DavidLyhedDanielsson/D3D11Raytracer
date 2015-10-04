@@ -9,6 +9,7 @@ cbuffer pointlightBuffer : register(b0)
 cbuffer sphereBuffer : register(b1)
 {
 	float4 spheres[MAX_SPHERES];
+	float4 sphereColors[MAX_SPHERES];
 	int sphereCount;
 };
 
@@ -25,10 +26,17 @@ cbuffer attenuationBuffer : register(b3)
 	float c;
 };
 
-RWTexture2D<float4> output : register(u0);
+cbuffer cameraPositionBuffer : register(b4)
+{
+	float3 cameraPosition;
+}
+
+RWTexture2D<float4> backbufferOut : register(u0);
 
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayNormals : register(t1);
+Texture2D<float4> rayColors : register(t2);
+Texture2D<float4> backbufferIn : register(t3);
 
 sampler textureSampler : register(s0);
 
@@ -46,30 +54,41 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	if(dot(normal, normal) != 0.0f)
 	{
 		float4 rayPositionAndDepth = rayPositions[threadID.xy];
-
+		
 		for(int i = 0; i < lightCount; i++)
 		{
 			float3 rayLight = lights[i].xyz - rayPositionAndDepth.xyz;
 			float distanceToLight = length(rayLight);
 			float3 rayDirection = normalize(rayLight);
 
-			//if(distanceToLight > lights[i].w * 5.0f)
-			//	continue;
-
 			if(SphereTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPositionAndDepth.xyz, lights[i].xyz, distanceToLight, rayDirection))
 			{
-				float attenuation = lights[i].w / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
-				
 				float3 rayLightDir = normalize(lights[i].xyz - rayPositionAndDepth.xyz);
 			
 				//Diffuse lighting
-				lightFac += max(0.0f, dot(rayLightDir, normal)) * attenuation;
+				float diffuseFac = max(0.0f, dot(rayLightDir, normal));
+
+				float specularFac = 0.0f;
+
+				if(diffuseFac > 0.0f)
+				{
+					//Specular lighting
+					float3 rayCamera = normalize(cameraPosition - rayPositionAndDepth.xyz);
+
+					float3 reflection = reflect(-rayDirection, normal);
+					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
+				}
+
+				lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
 			}
 		}
 	}
 
 	lightFac = saturate(lightFac);
-	output[threadID.xy] = float4(lightFac, lightFac, lightFac, 1.0f);
+
+	float3 color = rayColors[threadID.xy].xyz;
+
+	backbufferOut[threadID.xy] = float4(color * lightFac, 1.0f);
 }
 
 
@@ -123,7 +142,7 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 		float y = dot(rayDirection, precross) * prediv;
 
 		if(distance >= 0.5f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
-			&& distance < distanceToLight * 0.5f)
+			&& distance < distanceToLight * 0.95f)
 		{
 			return false;
 		}

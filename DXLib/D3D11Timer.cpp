@@ -72,6 +72,8 @@ void D3D11Timer::Start()
 
 	deviceContext->Begin(disjointQuery.get());
 	deviceContext->End(startTimeQuery.get());
+
+	stoppedQueries.clear();
 }
 
 void D3D11Timer::Stop(const std::string& string)
@@ -86,6 +88,7 @@ void D3D11Timer::Stop(const std::string& string)
 
 	deviceContext->End(queries[string]);
 	stopOrder.emplace_back(string);
+	stoppedQueries.emplace(string);
 }
 
 std::map<std::string, double> D3D11Timer::Stop()
@@ -111,6 +114,9 @@ std::map<std::string, double> D3D11Timer::Stop()
 
 		for(const std::string& query : stopOrder)
 		{
+			if(stoppedQueries.count(query) == 0)
+				continue;
+
 			UINT64 queryStopTime = 0;
 			while(deviceContext->GetData(queries[query], &queryStopTime, sizeof(queryStopTime), 0) != S_OK);
 

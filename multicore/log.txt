@@ -1,0 +1,4 @@
+[INFO] No UAV expected on slot 1 in shader "Intersection.hlsl" (is it optimized away?)
+[INFO] No UAV expected on slot 1 in shader "Intersection.hlsl" (is it optimized away?)
+[INFO] No SRV expected on slot 3 in shader "Shading.hlsl" (is it optimized away?)
+[INFO] No SRV expected on slot 3 in shader "Shading.hlsl" (is it optimized away?)

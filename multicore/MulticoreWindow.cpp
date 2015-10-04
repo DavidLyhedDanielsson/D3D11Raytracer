@@ -20,19 +20,24 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, backbufferUAV(nullptr)
 	, vertexBuffer(nullptr)
 	, indexBuffer(nullptr)
+	, outputColorUAV { nullptr, nullptr }
+	, outputColorSRV{ nullptr, nullptr }
 	, rayNormalUAV(nullptr)
 	, rayNormalSRV(nullptr)
-	, rayDirectionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr) }
-	, rayPositionUAV{ COMUniquePtr<ID3D11UnorderedAccessView>(nullptr), COMUniquePtr<ID3D11UnorderedAccessView>(nullptr) }
-	, rayDirectionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr), COMUniquePtr<ID3D11ShaderResourceView>(nullptr) }
-	, rayPositionSRV{ COMUniquePtr<ID3D11ShaderResourceView>(nullptr), COMUniquePtr<ID3D11ShaderResourceView>(nullptr) }
+	, rayColorUAV(nullptr)
+	, rayDirectionUAV{ nullptr, nullptr }
+	, rayPositionUAV{ nullptr, nullptr }
+	, rayColorSRV(nullptr)
+	, rayDirectionSRV{ nullptr, nullptr }
+	, rayPositionSRV{ nullptr, nullptr }
 	, billboardBlendState(nullptr)
 	, bulbTexture(nullptr)
 	, primaryRayGenerator("main", "cs_5_0")
-	, trace("main", "cs_5_0")
-	, shade("main", "cs_5_0")
-	, billboardVertexShader("main", "vs_5_0")
-	, billboardPixelShader("main", "ps_5_0")
+	, traceShader("main", "cs_5_0")
+	, intersectionShader("main", "cs_5_0")
+	, compositShader("main", "cs_5_0")
+	, bulbVertexShader("main", "vs_5_0")
+	, bulbPixelShader("main", "ps_5_0")
 	, drawConsole(false)
 {
 }
@@ -196,14 +201,27 @@ void MulticoreWindow::Draw()
 	d3d11Timer.Start();
 	DrawRayPrimary();
 	d3d11Timer.Stop("Primary");
-	DrawRayIntersection();
-	d3d11Timer.Stop("Trace");
-	DrawRayShading();
-	d3d11Timer.Stop("Shade");
+
+	//for(int i = 0; i < 2; ++i)
+	//{
+		DrawRayIntersection();
+		d3d11Timer.Stop("Trace0");
+		DrawRayShading();
+		d3d11Timer.Stop("Shade0");
+	//}
+
+	DrawComposit();
 
 	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
 	for(const auto& pair : d3d11Times)
-		gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
+	{
+		if(pair.first.compare(0, 5, "Trace") == 0)
+			gpuGraph.AddValueToTrack("Trace", static_cast<float>(pair.second));
+		else if(pair.first.compare(0, 5, "Shade") == 0)
+			gpuGraph.AddValueToTrack("Trace", static_cast<float>(pair.second));
+		else
+			gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
+	}
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -347,6 +365,17 @@ bool MulticoreWindow::InitSRVs()
 	if(!CreateUAVSRVCombo(width, height, rayNormalUAV, rayNormalSRV))
 		return false;
 
+	//Color
+	if(!CreateUAVSRVCombo(width, height, rayColorUAV, rayColorSRV))
+		return false;
+
+	//Output
+	if(!CreateUAVSRVCombo(width, height, outputColorUAV[0], outputColorSRV[0]))
+		return false;
+
+	if(!CreateUAVSRVCombo(width, height, outputColorUAV[1], outputColorSRV[1]))
+		return false;
+
 	return true;
 }
 
@@ -361,55 +390,107 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//////////////////////////////////////////////////
 	//Primary rays
 	//////////////////////////////////////////////////
-	ShaderResourceBinds primaryResourceBinds;
-	primaryResourceBinds.AddResource(rayPositionUAV[0].get(), 0);
-	primaryResourceBinds.AddResource(rayDirectionUAV[0].get(), 1);
-	primaryResourceBinds.AddResource(rayNormalUAV.get(), 2);
-	primaryResourceBinds.AddResource(viewProjInverseBuffer.GetBuffer(), 0);
+	ShaderResourceBinds primaryResourceBinds0;
+	primaryResourceBinds0.AddResource(viewProjInverseBuffer.GetBuffer(), 0);
 
-	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds), "");
+	primaryResourceBinds0.AddResource(rayPositionUAV[0].get(), 0);
+	primaryResourceBinds0.AddResource(rayDirectionUAV[0].get(), 1);
+	primaryResourceBinds0.AddResource(rayNormalUAV.get(), 2);
+
+	ShaderResourceBinds primaryResourceBinds1;
+	primaryResourceBinds1.AddResource(viewProjInverseBuffer.GetBuffer(), 0);
+
+	primaryResourceBinds1.AddResource(rayPositionUAV[1].get(), 0);
+	primaryResourceBinds1.AddResource(rayDirectionUAV[1].get(), 1);
+	primaryResourceBinds1.AddResource(rayNormalUAV.get(), 2);
+
+	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds0, primaryResourceBinds1), "");
 
 	//////////////////////////////////////////////////
 	//Intersection
 	//////////////////////////////////////////////////
-	ShaderResourceBinds traceResourceBinds;
-	traceResourceBinds.AddResource(sphereBuffer.GetBuffer(), 0);
-	traceResourceBinds.AddResource(triangleBuffer.GetBuffer(), 1);
-	traceResourceBinds.AddResource(rayPositionUAV[1].get(), 0);
-	traceResourceBinds.AddResource(rayNormalUAV.get(), 1);
-	traceResourceBinds.AddResource(rayPositionSRV[0].get(), 0);
-	traceResourceBinds.AddResource(rayDirectionSRV[0].get(), 1);
+	ShaderResourceBinds traceResourceBinds0;
+	traceResourceBinds0.AddResource(sphereBuffer.GetBuffer(), 0);
+	traceResourceBinds0.AddResource(triangleBuffer.GetBuffer(), 1);
 
-	LogErrorReturnFalse(trace.CreateFromFile("Trace.hlsl", device.get(), traceResourceBinds), "");
+	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
+	traceResourceBinds0.AddResource(rayDirectionUAV[1].get(), 1);
+	traceResourceBinds0.AddResource(rayNormalUAV.get(), 2);
+	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
+
+	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
+	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
+
+	ShaderResourceBinds traceResourceBinds1;
+	traceResourceBinds1.AddResource(sphereBuffer.GetBuffer(), 0);
+	traceResourceBinds1.AddResource(triangleBuffer.GetBuffer(), 1);
+
+	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
+	traceResourceBinds1.AddResource(rayDirectionUAV[0].get(), 1);
+	traceResourceBinds1.AddResource(rayNormalUAV.get(), 2);
+	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
+
+	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
+	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
+
+	LogErrorReturnFalse(traceShader.CreateFromFile("Intersection.hlsl", device.get(), traceResourceBinds0, traceResourceBinds1), "");
 
 	//////////////////////////////////////////////////
 	//Coloring
 	//////////////////////////////////////////////////
-	ShaderResourceBinds shadeResourceBinds;
+	ShaderResourceBinds shadeResourceBinds0;
+	shadeResourceBinds0.AddResource(pointLightBuffer.GetBuffer(), 0);
+	shadeResourceBinds0.AddResource(sphereBuffer.GetBuffer(), 1);
+	shadeResourceBinds0.AddResource(triangleBuffer.GetBuffer(), 2);
+	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer.GetBuffer(), 3);
+	shadeResourceBinds0.AddResource(cameraPositionBuffer.GetBuffer(), 4);
 
-	shadeResourceBinds.AddResource(backbufferUAV.get(), 0);
-	shadeResourceBinds.AddResource(rayPositionSRV[1].get(), 0);
-	shadeResourceBinds.AddResource(rayNormalSRV.get(), 1);
-	shadeResourceBinds.AddResource(pointLightBuffer.GetBuffer(), 0);
-	shadeResourceBinds.AddResource(sphereBuffer.GetBuffer(), 1);
-	shadeResourceBinds.AddResource(triangleBuffer.GetBuffer(), 2);
-	shadeResourceBinds.AddResource(pointlightAttenuationBuffer.GetBuffer(), 3);
+	shadeResourceBinds0.AddResource(outputColorUAV[0].get(), 0);
 
-	LogErrorReturnFalse(shade.CreateFromFile("Shading.hlsl", device.get(), shadeResourceBinds), "");
+	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 0);
+	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 1);
+	shadeResourceBinds0.AddResource(rayColorSRV.get(), 2);
+	shadeResourceBinds0.AddResource(outputColorSRV[1].get(), 3);
+
+	ShaderResourceBinds shadeResourceBinds1;
+	shadeResourceBinds1.AddResource(pointLightBuffer.GetBuffer(), 0);
+	shadeResourceBinds1.AddResource(sphereBuffer.GetBuffer(), 1);
+	shadeResourceBinds1.AddResource(triangleBuffer.GetBuffer(), 2);
+	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer.GetBuffer(), 3);
+	shadeResourceBinds1.AddResource(cameraPositionBuffer.GetBuffer(), 4);
+
+	shadeResourceBinds1.AddResource(outputColorUAV[1].get(), 0);
+
+	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 0);
+	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 1);
+	shadeResourceBinds1.AddResource(rayColorSRV.get(), 2);
+	shadeResourceBinds1.AddResource(outputColorSRV[0].get(), 3);
+
+	LogErrorReturnFalse(intersectionShader.CreateFromFile("Shading.hlsl", device.get(), shadeResourceBinds0, shadeResourceBinds1), "");
 
 	auto reloadShadersCommand = new CommandCallMethod("ReloadShaders", std::bind(&MulticoreWindow::ReloadRaytraceShaders, this, std::placeholders::_1), false);
 	if(!console.AddCommand(reloadShadersCommand))
 		delete reloadShadersCommand;
+
+	ShaderResourceBinds compositResourceBinds0; 
+	compositResourceBinds0.AddResource(backbufferUAV.get(), 0);
+	compositResourceBinds0.AddResource(outputColorSRV[0].get(), 0);
+
+	ShaderResourceBinds compositResourceBinds1;
+	compositResourceBinds1.AddResource(backbufferUAV.get(), 0);
+	compositResourceBinds1.AddResource(outputColorSRV[1].get(), 0);
+
+	LogErrorReturnFalse(compositShader.CreateFromFile("Composit.hlsl", device.get(), compositResourceBinds0, compositResourceBinds1), "");
 
 	return true;
 }
 
 bool MulticoreWindow::InitBulb()
 {
-	LogErrorReturnFalse(billboardPixelShader.CreateFromFile("BillboardPixelShader.cso", device.get()), "Couldnt' load bulb shader: ");
-	LogErrorReturnFalse(billboardVertexShader.CreateFromFile("BillboardVertexShader.cso", device.get()), "Couldnt' load bulb shader: ");
+	LogErrorReturnFalse(bulbPixelShader.CreateFromFile("BulbPixelShader.cso", device.get()), "Couldnt' load bulb shader: ");
+	LogErrorReturnFalse(bulbVertexShader.CreateFromFile("BulbVertexShader.cso", device.get()), "Couldnt' load bulb shader: ");
 
-	billboardVertexShader.SetVertexData(device.get(),
+	bulbVertexShader.SetVertexData(device.get(),
 		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT2, VERTEX_INPUT_DATA::FLOAT4X4 }
 	, std::vector<std::string> { "POSITION", "COLOR", "TEX_COORD", "WORLD_MATRIX" }
 	, std::vector<bool> { false, false, false, true });
@@ -443,30 +524,32 @@ bool MulticoreWindow::InitBulb()
 
 bool MulticoreWindow::InitPointLights()
 {
+	LogErrorReturnFalse(cameraPositionBuffer.Create<CameraPositionBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create point light camera position buffer: ");
+
 	LogErrorReturnFalse(pointlightAttenuationBuffer.Create<LightAttenuationBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
 
-	pointlightAttenuationBufferData.factors[0] = 1.0f;
-	pointlightAttenuationBufferData.factors[1] = 1.0f;
+	pointlightAttenuationBufferData.factors[0] = 2.5f;
+	pointlightAttenuationBufferData.factors[1] = 0.2f;
 	pointlightAttenuationBufferData.factors[2] = 1.0f;
 
 	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
 
-	lightRadius = 100.0f;
+	lightRadius = 15.0f;
 
-	pointLightBufferData.lightCount = 4;
+	pointLightBufferData.lightCount = 5;
 	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
 		pointLightBufferData.lights[i].w = lightRadius;
 
 	LogErrorReturnFalse(pointLightBuffer.Create<PointlightBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
 
 	lightRotationRadius = 5.0f;
-	lightMinHeight = 0.5f;
-	lightMaxHeight = 5.0f;
+	lightMinHeight = 1.0f;
+	lightMaxHeight = 9.5f;
 
-	lightVerticalSpeed = 0.0001f;
-	lightHorizontalSpeed = 0.0001f;
+	lightVerticalSpeed = 0.0005f;
+	lightHorizontalSpeed = 0.0005f;
 
-	lightSinValMult = 1.0f;
+	lightSinValMult = 2.0f;
 	lightOtherSinValMult = 1.0f;
 
 	auto lightRotationRadiusCommand = new CommandGetSet<float>("lightRotationRadius", &lightRotationRadius);
@@ -540,10 +623,15 @@ bool MulticoreWindow::InitGraphs()
 	int gpuMSAverage = 10;
 #endif
 
-	std::vector<Track> gpuTracks;
-	std::vector<std::string> gpuTrackNames;
+	std::vector<Track> gpuTracks{ Track(gpuMSAverage, 1.0f) };
 
-	std::vector<std::string> timerQueries{ "Primary", "Trace", "Shade" };
+	std::vector<std::string> timerQueries{ "Primary" }; // , "Trace", "Shade" };
+
+	for(int i = 0; i < MAX_BOUNCES; i++)
+	{
+		timerQueries.emplace_back("Trace" + std::to_string(i));
+		timerQueries.emplace_back("Shade" + std::to_string(i));
+	}
 
 	if(!d3d11Timer.Init(device.get(), deviceContext.get(), timerQueries))
 	{
@@ -551,12 +639,7 @@ bool MulticoreWindow::InitGraphs()
 		return false;
 	}
 
-	gpuTracks.reserve(gpuTracks.size() + timerQueries.size());
-	for(std::string& name : timerQueries)
-	{
-		gpuTrackNames.emplace_back(std::move(name));
-		gpuTracks.emplace_back(gpuMSAverage, 1.0f);
-	}
+	std::vector<std::string> gpuTrackNames{ "Primary", "Trace", "Shade" };
 
 	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 10.0f, 1, width, height);
 	if(!errorString.empty())
@@ -593,7 +676,7 @@ bool MulticoreWindow::InitRoom()
 
 	float radius = 2.0f;
 
-	for(int i = 5; i < 35; i++)
+	for(int i = 5; i < 35; ++i)
 	{
 		sphereBufferData.spheres[i] = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
 
@@ -602,6 +685,9 @@ bool MulticoreWindow::InitRoom()
 
 		++sphereBufferData.sphereCount;
 	}
+
+	for(int i = 0; i < sphereBufferData.sphereCount; ++i)
+		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 1.0f);
 
 	TriangleBufferData triangleBufferData;
 	triangleBufferData.triangleCount = 12;
@@ -702,8 +788,8 @@ void MulticoreWindow::DrawUpdatePointlights()
 	pointLightBufferData.lights[0].z = 0.0f;
 	pointLightBufferData.lights[0].w = lightRadius;
 
-	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
+	float angleIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightOtherSinValMult;
+	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;
 
 	for(int i = 1; i < pointLightBufferData.lightCount; i++)
 	{
@@ -736,6 +822,11 @@ void MulticoreWindow::DrawUpdateMVP()
 
 	//Bulb viewProjection
 	bulbProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
+
+	//Camera position for shading
+	DirectX::XMFLOAT3 cameraPosition = camera.GetPosition();
+
+	cameraPositionBuffer.Update(deviceContext.get(), &cameraPosition);
 }
 
 void MulticoreWindow::DrawRayPrimary()
@@ -747,16 +838,23 @@ void MulticoreWindow::DrawRayPrimary()
 
 void MulticoreWindow::DrawRayIntersection()
 {
-	trace.Bind(deviceContext.get());
+	traceShader.Bind(deviceContext.get());
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	trace.Unbind(deviceContext.get());
+	traceShader.Unbind(deviceContext.get());
 }
 
 void MulticoreWindow::DrawRayShading()
 {
-	shade.Bind(deviceContext.get());
+	intersectionShader.Bind(deviceContext.get());
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	shade.Unbind(deviceContext.get());
+	intersectionShader.Unbind(deviceContext.get());
+}
+
+void MulticoreWindow::DrawComposit()
+{
+	compositShader.Bind(deviceContext.get());
+	deviceContext->Dispatch(dispatchX, dispatchY, 1);
+	compositShader.Unbind(deviceContext.get());
 }
 
 void MulticoreWindow::DrawBulbs()
@@ -787,11 +885,11 @@ void MulticoreWindow::DrawBulbs()
 	deviceContext->OMSetBlendState(billboardBlendState, blendFac, 0xFFFFFFFF);
 	deviceContext->RSSetState(billboardRasterizerState);
 
-	billboardVertexShader.Bind(deviceContext.get());
-	billboardPixelShader.Bind(deviceContext.get());
+	bulbVertexShader.Bind(deviceContext.get());
+	bulbPixelShader.Bind(deviceContext.get());
 	deviceContext->DrawInstanced(6, pointLightBufferData.lightCount, 0, 0);
-	billboardVertexShader.Unbind(deviceContext.get());
-	billboardPixelShader.Unbind(deviceContext.get());
+	bulbVertexShader.Unbind(deviceContext.get());
+	bulbPixelShader.Unbind(deviceContext.get());
 }
 
 Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argument)
@@ -853,10 +951,10 @@ Argument MulticoreWindow::ReloadRaytraceShaders(const std::vector<Argument>& arg
 	std::string errorString = primaryRayGenerator.Recreate(device.get());
 	if(!errorString.empty())
 		return "Couldn't reload primary ray shader: " + errorString;
-	errorString = trace.Recreate(device.get());
+	errorString = traceShader.Recreate(device.get());
 	if(!errorString.empty())
 		return "Couldn't reload primary ray shader: " + errorString;
-	errorString = shade.Recreate(device.get());
+	errorString = intersectionShader.Recreate(device.get());
 	if(!errorString.empty())
 		return "Couldn't reload primary ray shader: " + errorString;
 
