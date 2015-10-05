@@ -90,42 +90,31 @@ void FPSCamera::MoveUp(float units)
 
 void FPSCamera::Rotate(DirectX::XMFLOAT2 angle)
 {
-	DirectX::XMVECTOR xmAngle = DirectX::XMLoadFloat2(&angle);
+	//DirectX::XMVECTOR xmAngle = DirectX::XMLoadFloat2(&angle);
 
 	if(pitch + angle.y >= DirectX::XM_PIDIV2)
 	{
-		pitch = DirectX::XM_PIDIV2;
 		angle.y = DirectX::XM_PIDIV2 - pitch;
+		pitch = DirectX::XM_PIDIV2;
 	}
 	else if(pitch + angle.y <= -DirectX::XM_PIDIV2)
 	{
-		pitch = -DirectX::XM_PIDIV2;
 		angle.y = -DirectX::XM_PIDIV2 - pitch;
+		pitch = -DirectX::XM_PIDIV2;
 	}
+	else
+		pitch += angle.y;
 
-	xmAngle = DirectX::XMLoadFloat2(&angle);
+	DirectX::XMMATRIX pitchRotation = DirectX::XMMatrixRotationAxis(XMLoadFloat3(&right), angle.y);
 
+	DirectX::XMStoreFloat3(&relativeUp, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&relativeUp), pitchRotation));
+	DirectX::XMStoreFloat3(&forward, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&forward), pitchRotation));
 
-	if(DirectX::XMVectorGetX(DirectX::XMVector2LengthEst(xmAngle)) <= 0.0001f)
-		return;
+	DirectX::XMMATRIX yawRotation = DirectX::XMMatrixRotationY(angle.x);
 
-	pitch += angle.y;
-
-	DirectX::XMFLOAT3 up(0.0f, 1.0f, 0.0f);
-	DirectX::XMVECTOR xmUp = DirectX::XMLoadFloat3(&up);
-	DirectX::XMVECTOR xmRight = DirectX::XMLoadFloat3(&right);
-
-	xmRight = DirectX::XMVectorMultiply(xmRight, DirectX::XMVectorReplicate(angle.y));
-	xmUp = DirectX::XMVectorMultiply(xmUp, DirectX::XMVectorReplicate(angle.x));
-
-	DirectX::XMVECTOR rotationVector = DirectX::XMVector2Normalize(DirectX::XMVectorAdd(xmUp, xmRight));
-
-	DirectX::XMMATRIX rotation = DirectX::XMMatrixRotationAxis(rotationVector, DirectX::XMVectorGetX(DirectX::XMVector2Length(xmAngle)));
-
-	DirectX::XMStoreFloat3(&relativeUp, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&relativeUp), rotation));
-	DirectX::XMStoreFloat3(&forward, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&forward), rotation));
-	DirectX::XMStoreFloat3(&right, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&right), rotation));
-
+	DirectX::XMStoreFloat3(&right, DirectX::XMVector3TransformNormal(DirectX::XMLoadFloat3(&right), yawRotation));
+	DirectX::XMStoreFloat3(&relativeUp, XMVector3TransformNormal(XMLoadFloat3(&relativeUp), yawRotation));
+	DirectX::XMStoreFloat3(&forward, XMVector3TransformNormal(XMLoadFloat3(&forward), yawRotation));
 }
 
 void FPSCamera::CalcRight()

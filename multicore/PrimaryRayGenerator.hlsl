@@ -33,5 +33,5 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	outputPosition[threadID.xy] = float4(origin.xyz, 0.0f);
 	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
 	outputNormal[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
-	outputColor[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
+	outputColor[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
 }

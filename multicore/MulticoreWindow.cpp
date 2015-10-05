@@ -692,10 +692,28 @@ bool MulticoreWindow::InitRoom()
 	}
 
 	for(int i = 0; i < sphereBufferData.sphereCount; ++i)
-		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 1.0f);
+		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.0f);
 
 	TriangleBufferData triangleBufferData;
 	triangleBufferData.triangleCount = 12;
+
+	triangleBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+
+	triangleBufferData.colors[2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[3] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+
+	triangleBufferData.colors[4] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
+	triangleBufferData.colors[5] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
+
+	triangleBufferData.colors[6] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
+	triangleBufferData.colors[7] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
+
+	triangleBufferData.colors[8] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
+	triangleBufferData.colors[9] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
+	
+	triangleBufferData.colors[10] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
+	triangleBufferData.colors[11] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
 
 	float height = 10.0f;
 	float size = 12.0f;

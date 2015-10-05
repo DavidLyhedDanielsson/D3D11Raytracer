@@ -16,6 +16,7 @@ cbuffer sphereBuffer : register(b1)
 cbuffer triangleBuffer : register(b2)
 {
 	float4 vertices[MAX_TRIANGLES * 3];
+	float4 triangleColors[MAX_TRIANGLES];
 	int triangleCount;
 };
 
@@ -86,10 +87,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	lightFac = saturate(lightFac);
 
-	float3 oldColor = backbufferIn[threadID.xy].xyz * 0.5f;
-	float3 color = rayColors[threadID.xy].xyz * 1.0;
+	float3 oldColor = backbufferIn[threadID.xy].xyz;
+	float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w;
 
-	backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, 1.0f);
+	backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, max(backbufferIn[threadID.xy].w - rayColors[threadID.xy].w, 0.0f));
 }
 
 

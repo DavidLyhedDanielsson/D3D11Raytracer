@@ -20,6 +20,7 @@ cbuffer sphereBuffer : register(b0)
 cbuffer triangleBuffer : register(b1)
 {
 	float4 vertices[MAX_TRIANGLES * 3];
+	float4 triangleColors[MAX_TRIANGLES];
 	int triangleCount;
 };
 
@@ -51,9 +52,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	rayNormalOut[threadID.xy] = float4(normal, 0.0f);
 
 	if(closestTriangle != -1)
-		rayColorOut[threadID.xy] = float4(0.4f, 0.2f, 0.2f, 1.0f);
+		rayColorOut[threadID.xy] = triangleColors[closestTriangle];
 	else
-		rayColorOut[threadID.xy] = float4(sphereColors[closestSphere]);
+		rayColorOut[threadID.xy] = sphereColors[closestSphere];
 }
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal, inout int closestIndex)

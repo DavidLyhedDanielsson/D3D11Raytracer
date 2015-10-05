@@ -104,6 +104,7 @@ namespace
 	struct TriangleBufferData
 	{
 		DirectX::XMFLOAT4 triangles[MAX_TRIANGLES * 3];
+		DirectX::XMFLOAT4 colors[MAX_TRIANGLES];
 		int triangleCount;
 	};
 }

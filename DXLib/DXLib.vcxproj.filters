@@ -13,9 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\states">
-      <UniqueIdentifier>{72b46a63-9986-41eb-8923-7c0b10fbb935}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\states">
       <UniqueIdentifier>{28c9c09b-0575-4e8e-8fd1-d113c04c3832}</UniqueIdentifier>
     </Filter>
@@ -24,6 +21,9 @@
     </Filter>
     <Filter Include="Source Files\Shader">
       <UniqueIdentifier>{1b6c9412-4ece-40cf-85bd-9d2a5d1cdfb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\States">
+      <UniqueIdentifier>{72b46a63-9986-41eb-8923-7c0b10fbb935}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -201,19 +201,19 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="BlendStates.h">
-      <Filter>Header Files\states</Filter>
+      <Filter>Header Files\States</Filter>
     </ClInclude>
     <ClInclude Include="DepthStencilStates.h">
-      <Filter>Header Files\states</Filter>
+      <Filter>Header Files\States</Filter>
     </ClInclude>
     <ClInclude Include="SamplerStates.h">
-      <Filter>Header Files\states</Filter>
+      <Filter>Header Files\States</Filter>
     </ClInclude>
     <ClInclude Include="States.h">
-      <Filter>Header Files\states</Filter>
+      <Filter>Header Files\States</Filter>
     </ClInclude>
     <ClInclude Include="RasterizerStates.h">
-      <Filter>Header Files\states</Filter>
+      <Filter>Header Files\States</Filter>
     </ClInclude>
     <ClInclude Include="ShaderResourceBinds.h">
       <Filter>Header Files\Shader</Filter>
@@ -222,6 +222,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="OBJFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderProgram.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
