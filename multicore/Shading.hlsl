@@ -44,7 +44,7 @@ sampler textureSampler : register(s0);
 bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
 bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
 
-const static float AMBIENT_FAC = 0.25f;
+const static float AMBIENT_FAC = 0.3f;
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -52,47 +52,53 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float3 normal = rayNormals[threadID.xy].xyz;
 	float lightFac = AMBIENT_FAC;
 
-	if(dot(normal, normal) != 0.0f)
+	if(backbufferIn[threadID.xy].w > 0.01f)
 	{
-		float3 rayPosition = rayPositions[threadID.xy].xyz;
-		
-		for(int i = 0; i < lightCount; i++)
+		if(dot(normal, normal) != 0.0f)
 		{
-			float3 rayLight = lights[i].xyz - rayPosition;
-			float distanceToLight = length(rayLight);
-			float3 rayDirection = normalize(rayLight);
-
-			if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
+			float3 rayPosition = rayPositions[threadID.xy].xyz;
+		
+			for(int i = 0; i < lightCount; i++)
 			{
-				float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
-			
-				//Diffuse lighting
-				float diffuseFac = max(0.0f, dot(rayLightDir, normal));
+				float3 rayLight = lights[i].xyz - rayPosition;
+				float distanceToLight = length(rayLight);
+				float3 rayDirection = normalize(rayLight);
 
-				float specularFac = 0.0f;
-
-				if(diffuseFac > 0.0f)
+				if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
 				{
-					//Specular lighting
-					float3 rayCamera = normalize(cameraPosition - rayPosition);
+					float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
+			
+					//Diffuse lighting
+					float diffuseFac = max(0.0f, dot(rayLightDir, normal));
 
-					float3 reflection = reflect(-rayDirection, normal);
-					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
+					float specularFac = 0.0f;
+
+					if(diffuseFac > 0.0f)
+					{
+						//Specular lighting
+						float3 rayCamera = normalize(cameraPosition - rayPosition);
+
+						float3 reflection = reflect(-rayDirection, normal);
+						specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
+					}
+
+					lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
 				}
-
-				lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
 			}
 		}
+
+		lightFac = saturate(lightFac);
+
+		float3 oldColor = backbufferIn[threadID.xy].xyz;
+		float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w;
+
+		backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, backbufferIn[threadID.xy].w * rayColors[threadID.xy].w);
 	}
-
-	lightFac = saturate(lightFac);
-
-	float3 oldColor = backbufferIn[threadID.xy].xyz;
-	float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w;
-
-	backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, max(backbufferIn[threadID.xy].w - rayColors[threadID.xy].w, 0.0f));
+	else
+	{
+		backbufferOut[threadID.xy] = float4(backbufferIn[threadID.xy].xyz, 0.0f);
+	}
 }
-
 
 bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection)
 {

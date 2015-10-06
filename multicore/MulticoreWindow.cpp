@@ -646,7 +646,7 @@ bool MulticoreWindow::InitGraphs()
 
 	std::vector<std::string> gpuTrackNames{ "Primary", "Trace", "Shade" };
 
-	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 10.0f, 1, width, height);
+	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 100.0f, 1, width, height);
 	if(!errorString.empty())
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize GPU graph: " + errorString);
@@ -692,28 +692,31 @@ bool MulticoreWindow::InitRoom()
 	}
 
 	for(int i = 0; i < sphereBufferData.sphereCount; ++i)
-		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.0f);
+		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 1.0f);
 
 	TriangleBufferData triangleBufferData;
-	triangleBufferData.triangleCount = 12;
+	triangleBufferData.triangleCount = 14;
 
-	triangleBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	triangleBufferData.colors[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
 
-	triangleBufferData.colors[2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	triangleBufferData.colors[3] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[3] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
 
-	triangleBufferData.colors[4] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
-	triangleBufferData.colors[5] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
+	triangleBufferData.colors[4] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+	triangleBufferData.colors[5] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
 
-	triangleBufferData.colors[6] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
-	triangleBufferData.colors[7] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
+	triangleBufferData.colors[6] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[7] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
 
 	triangleBufferData.colors[8] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
 	triangleBufferData.colors[9] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
 	
 	triangleBufferData.colors[10] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
 	triangleBufferData.colors[11] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
+
+	triangleBufferData.colors[12] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[13] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 
 	float height = 10.0f;
 	float size = 12.0f;
@@ -763,14 +766,23 @@ bool MulticoreWindow::InitRoom()
 	triangleBufferData.triangles[28] = DirectX::XMFLOAT4(size, height, size, 0.0f);
 	triangleBufferData.triangles[29] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
 
-	//x- wall
-	triangleBufferData.triangles[30] = DirectX::XMFLOAT4(-size, 0.0f, -size, 0.0f);
+	//half (z+) x- wall
+	triangleBufferData.triangles[30] = DirectX::XMFLOAT4(-size, 0.0f, 0.0f, 0.0f);
 	triangleBufferData.triangles[31] = DirectX::XMFLOAT4(-size, 0.0f, size, 0.0f);
-	triangleBufferData.triangles[32] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
+	triangleBufferData.triangles[32] = DirectX::XMFLOAT4(-size, height, 0.0f, 0.0f);
 
-	triangleBufferData.triangles[33] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
+	triangleBufferData.triangles[33] = DirectX::XMFLOAT4(-size, height, 0.0f, 0.0f);
 	triangleBufferData.triangles[34] = DirectX::XMFLOAT4(-size, 0.0f, size, 0.0f);
 	triangleBufferData.triangles[35] = DirectX::XMFLOAT4(-size, height, size, 0.0f);
+
+	//half (z-) x- wall
+	triangleBufferData.triangles[36] = DirectX::XMFLOAT4(-size, 0.0f, -size, 0.0f);
+	triangleBufferData.triangles[37] = DirectX::XMFLOAT4(-size, 0.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[38] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
+
+	triangleBufferData.triangles[39] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
+	triangleBufferData.triangles[40] = DirectX::XMFLOAT4(-size, 0.0f, 0.0f, 0.0f);
+	triangleBufferData.triangles[41] = DirectX::XMFLOAT4(-size, height, 0.0f, 0.0f);
 
 	//////////////////////////////////////////////////
 	//Buffers
