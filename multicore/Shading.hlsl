@@ -15,8 +15,9 @@ cbuffer sphereBuffer : register(b1)
 
 cbuffer triangleBuffer : register(b2)
 {
-	float4 vertices[MAX_TRIANGLES * 3];
-	float4 triangleColors[MAX_TRIANGLES];
+	float4 vertices[MAX_VERTICES];
+	int4 indicies[MAX_INDICIES / 3];
+	float4 triangleColors[MAX_INDICIES / 3];
 	int triangleCount;
 };
 
@@ -52,38 +53,36 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float3 normal = rayNormals[threadID.xy].xyz;
 	float lightFac = AMBIENT_FAC;
 
-	if(backbufferIn[threadID.xy].w > 0.01f)
+	if(dot(normal, normal) != 0.0f
+		&& backbufferIn[threadID.xy].w > 0.01f)
 	{
-		if(dot(normal, normal) != 0.0f)
-		{
-			float3 rayPosition = rayPositions[threadID.xy].xyz;
+		float3 rayPosition = rayPositions[threadID.xy].xyz;
 		
-			for(int i = 0; i < lightCount; i++)
+		for(int i = 0; i < lightCount; i++)
+		{
+			float3 rayLight = lights[i].xyz - rayPosition;
+			float distanceToLight = length(rayLight);
+			float3 rayDirection = normalize(rayLight);
+
+			if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
 			{
-				float3 rayLight = lights[i].xyz - rayPosition;
-				float distanceToLight = length(rayLight);
-				float3 rayDirection = normalize(rayLight);
-
-				if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
-				{
-					float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
+				float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
 			
-					//Diffuse lighting
-					float diffuseFac = max(0.0f, dot(rayLightDir, normal));
+				//Diffuse lighting
+				float diffuseFac = max(0.0f, dot(rayLightDir, normal));
 
-					float specularFac = 0.0f;
+				float specularFac = 0.0f;
 
-					if(diffuseFac > 0.0f)
-					{
-						//Specular lighting
-						float3 rayCamera = normalize(cameraPosition - rayPosition);
+				if(diffuseFac > 0.0f)
+				{
+					//Specular lighting
+					float3 rayCamera = normalize(cameraPosition - rayPosition);
 
-						float3 reflection = reflect(-rayDirection, normal);
-						specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
-					}
-
-					lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
+					float3 reflection = reflect(-rayDirection, normal);
+					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
 				}
+
+				lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
 			}
 		}
 
@@ -92,7 +91,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		float3 oldColor = backbufferIn[threadID.xy].xyz;
 		float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w;
 
-		backbufferOut[threadID.xy] = float4(oldColor + color * lightFac, backbufferIn[threadID.xy].w * rayColors[threadID.xy].w);
+		float3 outColor = oldColor + color * lightFac;
+
+		backbufferOut[threadID.xy] = float4(outColor, backbufferIn[threadID.xy].w * rayColors[threadID.xy].w);
 	}
 	else
 	{
@@ -134,9 +135,9 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 
 	for(int i = 0; i < triangleCount; ++i)
 	{
-		float3 v0 = vertices[i * 3].xyz;
-		float3 v1 = vertices[i * 3 + 1].xyz;
-		float3 v2 = vertices[i * 3 + 2].xyz;
+		float3 v0 = vertices[indicies[i].x].xyz;
+		float3 v1 = vertices[indicies[i].y].xyz;
+		float3 v2 = vertices[indicies[i].z].xyz;
 
 		float3 v0v2 = v2 - v0;
 		float3 v0v1 = v1 - v0;

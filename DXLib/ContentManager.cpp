@@ -18,7 +18,11 @@ void ContentManager::Unload()
 {
 	for(auto iter : contentMap)
 	{
-		iter.second->Unload(this);
+		if(iter.second->IsLoaded())
+		{
+			iter.second->Unload(this);
+			iter.second->path = "";
+		}
 	}
 
 	for(auto iter : contentMap)
@@ -61,10 +65,7 @@ void ContentManager::Unload(Content* content)
 	std::string path = content->path;
 
 	if(path == "") //"Local" content, it's not in contentMap
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Trying to unload content where path = \"\". Make sure to only load content through ContentManager");
 		return;
-	}
 
 	auto iter = contentMap.find(path);
 

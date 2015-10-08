@@ -19,8 +19,9 @@ cbuffer sphereBuffer : register(b0)
 
 cbuffer triangleBuffer : register(b1)
 {
-	float4 vertices[MAX_TRIANGLES * 3];
-	float4 triangleColors[MAX_TRIANGLES];
+	float4 vertices[MAX_VERTICES];
+	int4 indicies[MAX_INDICIES / 3];
+	float4 triangleColors[MAX_INDICIES / 3];
 	int triangleCount;
 };
 
@@ -45,10 +46,14 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	TriangleTrace(rayPosition.xyz, rayDirection, depth, normal, closestTriangle);
 	
 	if(dot(normal, normal) == 0.0f)
+	{
+		rayNormalOut[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 		return;
+	}
 
 	rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, 0.0f);
-	rayDirectionsOut[threadID.xy] = float4(reflect(rayDirection, normal), 0.0f);
+	float3 outDirection = reflect(rayDirection, normal);
+	rayDirectionsOut[threadID.xy] = float4(outDirection, 0.0f);
 	rayNormalOut[threadID.xy] = float4(normal, 0.0f);
 
 	if(closestTriangle != -1)
@@ -103,9 +108,9 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 
 	for(int i = 0; i < triangleCount; ++i)
 	{
-		float3 v0 = vertices[i * 3].xyz;
-		float3 v1 = vertices[i * 3 + 1].xyz;
-		float3 v2 = vertices[i * 3 + 2].xyz;
+		float3 v0 = vertices[indicies[i].x].xyz;
+		float3 v1 = vertices[indicies[i].y].xyz;
+		float3 v2 = vertices[indicies[i].z].xyz;
 
 		float3 v0v2 = v2 - v0;
 		float3 v0v1 = v1 - v0;
@@ -129,9 +134,9 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 	if(closestTriangleIndex == -1)
 		return;
 
-	float3 v0 = vertices[closestTriangleIndex * 3].xyz;
-	float3 v1 = vertices[closestTriangleIndex * 3 + 1].xyz;
-	float3 v2 = vertices[closestTriangleIndex * 3 + 2].xyz;
+	float3 v0 = vertices[indicies[closestTriangleIndex].x].xyz;
+	float3 v1 = vertices[indicies[closestTriangleIndex].y].xyz;
+	float3 v2 = vertices[indicies[closestTriangleIndex].z].xyz;
 
 	currentNormal = normalize(cross(v2 - v0, v1 - v0));
 

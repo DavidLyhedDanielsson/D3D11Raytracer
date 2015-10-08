@@ -12,9 +12,9 @@
 #include <DXLib/keyState.h>
 #include <DXLib/D3D11Timer.h>
 #include <DXLib/DXBuffer.h>
+#include <DXLib/OBJFile.h>
 
 #include <DXConsole/guiManager.h>
-#include <DXConsole/Console.h>
 #include <DXConsole/Console.h>
 
 #include <DirectXMath.h>
@@ -36,7 +36,10 @@ enum class BUFFER_DATA_TYPES
 
 const static int MAX_POINT_LIGHTS = 10;
 const static int MAX_SPHERES = 64;
-const static int MAX_TRIANGLES = 64;
+
+const static int MAX_TRIANGLES = 256;
+const static int MAX_VERTICES = MAX_TRIANGLES * 3;
+const static int MAX_INDICIES = MAX_TRIANGLES * 3;
 
 #define LogErrorReturnFalse(functionCall, messagePrefix)				\
 {																		\
@@ -103,8 +106,9 @@ namespace
 
 	struct TriangleBufferData
 	{
-		DirectX::XMFLOAT4 triangles[MAX_TRIANGLES * 3];
-		DirectX::XMFLOAT4 colors[MAX_TRIANGLES];
+		DirectX::XMFLOAT4 vertices[MAX_VERTICES];
+		DirectX::XMINT4 triangleIndicies[MAX_INDICIES / 3];
+		DirectX::XMFLOAT4 colors[MAX_INDICIES / 3];
 		int triangleCount;
 	};
 }
@@ -150,7 +154,7 @@ private:
 	DXBuffer viewProjMatrixBuffer;
 	DXBuffer viewProjInverseBuffer;
 	DXBuffer sphereBuffer;
-	DXBuffer triangleBuffer;
+	//DXBuffer triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> outputColorSRV[2];
@@ -166,6 +170,8 @@ private:
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
 	
 	int rayBounces;
+
+	OBJFile* swordOBJ;
 
 	//Point lights
 	DXBuffer pointlightAttenuationBuffer;
@@ -204,6 +210,11 @@ private:
 	Float4x4BufferData bulbInstanceData[MAX_POINT_LIGHTS];
 	Texture2D* bulbTexture;
 
+	//////////////////////////////////////////////////
+	//OBJ
+	//////////////////////////////////////////////////
+	DXBuffer objBuffer;
+
 	ContentManager contentManager;
 	SpriteRenderer spriteRenderer;
 
@@ -228,6 +239,7 @@ private:
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
+	bool InitOBJ();
 
 	void InitInput();
 	void InitConsole();
