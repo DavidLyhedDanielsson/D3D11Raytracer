@@ -152,7 +152,6 @@
   <ItemGroup>
     <ClCompile Include="ComputeShader.cpp" />
     <ClCompile Include="DX11Window.cpp" />
-    <ClCompile Include="FPSCamera.cpp" />
     <ClCompile Include="Graph.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MulticoreWindow.cpp" />
@@ -160,7 +159,6 @@
   <ItemGroup>
     <ClInclude Include="ComputeShader.h" />
     <ClInclude Include="DX11Window.h" />
-    <ClInclude Include="FPSCamera.h" />
     <ClInclude Include="Graph.h" />
     <ClInclude Include="MulticoreWindow.h" />
     <ClInclude Include="resource.h" />

@@ -67,7 +67,7 @@ bool MulticoreWindow::Init()
 	if(!console.AddCommand(rayBouncesCommand))
 		delete rayBouncesCommand;
 
-	InitOBJ();
+	//InitOBJ();
 
 	if(!InitSRVs())
 		return false;
@@ -84,7 +84,7 @@ bool MulticoreWindow::Init()
 		return false;
 
 	//Etc
-	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, -3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 2.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 
 	POINT midPoint;
 	midPoint.x = 640;
@@ -185,8 +185,6 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 			camera.MoveUp(cameraSpeed);
 		else if(keyMap.count(VK_CONTROL))
 			camera.MoveUp(-cameraSpeed);
-
-		camera.CalcViewMatrix();
 	}
 
 	guiManager.Update(delta);
@@ -670,6 +668,7 @@ bool MulticoreWindow::InitRoom()
 {
 	SphereBufferData sphereBufferData;
 	sphereBufferData.sphereCount = 5;
+
 	sphereBufferData.spheres[0] = DirectX::XMFLOAT4(2.0f, 0.0f, 0.0f, 0.5f);
 	sphereBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 	sphereBufferData.spheres[1] = DirectX::XMFLOAT4(-2.0f, 0.0f, 0.0f, 0.5f);

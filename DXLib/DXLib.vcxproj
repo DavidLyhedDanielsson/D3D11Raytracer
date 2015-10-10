@@ -27,6 +27,8 @@
     <ClCompile Include="D3D11Timer.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DepthStencilStates.cpp" />
+    <ClCompile Include="DXMath.cpp" />
+    <ClCompile Include="FPSCamera.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="OBJFile.cpp" />
@@ -60,6 +62,8 @@
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="DepthStencilStates.h" />
     <ClInclude Include="DirectXHelpers.h" />
+    <ClInclude Include="DXMath.h" />
+    <ClInclude Include="FPSCamera.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="KeyState.h" />
     <ClInclude Include="Logger.h" />

@@ -12,6 +12,7 @@
 #include <DXLib/keyState.h>
 #include <DXLib/D3D11Timer.h>
 #include <DXLib/DXBuffer.h>
+#include <DXLib/FPSCamera.h>
 #include <DXLib/OBJFile.h>
 
 #include <DXConsole/guiManager.h>
@@ -19,7 +20,6 @@
 
 #include <DirectXMath.h>
 
-#include "FPSCamera.h"
 #include "Graph.h"
 #include "ComputeShader.h"
 
