@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BlendStates.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CharacterSet.cpp" />
     <ClCompile Include="DXBuffer.cpp" />
     <ClCompile Include="Content.cpp" />
@@ -48,6 +49,7 @@
   <ItemGroup>
     <ClInclude Include="BatchData.h" />
     <ClInclude Include="BlendStates.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="Character.h" />
     <ClInclude Include="CharacterBlock.h" />
     <ClInclude Include="CharacterSet.h" />

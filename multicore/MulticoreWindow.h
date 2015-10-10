@@ -137,6 +137,8 @@ private:
 	int dispatchX;
 	int dispatchY;
 
+	int lightFocus;
+
 	bool paused;
 
 	FPSCamera camera;

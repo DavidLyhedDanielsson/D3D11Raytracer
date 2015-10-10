@@ -84,7 +84,7 @@ bool MulticoreWindow::Init()
 		return false;
 
 	//Etc
-	camera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 2.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	camera.InitFovHorizontal(DirectX::XMFLOAT3(3.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 
 	POINT midPoint;
 	midPoint.x = 640;
