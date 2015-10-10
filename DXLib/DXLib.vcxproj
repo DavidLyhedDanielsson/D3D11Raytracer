@@ -22,6 +22,7 @@
     <ClCompile Include="BlendStates.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CharacterSet.cpp" />
+    <ClCompile Include="CinematicCamera.cpp" />
     <ClCompile Include="DXBuffer.cpp" />
     <ClCompile Include="Content.cpp" />
     <ClCompile Include="ContentManager.cpp" />
@@ -53,6 +54,7 @@
     <ClInclude Include="Character.h" />
     <ClInclude Include="CharacterBlock.h" />
     <ClInclude Include="CharacterSet.h" />
+    <ClInclude Include="CinematicCamera.h" />
     <ClInclude Include="DXBuffer.h" />
     <ClInclude Include="ConstructedString.h" />
     <ClInclude Include="Content.h" />
@@ -189,6 +191,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>NOMINMAX;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

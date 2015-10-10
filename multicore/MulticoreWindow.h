@@ -13,12 +13,13 @@
 #include <DXLib/D3D11Timer.h>
 #include <DXLib/DXBuffer.h>
 #include <DXLib/FPSCamera.h>
+#include <DXLib/CinematicCamera.h>
 #include <DXLib/OBJFile.h>
+#include <DXLib/DXMath.h>
 
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
 
-#include <DirectXMath.h>
 
 #include "Graph.h"
 #include "ComputeShader.h"
@@ -137,11 +138,13 @@ private:
 	int dispatchX;
 	int dispatchY;
 
-	int lightFocus;
+	int lightFocus = 0;
 
 	bool paused;
 
-	FPSCamera camera;
+	FPSCamera fpsCamera;
+	CinematicCamera cinematicCamera;
+	Camera* currentCamera;
 
 	std::unordered_set<int> keyMap;
 
@@ -233,6 +236,19 @@ private:
 	Console console;
 	bool drawConsole;
 
+	//////////////////////////////////////////////////
+	//Etc
+	//////////////////////////////////////////////////
+	DirectX::XMFLOAT3 cameraLookAt;
+	std::vector<DirectX::XMFLOAT3> cameraAnchors;
+
+	TriangleBufferData triangleBufferData;
+
+	Argument ResetCamera(const std::vector<Argument>& argument);
+	Argument PauseCamera(const std::vector<Argument>& argument);
+	Argument StartCamera(const std::vector<Argument>& argument);
+
+	Argument AddCameraSnapshot(const std::vector<Argument>& argument);
 
 	bool InitSRVs();
 	bool InitRaytraceShaders();

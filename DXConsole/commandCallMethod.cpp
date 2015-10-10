@@ -1,7 +1,6 @@
 #include "commandCallMethod.h"
 
-CommandCallMethod::CommandCallMethod(const std::string& name, std::function<Argument(const std::vector<Argument>&)> callMethod, bool forceStringArguments) 
-	: ConsoleCommand(name, forceStringArguments)
+CommandCallMethod::CommandCallMethod(const std::string& name, std::function<Argument(const std::vector<Argument>&)> callMethod, bool forceStringArguments /*= false*/) : ConsoleCommand(name, forceStringArguments)
 	, callMethod(callMethod)
 {}
 

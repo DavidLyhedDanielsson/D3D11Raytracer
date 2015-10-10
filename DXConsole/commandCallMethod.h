@@ -9,7 +9,7 @@ class CommandCallMethod
 		: public ConsoleCommand
 {
 public:
-	CommandCallMethod(const std::string& name, std::function<Argument(const std::vector<Argument>&)> callMethod, bool forceStringArguments);
+	CommandCallMethod(const std::string& name, std::function<Argument(const std::vector<Argument>&)> callMethod, bool forceStringArguments = false);
 	virtual ~CommandCallMethod() = default;
 
 	Argument Execute(const ContextPointers* const contextPointers, const std::vector<Argument>& arguments) override;
