@@ -3,9 +3,7 @@
 cbuffer cameraData : register(b0)
 {
 	float4x4 viewProjMatrix;
-	float3 cameraPosition;
 };
-
 
 struct VSIn
 {

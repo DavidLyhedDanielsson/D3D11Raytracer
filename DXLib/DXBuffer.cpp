@@ -30,7 +30,10 @@ std::string DXBuffer::CreateInternal(ID3D11Device* device, D3D11_BIND_FLAG bindF
 {
 	//DX requires buffer size to be multiples of 16
 	this->size = size;
-	this->paddedSize = size + (16 - (size % 16));
+	this->paddedSize = size;
+
+	if(size % 16 != 0)
+		this->paddedSize = size + (16 - (size % 16));
 
 	D3D11_BUFFER_DESC viewProjBufferDesc;
 	viewProjBufferDesc.ByteWidth = paddedSize;

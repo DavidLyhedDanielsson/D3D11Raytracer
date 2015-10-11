@@ -14,6 +14,8 @@
 class ComputeShader;
 class PixelShader;
 class VertexShader;
+class HullShader;
+class DomainShader;
 
 class ShaderResourceBinds
 {
@@ -72,6 +74,28 @@ public:
 	}
 
 	template<>
+	void Bind<HullShader>(ID3D11DeviceContext* deviceContext)
+	{
+		for(const auto& pair : cbuffers)
+			deviceContext->HSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplers)
+			deviceContext->HSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvs)
+			deviceContext->HSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+	}
+
+	template<>
+	void Bind<DomainShader>(ID3D11DeviceContext* deviceContext)
+	{
+		for(const auto& pair : cbuffers)
+			deviceContext->DSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplers)
+			deviceContext->DSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvs)
+			deviceContext->DSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+	}
+
+	template<>
 	void Unbind<ComputeShader>(ID3D11DeviceContext* deviceContext)
 	{
 		if(cbufferCount > 0)
@@ -104,6 +128,28 @@ public:
 			deviceContext->PSSetSamplers(0, samplerCount, &samplersNullptr[0]);
 		if(srvCount > 0)
 			deviceContext->PSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+	}
+
+	template<>
+	void Unbind<HullShader>(ID3D11DeviceContext* deviceContext)
+	{
+		if(cbufferCount > 0)
+			deviceContext->HSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
+		if(samplerCount > 0)
+			deviceContext->HSSetSamplers(0, samplerCount, &samplersNullptr[0]);
+		if(srvCount > 0)
+			deviceContext->HSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+	}
+
+	template<>
+	void Unbind<DomainShader>(ID3D11DeviceContext* deviceContext)
+	{
+		if(cbufferCount > 0)
+			deviceContext->DSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
+		if(samplerCount > 0)
+			deviceContext->DSSetSamplers(0, samplerCount, &samplersNullptr[0]);
+		if(srvCount > 0)
+			deviceContext->DSSetShaderResources(0, srvCount, &srvsNullptr[0]);
 	}
 private:
 	UINT cbufferCount;

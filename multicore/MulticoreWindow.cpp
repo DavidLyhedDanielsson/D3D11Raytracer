@@ -39,7 +39,13 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, compositShader("main", "cs_5_0")
 	, bulbVertexShader("main", "vs_5_0")
 	, bulbPixelShader("main", "ps_5_0")
+	, bezierPixelShader("main", "ps_5_0")
+	, bezierVertexShader("main", "vs_5_0")
+	, bezierHullShader("main", "hs_5_0")
+	, bezierDomainShader("main", "ds_5_0")
 	, drawConsole(false)
+	, cinematicCameraMode(false)
+	, bezierVertexCount(0)
 {
 }
 
@@ -70,12 +76,18 @@ bool MulticoreWindow::Init()
 	auto resetCamera = new CommandCallMethod("ResetCamera", std::bind(&MulticoreWindow::ResetCamera, this, std::placeholders::_1));
 	auto pauseCamera = new CommandCallMethod("PauseCamera", std::bind(&MulticoreWindow::PauseCamera, this, std::placeholders::_1));
 	auto startCamera = new CommandCallMethod("StartCamera", std::bind(&MulticoreWindow::StartCamera, this, std::placeholders::_1));
-	auto addCameraSnapshot = new CommandCallMethod("AddCameraSnapshot", std::bind(&MulticoreWindow::AddCameraSnapshot, this, std::placeholders::_1));
+	auto addCameraFrame = new CommandCallMethod("AddCameraFrame", std::bind(&MulticoreWindow::AddCameraFrame, this, std::placeholders::_1));
+	auto setCameraFrame = new CommandCallMethod("SetCameraFrame", std::bind(&MulticoreWindow::SetCameraFrame, this, std::placeholders::_1));
+	auto removeCameraFrame = new CommandCallMethod("RemoveCameraFrame", std::bind(&MulticoreWindow::RemoveCameraFrame, this, std::placeholders::_1));
+	auto printCameraFrames = new CommandCallMethod("PrintCameraFrames", std::bind(&MulticoreWindow::PrintCameraFrames, this, std::placeholders::_1));
 
 	console.AddCommand(resetCamera);
 	console.AddCommand(pauseCamera);
 	console.AddCommand(startCamera);
-	console.AddCommand(addCameraSnapshot);
+	console.AddCommand(addCameraFrame);
+	console.AddCommand(setCameraFrame);
+	console.AddCommand(removeCameraFrame);
+	console.AddCommand(printCameraFrames);
 
 	InitOBJ();
 
@@ -90,20 +102,47 @@ bool MulticoreWindow::Init()
 	if(!InitRaytraceShaders())
 		return false;
 
-
 	if(!InitBulb())
 		return false;
 	if(!InitGraphs())
 		return false;
 	
-	currentCamera = &fpsCamera;
+	if(cinematicCameraMode)
+		currentCamera = &cinematicCamera;
+	else
+		currentCamera = &fpsCamera;
 
 	//Etc
 	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(3.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 
-	cameraLookAt = DirectX::XMLoadFloat3(pointLightBufferData.lights[0]);
-	cinematicCamera.LookAtSlerp(&cameraLookAt, 5000.0f);
+	std::vector<CameraKeyFrame> cinematicKeyFrames;
+	CameraKeyFrame newFrame;
+
+	newFrame.position = DirectX::XMFLOAT3(-1.85f, 3.45f, -0.0f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(-0.0f, 3.5f, -2.5f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(2.5f, 3.45f, 0.0f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(2.5f, 4.5f, 4.2f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(-1.8f, 4.75f, 4.5f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(-4.0f, 5.0f, 2.65f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	cinematicCamera.SetKeyFrames(cinematicKeyFrames);
+
+	InitBezier();
+
+	//cameraLookAt = DirectX::XMLoadFloat3(pointLightBufferData.lights[0]);
+	//cinematicCamera.LookAtSlerp(&cameraLookAt, 5000.0f);
 	cinematicCamera.SetLoop(true);
 	cinematicCamera.Pause();
 
@@ -168,36 +207,23 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
 	float deltaMS = delta.count() * 1e-6f;
 
-	//cinematicCamera.Update(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(500)));
-	//cameraLookAt = DirectX::XMLoadFloat3(pointLightBufferData.lights[lightFocus]);
+	POINT cursorPosition;
+	GetCursorPos(&cursorPosition);
+	ScreenToClient(hWnd, &cursorPosition);
 
-	//cinematicCamera.Update(delta);
-	//cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
-	//cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
-	//cinematicCamera.SetPosition(DirectX::XMFLOAT3(std::cosf(sinVal * 0.5f), 3.0f, std::sinf(sinVal * 0.5f)));
+	POINT midPoint;
+	midPoint.x = 640;
+	midPoint.y = 360;
 
-	sinVal += deltaMS * lightVerticalSpeed;
-	otherSinVal += deltaMS * lightHorizontalSpeed;
+	float xDelta = static_cast<float>(cursorPosition.x - midPoint.x);
+	float yDelta = static_cast<float>(cursorPosition.y - midPoint.y);
 
-	if(!drawConsole)
+	float sensitivity = 0.001f;
+
+	if(cinematicCameraMode)
+		cinematicCamera.Update(delta);
+	else if(!drawConsole)
 	{
-		POINT cursorPosition;
-		GetCursorPos(&cursorPosition);
-		ScreenToClient(hWnd, &cursorPosition);
-
-		POINT midPoint;
-		midPoint.x = 640;
-		midPoint.y = 360;
-
-		float xDelta = static_cast<float>(cursorPosition.x - midPoint.x);
-		float yDelta = static_cast<float>(cursorPosition.y - midPoint.y);
-
-		float sensitivity = 0.001f;
-
-		fpsCamera.Rotate(DirectX::XMFLOAT2(xDelta * sensitivity, yDelta * sensitivity));
-		ClientToScreen(hWnd, &midPoint);
-		SetCursorPos(midPoint.x, midPoint.y);
-
 		float cameraSpeed = 0.005f * deltaMS;
 
 		if(keyMap.count('W'))
@@ -215,6 +241,16 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		else if(keyMap.count(VK_CONTROL))
 			fpsCamera.MoveUp(-cameraSpeed);
 	}
+
+	if(!drawConsole)
+	{
+		currentCamera->Rotate(DirectX::XMFLOAT2(xDelta * sensitivity, yDelta * sensitivity));
+		ClientToScreen(hWnd, &midPoint);
+		SetCursorPos(midPoint.x, midPoint.y);
+	}
+
+	sinVal += deltaMS * lightVerticalSpeed;
+	otherSinVal += deltaMS * lightHorizontalSpeed;
 
 	guiManager.Update(delta);
 }
@@ -280,6 +316,10 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	DrawBulbs();
 
+	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST);
+	DrawBezier();
+	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 	//////////////////////////////////////////////////
 	//Sprites
 	//////////////////////////////////////////////////
@@ -342,9 +382,15 @@ void MulticoreWindow::KeyEvent(const KeyState& keyCode)
 		}
 
 		if(keyCode.key == VK_F1)
+		{
+			cinematicCameraMode = false;
 			currentCamera = &fpsCamera;
+		}
 		else if(keyCode.key == VK_F2)
+		{
+			cinematicCameraMode = true;
 			currentCamera = &cinematicCamera;
+		}
 
 		if(keyCode.key == VK_UP)
 		{
@@ -399,14 +445,83 @@ Argument MulticoreWindow::StartCamera(const std::vector<Argument>& argument)
 	return "";
 }
 
-Argument MulticoreWindow::AddCameraSnapshot(const std::vector<Argument>& argument)
+Argument MulticoreWindow::AddCameraFrame(const std::vector<Argument>& argument)
 {
 	CameraKeyFrame newFrame;
-
-	newFrame.lookMode = LOOK_MODE::NONE;
 	newFrame.position = currentCamera->GetPosition();
+	
+	cinematicCamera.AddFrame(9999, newFrame);
 
-	return "";
+	UploadBezierFrames();
+
+	return "Added frame: " + std::to_string(newFrame.position.x) + ", " + std::to_string(newFrame.position.y) + ", " + std::to_string(newFrame.position.z);
+}
+
+Argument MulticoreWindow::SetCameraFrame(const std::vector<Argument>& argument)
+{
+	if(argument.size() != 4
+		&& argument.size() != 1)
+		return "Expected 1 or 4 argument";
+
+	int index;
+	argument[0] >> index;
+
+	float x;
+	float y;
+	float z;
+
+	if(argument.size() == 1)
+	{
+		x = currentCamera->GetPosition().x;
+		y = currentCamera->GetPosition().y;
+		z = currentCamera->GetPosition().z;
+	}
+	else
+	{
+		argument[1] >> x;
+		argument[2] >> y;
+		argument[3] >> z;
+	}
+
+	CameraKeyFrame newFrame;
+	newFrame.position = DirectX::XMFLOAT3(x, y, z);
+
+	cinematicCamera.SetFrame(index, newFrame);
+
+	UploadBezierFrames();
+
+	return "Set frame " + std::to_string(index) + " to " + std::to_string(newFrame.position.x) + ", " + std::to_string(newFrame.position.y) + ", " + std::to_string(newFrame.position.z);
+}
+
+Argument MulticoreWindow::RemoveCameraFrame(const std::vector<Argument>& argument)
+{
+	if(argument.size() != 1)
+		return "Expected 1 argument";
+
+	int index;
+	argument.front() >> index;
+
+	UploadBezierFrames();
+
+	if(cinematicCamera.RemoveFrame(index))
+		return "Sucessfully removed frame";
+	else
+		return "Couldn't remove frame, check input";
+}
+
+Argument MulticoreWindow::PrintCameraFrames(const std::vector<Argument>& argument)
+{
+	auto frames = cinematicCamera.GetFrames();
+
+	std::ofstream out("cameraFrames.txt", std::ios::trunc);
+
+	if(!out.is_open())
+		return "Couldn't open file";
+
+	for(auto frame : frames)
+		out << "DirectX::XMFLOAT3(" << frame.position.x << ", " << frame.position.y << ", " << frame.position.z << ")" << std::endl;
+
+	return "Wrote to cameraFrames.txt";
 }
 
 bool MulticoreWindow::InitSRVs()
@@ -588,7 +703,7 @@ bool MulticoreWindow::InitBulb()
 
 	LogErrorReturnFalse(bulbInstanceBuffer.Create<Float4x4BufferData>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_POINT_LIGHTS), "Couldn't create bulb instance buffer: ");
 	LogErrorReturnFalse(bulbVertexBuffer.Create<Vertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &bulbVertices[0]), "Couldn't create bulb vertex buffer: ");
-	LogErrorReturnFalse(bulbProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create bult projection matrix buffer: ");
+	LogErrorReturnFalse(bulbViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create bulb projection matrix buffer: ");
 
 	bulbTexture = contentManager.Load<Texture2D>("Bulb.dds");
 	if(bulbTexture == nullptr)
@@ -748,13 +863,17 @@ bool MulticoreWindow::InitRoom()
 	float heightIncrease = 0.2f;
 
 	float rotationValue = 0.0f;
-	float heightValue = 0.0f;
+	float heightValue = 2.0f;
 
 	float radius = 4.0f;
 
 	sphereBufferData.sphereCount = 0;
 
-	for(int i = 0; i < 35; ++i)
+	sphereBufferData.spheres[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 3.0f);
+	sphereBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	++sphereBufferData.sphereCount;
+
+	for(int i = 1; i < 30; ++i)
 	{
 		sphereBufferData.spheres[i] = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
 
@@ -765,7 +884,7 @@ bool MulticoreWindow::InitRoom()
 	}
 
 	for(int i = 0; i < sphereBufferData.sphereCount; ++i)
-		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 1.0f);
+		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.8f);
 
 	//triangleBufferData.triangleCount = 0;
 
@@ -896,8 +1015,8 @@ bool MulticoreWindow::InitOBJ()
 	for(int i = 0, end = static_cast<int>(swordMesh.vertices.size()); i < end; ++i)
 	{
 		triangleBufferData.vertices[i].x = swordMesh.vertices[i].position.x;
-		triangleBufferData.vertices[i].y = swordMesh.vertices[i].position.y + 3.0f;
-		triangleBufferData.vertices[i].z = swordMesh.vertices[i].position.z;
+		triangleBufferData.vertices[i].y = swordMesh.vertices[i].position.y + 3.5f;
+		triangleBufferData.vertices[i].z = swordMesh.vertices[i].position.z - 0.75f;
 		triangleBufferData.vertices[i].w = 0.0f;
 	}
 
@@ -917,6 +1036,36 @@ bool MulticoreWindow::InitOBJ()
 		triangleBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.05f);
 
 	return true;
+}
+
+bool MulticoreWindow::InitBezier()
+{
+	std::vector<CameraKeyFrame> cameraKeyFrames = cinematicCamera.GetFrames();
+
+	//Vertices
+	LogErrorReturnFalse(bezierVertexBuffer.Create<BezierVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, BEZIER_MAX_LINES * 2), "Couldn't create bezier vertex buffer: ");
+
+	LogErrorReturnFalse(bezierViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXBuffer::TYPE::FLOAT4X4), "Couldn't create bezier view projection matrix buffer: ");
+
+	UploadBezierFrames();
+
+	//Shaders
+	LogErrorReturnFalse(bezierPixelShader.CreateFromFile("BezierPixelShader.hlsl", device.get()), "Couldn't load bezier pixel shader: ");
+	LogErrorReturnFalse(bezierVertexShader.CreateFromFile("BezierVertexShader.hlsl", device.get()), "Couldn't load bezier vertex shader: ");
+	bezierVertexShader.SetVertexData(device.get(),
+		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT }
+		, std::vector<std::string> { "BEGIN_ANCHOR", "END_ANCHOR", "BEGIN_HANDLE", "END_HANDLE", "LAMBDA" }
+		, std::vector<bool> { false, false, false, false, false });
+
+	ShaderResourceBinds domainShaderBinds;
+
+	domainShaderBinds.AddResource(bezierViewProjMatrixBuffer.GetBuffer(), 0);
+
+	LogErrorReturnFalse(bezierHullShader.CreateFromFile("BezierHullShader.hlsl", device.get()), "Couldn't load bezier hull shader: ");
+	LogErrorReturnFalse(bezierDomainShader.CreateFromFile("BezierDomainShader.hlsl", device.get(), domainShaderBinds), "Couldn't load bezier domain shader: ");
+
+
+	return "";
 }
 
 void MulticoreWindow::InitInput()
@@ -968,21 +1117,20 @@ void MulticoreWindow::DrawUpdateMVP()
 	DirectX::XMFLOAT4X4 viewMatrix = currentCamera->GetViewMatrix();
 	DirectX::XMFLOAT4X4 projectionMatrix = currentCamera->GetProjectionMatrix();
 	DirectX::XMFLOAT4X4 viewProjectionMatrix;
+	DirectX::XMFLOAT4X4 viewProjectionMatrixInverse;
 
 	DirectX::XMMATRIX xmViewMatrix = DirectX::XMLoadFloat4x4(&viewMatrix);
 	DirectX::XMMATRIX xmProjectionMatrix = DirectX::XMLoadFloat4x4(&projectionMatrix);
 
 	DirectX::XMMATRIX xmViewProjMatrix = DirectX::XMMatrixMultiplyTranspose(xmViewMatrix, xmProjectionMatrix);
 
-	Float4x4BufferData viewProjBuffer;
-
 	DirectX::XMStoreFloat4x4(&viewProjectionMatrix, xmViewProjMatrix);
-	DirectX::XMStoreFloat4x4(&viewProjBuffer.matrix, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
+	DirectX::XMStoreFloat4x4(&viewProjectionMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
 
-	viewProjInverseBuffer.Update(deviceContext.get(), &viewProjBuffer);
+	viewProjInverseBuffer.Update(deviceContext.get(), &viewProjectionMatrixInverse);
 
-	//Bulb viewProjection
-	bulbProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
+	bulbViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
+	bezierViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
 
 	//Camera position for shading
 	DirectX::XMFLOAT3 cameraPosition = currentCamera->GetPosition();
@@ -1028,7 +1176,7 @@ void MulticoreWindow::DrawBulbs()
 
 	bulbInstanceBuffer.Update(deviceContext.get(), &bulbInstanceData);
 
-	ID3D11Buffer* bulbBuffers[] = { bulbProjMatrixBuffer.GetBuffer() };
+	ID3D11Buffer* bulbBuffers[] = { bulbViewProjMatrixBuffer.GetBuffer() };
 	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
 
 	UINT bulbStrides[] = { sizeof(Vertex), sizeof(Float4x4BufferData) };
@@ -1051,6 +1199,28 @@ void MulticoreWindow::DrawBulbs()
 	deviceContext->DrawInstanced(6, pointLightBufferData.lightCount, 0, 0);
 	bulbVertexShader.Unbind(deviceContext.get());
 	bulbPixelShader.Unbind(deviceContext.get());
+}
+
+void MulticoreWindow::DrawBezier()
+{
+	ID3D11Buffer* bulbBuffers[] = { bulbViewProjMatrixBuffer.GetBuffer() };
+	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
+
+	UINT bezierStride = sizeof(BezierVertex);
+	UINT bezierOffset = 0;
+
+	ID3D11Buffer* bezierVertexBuffer = this->bezierVertexBuffer.GetBuffer();
+	deviceContext->IASetVertexBuffers(0, 1, &bezierVertexBuffer, &bezierStride, &bezierOffset);
+
+	bezierVertexShader.Bind(deviceContext.get());
+	bezierPixelShader.Bind(deviceContext.get());
+	bezierHullShader.Bind(deviceContext.get());
+	bezierDomainShader.Bind(deviceContext.get());
+	deviceContext->Draw(bezierVertexCount, 0);
+	bezierVertexShader.Unbind(deviceContext.get());
+	bezierPixelShader.Unbind(deviceContext.get());
+	bezierHullShader.Unbind(deviceContext.get());
+	bezierDomainShader.Unbind(deviceContext.get());
 }
 
 Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argument)
@@ -1169,4 +1339,44 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 	}
 
 	return true;
+}
+
+std::vector<BezierVertex> MulticoreWindow::CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const
+{
+	std::vector<BezierVertex> vertices;
+
+	for(int i = 0, end = static_cast<int>(frames.size()); i < end; ++i)
+	{
+		CameraKeyFrame currentFrame = frames[i];
+		CameraKeyFrame nextFrame;
+
+		if(i == static_cast<int>(frames.size() - 1))
+			nextFrame = frames.front();
+		else
+			nextFrame = frames[i + 1];
+
+		BezierVertex vertex;
+		vertex.beginAnchor = currentFrame.position;
+		vertex.beginHandle = currentFrame.beginHandle;
+
+		vertex.endAnchor = nextFrame.position;
+		vertex.endHandle = nextFrame.endHandle;
+		vertex.lambda = 0.0f;
+
+		vertices.push_back(vertex);
+
+		vertex.lambda = 1.0f;
+		vertices.push_back(vertex);
+	}
+
+	return vertices;
+}
+
+void MulticoreWindow::UploadBezierFrames()
+{
+	auto frames = cinematicCamera.GetFrames();
+	std::vector<BezierVertex> vertices = CalcBezierVertices(frames);
+	bezierVertexBuffer.Update(deviceContext.get(), &vertices[0]);
+
+	bezierVertexCount = vertices.size();
 }

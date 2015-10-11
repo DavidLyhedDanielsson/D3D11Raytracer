@@ -7,6 +7,8 @@
 
 #include <DXLib/VertexShader.h>
 #include <DXLib/PixelShader.h>
+#include <DXLib/HullShader.h>
+#include <DXLib/DomainShader.h>
 #include <DXLib/Timer.h>
 #include <DXLib/spriteRenderer.h>
 #include <DXLib/keyState.h>
@@ -76,6 +78,17 @@ namespace
 		DirectX::XMFLOAT2 texCoord;
 	};
 
+	struct BezierVertex
+	{
+		DirectX::XMFLOAT3 beginAnchor;
+		DirectX::XMFLOAT3 endAnchor;
+		DirectX::XMFLOAT3 beginHandle;
+		DirectX::XMFLOAT3 endHandle;
+		float lambda; //52 bytes
+
+		uint8_t padding[12]; //12 bytes of padding = 64 bytes
+	};
+
 	struct CameraPositionBufferData
 	{
 		DirectX::XMFLOAT3 position;
@@ -141,6 +154,8 @@ private:
 	int lightFocus = 0;
 
 	bool paused;
+
+	bool cinematicCameraMode;
 
 	FPSCamera fpsCamera;
 	CinematicCamera cinematicCamera;
@@ -208,7 +223,7 @@ private:
 
 	VertexShader bulbVertexShader;
 	PixelShader bulbPixelShader;
-	DXBuffer bulbProjMatrixBuffer;
+	DXBuffer bulbViewProjMatrixBuffer;
 	DXBuffer bulbInstanceBuffer;
 	DXBuffer bulbVertexBuffer;
 
@@ -237,6 +252,24 @@ private:
 	bool drawConsole;
 
 	//////////////////////////////////////////////////
+	//Bezier drawing
+	//////////////////////////////////////////////////
+	const static int BEZIER_MAX_LINES = 50;
+
+	PixelShader bezierPixelShader;
+	VertexShader bezierVertexShader;
+	HullShader bezierHullShader;
+	DomainShader bezierDomainShader;
+
+	DXBuffer bezierViewProjMatrixBuffer;
+	DXBuffer bezierVertexBuffer;
+
+	int bezierVertexCount;
+
+	std::vector<BezierVertex> CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const;
+	void UploadBezierFrames();
+
+	//////////////////////////////////////////////////
 	//Etc
 	//////////////////////////////////////////////////
 	DirectX::XMFLOAT3 cameraLookAt;
@@ -248,7 +281,10 @@ private:
 	Argument PauseCamera(const std::vector<Argument>& argument);
 	Argument StartCamera(const std::vector<Argument>& argument);
 
-	Argument AddCameraSnapshot(const std::vector<Argument>& argument);
+	Argument AddCameraFrame(const std::vector<Argument>& argument);
+	Argument SetCameraFrame(const std::vector<Argument>& argument);
+	Argument RemoveCameraFrame(const std::vector<Argument>& argument);
+	Argument PrintCameraFrames(const std::vector<Argument>& argument);
 
 	bool InitSRVs();
 	bool InitRaytraceShaders();
@@ -258,6 +294,7 @@ private:
 	bool InitGraphs();
 	bool InitRoom();
 	bool InitOBJ();
+	bool InitBezier();
 
 	void InitInput();
 	void InitConsole();
@@ -271,6 +308,7 @@ private:
 	void DrawComposit(int config);
 
 	void DrawBulbs();
+	void DrawBezier();
 
 	Argument SetNumberOfLights(const std::vector<Argument>& argument);
 	Argument SetLightAttenuationFactors(const std::vector<Argument>& argument);
