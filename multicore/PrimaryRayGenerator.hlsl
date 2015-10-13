@@ -30,7 +30,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float4 origin = mul(float4(minNDC, 1.0f), viewProjMatrixInv);
 	origin /= origin.w;
 
-	outputPosition[threadID.xy] = float4(origin.xyz, 0.0f);
+	outputPosition[threadID.xy] = float4(origin.xyz, -1.0f);
 	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
 	outputNormal[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 	outputColor[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);

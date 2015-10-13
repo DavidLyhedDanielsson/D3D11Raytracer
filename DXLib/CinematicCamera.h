@@ -52,6 +52,7 @@ public:
 	void AddKeyFrame(CameraKeyFrame frame);
 	void SetKeyFrames(std::vector<CameraKeyFrame> keyFrames);
 
+	void SetTargetSpeed(float targetSpeed);
 	void SetLoop(bool loop);
 	void Jump(float time);
 

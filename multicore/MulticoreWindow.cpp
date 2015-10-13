@@ -46,6 +46,7 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, drawConsole(false)
 	, cinematicCameraMode(false)
 	, bezierVertexCount(0)
+	, swordOBJ(nullptr)
 {
 }
 
@@ -80,6 +81,7 @@ bool MulticoreWindow::Init()
 	auto setCameraFrame = new CommandCallMethod("SetCameraFrame", std::bind(&MulticoreWindow::SetCameraFrame, this, std::placeholders::_1));
 	auto removeCameraFrame = new CommandCallMethod("RemoveCameraFrame", std::bind(&MulticoreWindow::RemoveCameraFrame, this, std::placeholders::_1));
 	auto printCameraFrames = new CommandCallMethod("PrintCameraFrames", std::bind(&MulticoreWindow::PrintCameraFrames, this, std::placeholders::_1));
+	auto setCameraTargetSpeed = new CommandCallMethod("SetCameraTargetSpeed", std::bind(&MulticoreWindow::SetCameraTargetSpeed, this, std::placeholders::_1));
 
 	console.AddCommand(resetCamera);
 	console.AddCommand(pauseCamera);
@@ -88,8 +90,9 @@ bool MulticoreWindow::Init()
 	console.AddCommand(setCameraFrame);
 	console.AddCommand(removeCameraFrame);
 	console.AddCommand(printCameraFrames);
+	console.AddCommand(setCameraTargetSpeed);
 
-	InitOBJ();
+	//InitOBJ();
 
 	if(!InitSRVs())
 		return false;
@@ -115,6 +118,7 @@ bool MulticoreWindow::Init()
 	//Etc
 	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(3.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 3.0f, 0.0f));
 
 	std::vector<CameraKeyFrame> cinematicKeyFrames;
 	CameraKeyFrame newFrame;
@@ -143,7 +147,7 @@ bool MulticoreWindow::Init()
 
 	//cameraLookAt = DirectX::XMLoadFloat3(pointLightBufferData.lights[0]);
 	//cinematicCamera.LookAtSlerp(&cameraLookAt, 5000.0f);
-	cinematicCamera.SetLoop(true);
+	cinematicCamera.SetLoop(false);
 	cinematicCamera.Pause();
 
 	POINT midPoint;
@@ -242,7 +246,7 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 			fpsCamera.MoveUp(-cameraSpeed);
 	}
 
-	if(!drawConsole)
+	if(!drawConsole && !cinematicCameraMode)
 	{
 		currentCamera->Rotate(DirectX::XMFLOAT2(xDelta * sensitivity, yDelta * sensitivity));
 		ClientToScreen(hWnd, &midPoint);
@@ -391,17 +395,6 @@ void MulticoreWindow::KeyEvent(const KeyState& keyCode)
 			cinematicCameraMode = true;
 			currentCamera = &cinematicCamera;
 		}
-
-		if(keyCode.key == VK_UP)
-		{
-			lightFocus++;
-			cinematicCamera.LookAtSlerp(&cameraLookAt, 1000.0f);
-		}
-		else if(keyCode.key == VK_DOWN)
-		{
-			lightFocus--;
-			cinematicCamera.LookAtSlerp(&cameraLookAt, 1000.0f);
-		}
 	}
 	else if(keyCode.action == KEY_ACTION::UP)
 		keyMap.erase(keyCode.key);
@@ -522,6 +515,19 @@ Argument MulticoreWindow::PrintCameraFrames(const std::vector<Argument>& argumen
 		out << "DirectX::XMFLOAT3(" << frame.position.x << ", " << frame.position.y << ", " << frame.position.z << ")" << std::endl;
 
 	return "Wrote to cameraFrames.txt";
+}
+
+Argument MulticoreWindow::SetCameraTargetSpeed(const std::vector<Argument>& argument)
+{
+	if(argument.size() != 1)
+		return "Expected one argument";
+
+	float newValue;
+	argument.front() >> newValue;
+
+	cinematicCamera.SetTargetSpeed(newValue);
+
+	return "";
 }
 
 bool MulticoreWindow::InitSRVs()
@@ -867,15 +873,22 @@ bool MulticoreWindow::InitRoom()
 
 	float radius = 4.0f;
 
+	float roomHeight = 10.0f;
+	float roomSize = 12.0f;
+
+	float tableHeight = 3.0f;
+	float tableSize = 2.0f;
+
 	sphereBufferData.sphereCount = 0;
 
-	sphereBufferData.spheres[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 3.0f);
+	sphereBufferData.spheres[0] = DirectX::XMFLOAT4(0.0f, roomHeight, 0.0f, 3.0f);
 	sphereBufferData.colors[0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	++sphereBufferData.sphereCount;
 
 	for(int i = 1; i < 30; ++i)
 	{
 		sphereBufferData.spheres[i] = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
+		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.5f);
 
 		rotationValue += rotationIncrease;
 		heightValue += heightIncrease;
@@ -883,82 +896,145 @@ bool MulticoreWindow::InitRoom()
 		++sphereBufferData.sphereCount;
 	}
 
-	for(int i = 0; i < sphereBufferData.sphereCount; ++i)
-		sphereBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.8f);
+	if(swordOBJ == nullptr)
+		triangleBufferData.triangleCount = 0;
 
-	//triangleBufferData.triangleCount = 0;
-
-	triangleBufferData.colors[triangleBufferData.triangleCount] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
-	triangleBufferData.colors[triangleBufferData.triangleCount + 1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
-
-	triangleBufferData.colors[triangleBufferData.triangleCount + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
-	triangleBufferData.colors[triangleBufferData.triangleCount + 3] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
-
-	triangleBufferData.colors[triangleBufferData.triangleCount + 4] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
-	triangleBufferData.colors[triangleBufferData.triangleCount + 5] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
-
-	triangleBufferData.colors[triangleBufferData.triangleCount + 6] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
-	triangleBufferData.colors[triangleBufferData.triangleCount + 7] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
-
-	triangleBufferData.colors[triangleBufferData.triangleCount + 8] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
-	triangleBufferData.colors[triangleBufferData.triangleCount + 9] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f);
-	
 	//triangleBufferData.colors[triangleBufferData.triangleCount + 10] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
 	//triangleBufferData.colors[triangleBufferData.triangleCount + 11] = DirectX::XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
 
 	/*triangleBufferData.colors[triangleBufferData.triangleCount + 12] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
 	triangleBufferData.colors[triangleBufferData.triangleCount + 13] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);*/
 
-	float height = 10.0f;
-	float size = 12.0f;
+	int vertexCount = 0;
 
-	int vertexCount = swordOBJ->GetMeshes().begin()->vertices.size();
-	//int vertexCount = 0;
+	if(swordOBJ != nullptr)
+		vertexCount = swordOBJ->GetMeshes().begin()->vertices.size();
 
+	//////////////////////////////////////////////////
+	//Room
+	//////////////////////////////////////////////////
 	//Floor
-	triangleBufferData.vertices[vertexCount] = DirectX::XMFLOAT4(-size, 0.0f, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 1] = DirectX::XMFLOAT4(size, 0.0f, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 2] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
+	triangleBufferData.vertices[vertexCount] = DirectX::XMFLOAT4(-roomSize, 0.0f, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 1] = DirectX::XMFLOAT4(roomSize, 0.0f, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 2] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
 
-	triangleBufferData.vertices[vertexCount + 3] = DirectX::XMFLOAT4(-size, 0.0f, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 4] = DirectX::XMFLOAT4(-size, 0.0f, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 5] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 3] = DirectX::XMFLOAT4(-roomSize, 0.0f, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 4] = DirectX::XMFLOAT4(-roomSize, 0.0f, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 5] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
 
 	//Ceiling
-	triangleBufferData.vertices[vertexCount + 6] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 7] = DirectX::XMFLOAT4(size, height, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 8] = DirectX::XMFLOAT4(size, height, -size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 6] = DirectX::XMFLOAT4(-roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 7] = DirectX::XMFLOAT4(roomSize, roomHeight, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 8] = DirectX::XMFLOAT4(roomSize, roomHeight, -roomSize, 0.0f);
 
-	triangleBufferData.vertices[vertexCount + 9] = DirectX::XMFLOAT4(-size, height, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 10] = DirectX::XMFLOAT4(size, height, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 11] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 9] = DirectX::XMFLOAT4(-roomSize, roomHeight, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 10] = DirectX::XMFLOAT4(roomSize, roomHeight, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 11] = DirectX::XMFLOAT4(-roomSize, roomHeight, -roomSize, 0.0f);
 
-	//z+ wall
-	triangleBufferData.vertices[vertexCount + 12] = DirectX::XMFLOAT4(-size, 0.0f, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 13] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 14] = DirectX::XMFLOAT4(-size, height, size, 0.0f);
+	//z+ wall (mirror)
+	triangleBufferData.vertices[vertexCount + 12] = DirectX::XMFLOAT4(-roomSize, 0.0f, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 13] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 14] = DirectX::XMFLOAT4(-roomSize, roomHeight, roomSize, 0.0f);
 
-	triangleBufferData.vertices[vertexCount + 15] = DirectX::XMFLOAT4(-size, height, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 16] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 17] = DirectX::XMFLOAT4(size, height, size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 15] = DirectX::XMFLOAT4(-roomSize, roomHeight, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 16] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 17] = DirectX::XMFLOAT4(roomSize, roomHeight, roomSize, 0.0f);
 
-	//z- wall
-	triangleBufferData.vertices[vertexCount + 18] = DirectX::XMFLOAT4(-size, 0.0f, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 19] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 20] = DirectX::XMFLOAT4(size, 0.0f, -size, 0.0f);
+	//z- wall (mirror)
+	triangleBufferData.vertices[vertexCount + 18] = DirectX::XMFLOAT4(-roomSize, 0.0f, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 19] = DirectX::XMFLOAT4(-roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 20] = DirectX::XMFLOAT4(roomSize, 0.0f, -roomSize, 0.0f);
 
-	triangleBufferData.vertices[vertexCount + 21] = DirectX::XMFLOAT4(-size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 22] = DirectX::XMFLOAT4(size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 23] = DirectX::XMFLOAT4(size, 0.0f, -size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 21] = DirectX::XMFLOAT4(-roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 22] = DirectX::XMFLOAT4(roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 23] = DirectX::XMFLOAT4(roomSize, 0.0f, -roomSize, 0.0f);
 
 	//x+ wall
-	triangleBufferData.vertices[vertexCount + 24] = DirectX::XMFLOAT4(size, 0.0f, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 25] = DirectX::XMFLOAT4(size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 26] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 24] = DirectX::XMFLOAT4(roomSize, 0.0f, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 25] = DirectX::XMFLOAT4(roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 26] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
 
-	triangleBufferData.vertices[vertexCount + 27] = DirectX::XMFLOAT4(size, height, -size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 28] = DirectX::XMFLOAT4(size, height, size, 0.0f);
-	triangleBufferData.vertices[vertexCount + 29] = DirectX::XMFLOAT4(size, 0.0f, size, 0.0f);
+	triangleBufferData.vertices[vertexCount + 27] = DirectX::XMFLOAT4(roomSize, roomHeight, -roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 28] = DirectX::XMFLOAT4(roomSize, roomHeight, roomSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 29] = DirectX::XMFLOAT4(roomSize, 0.0f, roomSize, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.5f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.5f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.5f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 3] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.5f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 4] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 5] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.5f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 6] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 7] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.5f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 8] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 0.5f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 9] = DirectX::XMFLOAT4(1.0f, 0.0f, 1.0f, 0.5f);
+
+	//////////////////////////////////////////////////
+	//Table
+	//////////////////////////////////////////////////
+	//z+ wall
+	triangleBufferData.vertices[vertexCount + 30] = DirectX::XMFLOAT4(-tableSize, 0.0f, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 31] = DirectX::XMFLOAT4(-tableSize, tableHeight, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 32] = DirectX::XMFLOAT4(tableSize, 0.0f, tableSize, 0.0f);
+
+	triangleBufferData.vertices[vertexCount + 33] = DirectX::XMFLOAT4(-tableSize, tableHeight, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 34] = DirectX::XMFLOAT4(tableSize, tableHeight, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 35] = DirectX::XMFLOAT4(tableSize, 0.0f, tableSize, 0.0f);
+
+	//z- wall
+	triangleBufferData.vertices[vertexCount + 36] = DirectX::XMFLOAT4(-tableSize, 0.0f, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 37] = DirectX::XMFLOAT4(tableSize, 0.0f, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 38] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize, 0.0f);
+
+	triangleBufferData.vertices[vertexCount + 39] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 40] = DirectX::XMFLOAT4(tableSize, 0.0f, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 41] = DirectX::XMFLOAT4(tableSize, tableHeight, -tableSize, 0.0f);
+
+	//x+ wall
+	triangleBufferData.vertices[vertexCount + 42] = DirectX::XMFLOAT4(tableSize, 0.0f, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 43] = DirectX::XMFLOAT4(tableSize, 0.0f, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 44] = DirectX::XMFLOAT4(tableSize, tableHeight, -tableSize, 0.0f);
+
+	triangleBufferData.vertices[vertexCount + 45] = DirectX::XMFLOAT4(tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 46] = DirectX::XMFLOAT4(tableSize, 0.0f, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 47] = DirectX::XMFLOAT4(tableSize, tableHeight, tableSize, 0.0f);
+
+	//x- wall
+	triangleBufferData.vertices[vertexCount + 48] = DirectX::XMFLOAT4(-tableSize, 0.0f, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 49] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 50] = DirectX::XMFLOAT4(-tableSize, 0.0f, tableSize, 0.0f);
+
+	triangleBufferData.vertices[vertexCount + 51] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 52] = DirectX::XMFLOAT4(-tableSize, tableHeight, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 53] = DirectX::XMFLOAT4(-tableSize, 0.0f, tableSize, 0.0f);
+
+	//Table mirror
+	triangleBufferData.vertices[vertexCount + 54] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize , 0.0f);
+	triangleBufferData.vertices[vertexCount + 55] = DirectX::XMFLOAT4(tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 56] = DirectX::XMFLOAT4(tableSize, tableHeight, tableSize, 0.0f);
+	
+	triangleBufferData.vertices[vertexCount + 57] = DirectX::XMFLOAT4(-tableSize, tableHeight, tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 58] = DirectX::XMFLOAT4(-tableSize, tableHeight, -tableSize, 0.0f);
+	triangleBufferData.vertices[vertexCount + 59] = DirectX::XMFLOAT4(tableSize, tableHeight, tableSize, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 10] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 11] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 12] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 13] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 14] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 15] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 16] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 17] = DirectX::XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
+
+	triangleBufferData.colors[triangleBufferData.triangleCount + 18] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	triangleBufferData.colors[triangleBufferData.triangleCount + 19] = DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 
 /*
 	//half (z+) x- wall
@@ -979,7 +1055,7 @@ bool MulticoreWindow::InitRoom()
 	triangleBufferData.vertices[vertexCount + 40] = DirectX::XMFLOAT4(-size, 0.0f, 0.0f, 0.0f);
 	triangleBufferData.vertices[vertexCount + 41] = DirectX::XMFLOAT4(-size, height, 0.0f, 0.0f);*/
 
-	for(int i = 0; i < 10; i++)
+	for(int i = 0; i < 20; i++)
 	{
 		triangleBufferData.triangleIndicies[triangleBufferData.triangleCount] = DirectX::XMINT4(vertexCount + i * 3, vertexCount + i * 3 + 1, vertexCount + i * 3 + 2, 0);
 		triangleBufferData.triangleCount++;
@@ -1093,15 +1169,18 @@ void MulticoreWindow::InitConsole()
 void MulticoreWindow::DrawUpdatePointlights()
 {
 	//First light is special and extra cool
-	pointLightBufferData.lights[0].x = 0.0f;
+	/*pointLightBufferData.lights[0].x = 0.0f;
 	pointLightBufferData.lights[0].y = ((1.0f + std::sinf(sinVal)) * 0.5f) * (9.8f - 3.5f) + 3.5f;
 	pointLightBufferData.lights[0].z = 0.0f;
 	pointLightBufferData.lights[0].w = lightRadius;
 
 	float angleIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;
+	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;*/
 
-	for(int i = 1; i < pointLightBufferData.lightCount; i++)
+	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
+	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
+
+	for(int i = 0; i < pointLightBufferData.lightCount; i++)
 	{
 		pointLightBufferData.lights[i].x = std::cosf(otherSinVal + angleIncrease * i) * lightRotationRadius;
 		pointLightBufferData.lights[i].y = ((1.0f + std::sinf(sinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
@@ -1376,7 +1455,9 @@ void MulticoreWindow::UploadBezierFrames()
 {
 	auto frames = cinematicCamera.GetFrames();
 	std::vector<BezierVertex> vertices = CalcBezierVertices(frames);
-	bezierVertexBuffer.Update(deviceContext.get(), &vertices[0]);
+	
+	if(vertices.size() > 0)
+		bezierVertexBuffer.Update(deviceContext.get(), &vertices[0]);
 
 	bezierVertexCount = vertices.size();
 }

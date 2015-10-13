@@ -42,7 +42,7 @@ void CinematicCamera::Update(std::chrono::nanoseconds delta)
 
 	float derivate = CalcCubicBezierDerivate(totalTime);
 
-	totalTime += moveTargetTime / derivate;
+	totalTime += moveTargetTime / derivate * deltaMS;
 }
 
 void CinematicCamera::LookAt(DirectX::XMFLOAT3 position)
@@ -177,6 +177,11 @@ void CinematicCamera::SetKeyFrames(std::vector<CameraKeyFrame> keyFrames)
 	this->keyFrames = keyFrames;
 
 	CalcHandles();
+}
+
+void CinematicCamera::SetTargetSpeed(float targetSpeed)
+{
+	moveTargetTime = targetSpeed;
 }
 
 void CinematicCamera::SetLoop(bool loop)

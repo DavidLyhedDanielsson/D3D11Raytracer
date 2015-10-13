@@ -161,6 +161,9 @@ private:
 	CinematicCamera cinematicCamera;
 	Camera* currentCamera;
 
+	DirectX::XMFLOAT3 cameraLookAt;
+	std::vector<DirectX::XMFLOAT3> cameraAnchors;
+
 	std::unordered_set<int> keyMap;
 
 	ID3D11BlendState* billboardBlendState;
@@ -272,9 +275,6 @@ private:
 	//////////////////////////////////////////////////
 	//Etc
 	//////////////////////////////////////////////////
-	DirectX::XMFLOAT3 cameraLookAt;
-	std::vector<DirectX::XMFLOAT3> cameraAnchors;
-
 	TriangleBufferData triangleBufferData;
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
@@ -285,6 +285,7 @@ private:
 	Argument SetCameraFrame(const std::vector<Argument>& argument);
 	Argument RemoveCameraFrame(const std::vector<Argument>& argument);
 	Argument PrintCameraFrames(const std::vector<Argument>& argument);
+	Argument SetCameraTargetSpeed(const std::vector<Argument>& argument);
 
 	bool InitSRVs();
 	bool InitRaytraceShaders();

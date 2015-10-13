@@ -4,8 +4,8 @@ PatchTess ConstantMain(InputPatch<BezierNode, 2> patch, uint patchID : SV_Primit
 {
 	PatchTess outData;
 
-	outData.edgeTess[0] = 1;
-	outData.edgeTess[1] = 1;
+	outData.edgeTess[0] = 4;
+	outData.edgeTess[1] = 4;
 
 	return outData;
 }

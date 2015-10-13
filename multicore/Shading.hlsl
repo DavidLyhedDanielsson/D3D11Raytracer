@@ -42,8 +42,8 @@ Texture2D<float4> backbufferIn : register(t3);
 
 sampler textureSampler : register(s0);
 
-bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
-bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection);
+bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit);
+bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit);
 
 const static float AMBIENT_FAC = 0.3f;
 
@@ -57,6 +57,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		&& backbufferIn[threadID.xy].w > 0.01f)
 	{
 		float3 rayPosition = rayPositions[threadID.xy].xyz;
+		int lastHit = rayPositions[threadID.xy].w;
 		
 		for(int i = 0; i < lightCount; i++)
 		{
@@ -64,7 +65,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 			float distanceToLight = length(rayLight);
 			float3 rayDirection = normalize(rayLight);
 
-			if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection))
+			if(SphereTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection, lastHit) && TriangleTrace(rayPosition, lights[i].xyz, distanceToLight, rayDirection, lastHit))
 			{
 				float3 rayLightDir = normalize(lights[i].xyz - rayPosition);
 			
@@ -79,7 +80,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 					float3 rayCamera = normalize(cameraPosition - rayPosition);
 
 					float3 reflection = reflect(-rayDirection, normal);
-					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f);
+					specularFac = pow(max(dot(reflection, rayCamera), 0.0f), 32.0f) * 10.0f;
 				}
 
 				lightFac += (lights[i].w * diffuseFac + specularFac) / (a * (distanceToLight * distanceToLight) + b * distanceToLight + c);
@@ -89,7 +90,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		lightFac = saturate(lightFac);
 
 		float3 oldColor = backbufferIn[threadID.xy].xyz;
-		float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w;
+		float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w * (1.0f - rayColors[threadID.xy].w);
 
 		float3 outColor = oldColor + color * lightFac;
 
@@ -101,7 +102,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	}
 }
 
-bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection)
+bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit)
 {
 	int closestSphereIndex = -1;
 
@@ -122,14 +123,14 @@ bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight
 
 		float distance0 = -a + sqrt(root);
 
-		if(distance0 >= 0.5f && distance0 < distanceToLight * 0.95f)
+		if(distance0 > 0.0f && distance0 < distanceToLight && i != lastHit)
 			return false;
 	}
 
 	return true;
 }
 
-bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection)
+bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit)
 {
 	int closestTriangleIndex = -1;
 
@@ -150,8 +151,9 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 		float x = dot(v0ray, cross(rayDirection, v0v2)) * prediv;
 		float y = dot(rayDirection, precross) * prediv;
 
-		if(distance >= 0.5f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
-			&& distance < distanceToLight * 0.95f)
+		if(distance > 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
+			&& distance < distanceToLight
+			&& sphereCount + i != lastHit)
 		{
 			return false;
 		}

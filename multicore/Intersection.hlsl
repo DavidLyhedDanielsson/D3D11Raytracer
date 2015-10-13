@@ -25,8 +25,8 @@ cbuffer triangleBuffer : register(b1)
 	int triangleCount;
 };
 
-void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal, inout int closestIndex);
-void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal, inout int closestIndex);
+void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
+void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -42,8 +42,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	float depth = FLOAT_MAX;
 
-	SphereTrace(rayPosition.xyz, rayDirection, depth, normal, closestSphere);
-	TriangleTrace(rayPosition.xyz, rayDirection, depth, normal, closestTriangle);
+	int lastHit = rayPosition.w;
+
+	SphereTrace(rayPosition.xyz, rayDirection, lastHit, depth, normal, closestSphere);
+	TriangleTrace(rayPosition.xyz, rayDirection, lastHit, depth, normal, closestTriangle);
 	
 	if(dot(normal, normal) == 0.0f)
 	{
@@ -51,18 +53,27 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		return;
 	}
 
-	rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, 0.0f);
 	float3 outDirection = reflect(rayDirection, normal);
 	rayDirectionsOut[threadID.xy] = float4(outDirection, 0.0f);
 	rayNormalOut[threadID.xy] = float4(normal, 0.0f);
 
 	if(closestTriangle != -1)
+	{
+		//A triangle was closest
+
 		rayColorOut[threadID.xy] = triangleColors[closestTriangle];
+		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
+	}
 	else
+	{
+		//A sphere was closest
+
 		rayColorOut[threadID.xy] = sphereColors[closestSphere];
+		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, closestSphere);
+	}
 }
 
-void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal, inout int closestIndex)
+void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex)
 {
 	int closestSphereIndex = -1;
 
@@ -84,7 +95,8 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, ino
 		float distance = -a - sqrt(root);
 
 		if(distance < depth
-			&& distance >= 0.0005f)
+			&& distance > 0.0f
+			&& i != lastHit)
 		{
 			closestSphereIndex = i;
 			depth = distance; //TODO: Local variable?
@@ -102,7 +114,7 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, inout float depth, ino
 	closestIndex = closestSphereIndex;
 }
 
-void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, inout float3 currentNormal, inout int closestIndex)
+void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex)
 {
 	int closestTriangleIndex = -1;
 
@@ -123,8 +135,9 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, inout float depth, i
 		float x = dot(v0ray, cross(rayDirection, v0v2)) * prediv;
 		float y = dot(rayDirection, precross) * prediv;
 
-		if(distance >= 0.0005f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
-			&& distance < depth)
+		if(distance > 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
+			&& distance < depth
+			&& sphereCount + i != lastHit)
 		{
 			closestTriangleIndex = i;
 			depth = distance;
