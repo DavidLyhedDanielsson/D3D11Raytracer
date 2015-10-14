@@ -20,14 +20,14 @@ enum class MOUSE_BUTTON : int
 
 enum class KEY_MODIFIERS : int
 {
-	CONTROL = 0x1
-	, L_MOUSE = 0x2
-	, M_MOUSE = 0x4
-	, R_MOUSE = 0x8
-	, SHIFT = 0x10
-	, M_XBUTTON1 = 0x20
-	, M_XBUTTON2 = 0x40
-	, UNKNOWN = 0x0
+	NONE = 0x0
+	, L_SHIFT = 0x1
+	, R_SHIFT = 0x2
+	, L_CONTROL = 0x4
+	, R_CONTROL = 0x8
+	, L_ALT = 0x10
+	, R_ALT = 0x20
+	, UNKNOWN = 0x40
 };
 
 class KeyState

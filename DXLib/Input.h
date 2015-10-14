@@ -50,6 +50,8 @@ private:
 	Input();
 	~Input();
 
+	static KEY_MODIFIERS GetCurrentModifierKeys();
+
 	static HWND listenWindow;
 
 	static std::function<void(KeyState)> keyCallback;
@@ -65,7 +67,7 @@ private:
 	static DirectX::XMFLOAT2 mousePosition;
 	static DirectX::XMFLOAT2 oldMousePosition;
 
-	static UINT lastMouseButton;
+	static MOUSE_BUTTON lastMouseButton;
 	static Timer lastClickTimer;
 	static std::chrono::milliseconds doubleClickDelay;
 

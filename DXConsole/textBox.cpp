@@ -106,7 +106,7 @@ void TextBox::DrawMiddle(SpriteRenderer* spriteRenderer)
 			DirectX::XMFLOAT2 minPosition(workArea.GetMinPosition());
 			DirectX::XMFLOAT2 drawPosition(minPosition);
 
-			drawPosition.x = minPosition.x + xOffset - selectionMinX;
+			drawPosition.x = minPosition.x + xOffset + selectionMinX;
 
 			spriteRenderer->Draw(Rect(drawPosition, static_cast<float>(selectionMaxX - selectionMinX), workArea.GetHeight()), style->textHighlightColor);
 
@@ -223,6 +223,8 @@ void TextBox::Activate()
 
 void TextBox::Deactivate()
 {
+	Deselect();
+
 	drawCursor = false;
 	update = false;
 	recieveAllEvents = false;
@@ -252,7 +254,7 @@ void TextBox::OnMouseDown(const KeyState& keyState, const DirectX::XMFLOAT2& mou
 
 				unsigned int newCursorIndex = style->characterSet->GetIndexAtWidth(constructedString, static_cast<unsigned int>(mousePosition.x - background->GetWorkArea().GetMinPosition().x + -(xOffset)));
 
-				if(keyState.mods == KEY_MODIFIERS::SHIFT)
+				if(keyState.mods == KEY_MODIFIERS::L_SHIFT)
 				{
 					if(!SelectionMade())
 					{
@@ -323,7 +325,7 @@ void TextBox::OnKeyDown(const KeyState& keyState)
 					DeletePressed(keyState);
 				break;
 			case 'X': //TODO!
-				/*if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				/*if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					glfwSetClipboardString(Input::GetListenWindow(), GetSelectedText().c_str());
 
@@ -335,13 +337,13 @@ void TextBox::OnKeyDown(const KeyState& keyState)
 				}*/
 				break;
 			case 'C':
-				/*if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				/*if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					glfwSetClipboardString(Input::GetListenWindow(), GetSelectedText().c_str());
 				}*/
 				break;
 			case 'V':
-				/*if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				/*if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					const char* text = glfwGetClipboardString(Input::GetListenWindow());
 
@@ -354,7 +356,7 @@ void TextBox::OnKeyDown(const KeyState& keyState)
 				}*/
 				break;
 			case 'A':
-				if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					SetCursorIndex(0);
 					BeginSelection();
@@ -364,7 +366,7 @@ void TextBox::OnKeyDown(const KeyState& keyState)
 				}
 				break;
 			case VK_HOME:
-				if(keyState.mods == KEY_MODIFIERS::SHIFT)
+				if(keyState.mods == KEY_MODIFIERS::L_SHIFT)
 				{
 					if(!SelectionMade())
 						BeginSelection();
@@ -383,7 +385,7 @@ void TextBox::OnKeyDown(const KeyState& keyState)
 				break;
 			case VK_END:
 
-				if(keyState.mods == KEY_MODIFIERS::SHIFT)
+				if(keyState.mods == KEY_MODIFIERS::L_SHIFT)
 				{
 					if(!SelectionMade())
 						BeginSelection();
@@ -429,7 +431,7 @@ void TextBox::LeftPressed(const KeyState& keyState)
 {
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(!SelectionMade())
 			{
 				MoveCursorLeft();
@@ -442,7 +444,7 @@ void TextBox::LeftPressed(const KeyState& keyState)
 				SetCursorIndex(newCursorIndex);
 			}
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -450,12 +452,12 @@ void TextBox::LeftPressed(const KeyState& keyState)
 			ExtendSelectionToCursor();
 			SetXOffset();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			Deselect();
 			JumpCursorLeft();
 			SetXOffset();
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)):
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)):
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -472,7 +474,7 @@ void TextBox::RightPressed(const KeyState& keyState)
 {
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(!SelectionMade())
 			{
 				MoveCursorRight();
@@ -485,7 +487,7 @@ void TextBox::RightPressed(const KeyState& keyState)
 				SetCursorIndex(newCursorIndex);
 			}
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -493,12 +495,12 @@ void TextBox::RightPressed(const KeyState& keyState)
 			ExtendSelectionToCursor();
 			SetXOffset();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			Deselect();
 			JumpCursorRight();
 			SetXOffset();
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)) :
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)) :
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -513,7 +515,7 @@ void TextBox::RightPressed(const KeyState& keyState)
 
 void TextBox::BackspacePressed(const KeyState& keyState)
 {
-	if(keyState.mods == KEY_MODIFIERS::CONTROL)
+	if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 	{
 		BeginSelection();
 		JumpCursorLeft();
@@ -547,7 +549,7 @@ void TextBox::BackspacePressed(const KeyState& keyState)
 
 void TextBox::DeletePressed(const KeyState& keyState)
 {
-	if(keyState.mods == KEY_MODIFIERS::CONTROL)
+	if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 	{
 		BeginSelection();
 		JumpCursorRight();

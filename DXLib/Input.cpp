@@ -16,7 +16,7 @@ DirectX::XMFLOAT2 Input::mouseUpPos[3];
 DirectX::XMFLOAT2 Input::mousePosition;
 DirectX::XMFLOAT2 Input::oldMousePosition;
 
-UINT Input::lastMouseButton;
+MOUSE_BUTTON Input::lastMouseButton;
 Timer Input::lastClickTimer;
 std::chrono::milliseconds Input::doubleClickDelay;
 
@@ -187,6 +187,8 @@ void Input::KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 	else
 		keyState.action = KEY_ACTION::UP;
 
+	keyState.mods = GetCurrentModifierKeys();
+
 	keyState.key = static_cast<int>(wParam);
 
 	keyCallback(keyState);
@@ -208,47 +210,41 @@ void Input::MouseButtonEvent(UINT msg, WPARAM wParam)
 
 	KeyState keyState;
 
-	if((wParam & MK_CONTROL) == MK_CONTROL)
-		keyState.mods |= KEY_MODIFIERS::CONTROL;
-/*
-	if((wParam & MK_LBUTTON) == MK_LBUTTON)
-		keyState.mods |= KEY_MODIFIERS::L_MOUSE;
-	if((wParam & MK_MBUTTON) == MK_MBUTTON)
-		keyState.mods |= KEY_MODIFIERS::M_MOUSE;
-	if((wParam & MK_RBUTTON) == MK_RBUTTON)
-		keyState.mods |= KEY_MODIFIERS::R_MOUSE;*/
-	if((wParam & MK_SHIFT) == MK_SHIFT)
-		keyState.mods |= KEY_MODIFIERS::SHIFT;
-	if((wParam & MK_XBUTTON1) == MK_XBUTTON1)
-		keyState.mods |= KEY_MODIFIERS::M_XBUTTON1;
-	if((wParam & MK_XBUTTON2 )== MK_XBUTTON2)
-		keyState.mods |= KEY_MODIFIERS::M_XBUTTON2;
+	keyState.mods = GetCurrentModifierKeys();
+
+	MOUSE_BUTTON currentMouseButton = MOUSE_BUTTON::UNKNOWN;
 
 	switch(msg)
 	{
 		case WM_LBUTTONDOWN:
 			keyState.action = KEY_ACTION::DOWN;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::LEFT);
+			currentMouseButton = MOUSE_BUTTON::LEFT;
 			break;
 		case WM_LBUTTONUP:
 			keyState.action = KEY_ACTION::UP;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::LEFT);
+			currentMouseButton = MOUSE_BUTTON::LEFT;
 			break;
 		case WM_MBUTTONDOWN:
 			keyState.action = KEY_ACTION::DOWN;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::MIDDLE);
+			currentMouseButton = MOUSE_BUTTON::MIDDLE;
 			break;
 		case WM_MBUTTONUP:
 			keyState.action = KEY_ACTION::UP;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::MIDDLE);
+			currentMouseButton = MOUSE_BUTTON::MIDDLE;
 			break;
 		case WM_RBUTTONDOWN:
 			keyState.action = KEY_ACTION::DOWN;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::RIGHT);
+			currentMouseButton = MOUSE_BUTTON::RIGHT;
 			break;
 		case WM_RBUTTONUP:
 			keyState.action = KEY_ACTION::UP;
 			keyState.key = static_cast<int>(MOUSE_BUTTON::RIGHT);
+			currentMouseButton = MOUSE_BUTTON::RIGHT;
 			break;
 		default:
 			break;
@@ -259,15 +255,17 @@ void Input::MouseButtonEvent(UINT msg, WPARAM wParam)
 	if(keyState.action == KEY_ACTION::DOWN)
 	{
 		DirectX::XMFLOAT2 newMousePos(mousePoint.x, mousePoint.y);
-		DirectX::XMFLOAT2 lastMouseDownPos(mouseDownPos[lastMouseButton].x, mouseDownPos[lastMouseButton].y);
+		DirectX::XMFLOAT2 lastMouseDownPos(mouseDownPos[static_cast<int>(lastMouseButton)].x, mouseDownPos[static_cast<int>(lastMouseButton)].y);
 
 		DirectX::XMVECTOR xmNewMousePos = DirectX::XMLoadFloat2(&newMousePos);
 		DirectX::XMVECTOR xmLastMouseDownPos = DirectX::XMLoadFloat2(&lastMouseDownPos);
 
-		if(lastMouseButton == msg
+		if(currentMouseButton == lastMouseButton
 			&& lastClickTimer.GetTime() <= doubleClickDelay
 			&& DirectX::XMVectorGetX(DirectX::XMVector2Length(DirectX::XMVectorSubtract(xmNewMousePos, xmLastMouseDownPos))) <= maxDoubleClickDistance)
+		{
 			keyState.action = KEY_ACTION::REPEAT;
+		}
 
 		lastClickTimer.Reset();
 
@@ -278,8 +276,7 @@ void Input::MouseButtonEvent(UINT msg, WPARAM wParam)
 		mouseUpPos[keyState.key] = mousePoint;
 	}
 
-	lastMouseButton = msg;
-
+	lastMouseButton = currentMouseButton;
 	mouseButtonCallback(keyState);
 }
 
@@ -296,4 +293,24 @@ DirectX::XMFLOAT2 Input::GetWindowSize()
 	GetClientRect(listenWindow, &rect);
 
 	return DirectX::XMFLOAT2(static_cast<float>(rect.right), static_cast<float>(rect.bottom));
+}
+
+KEY_MODIFIERS Input::GetCurrentModifierKeys()
+{
+	int modifiers = 0;
+
+	if(GetKeyState(VK_LSHIFT) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::L_SHIFT);
+	if(GetKeyState(VK_RSHIFT) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::R_SHIFT);
+	if(GetKeyState(VK_LCONTROL) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::L_CONTROL);
+	if(GetKeyState(VK_RCONTROL) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::R_CONTROL);
+	if(GetKeyState(VK_LMENU) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::L_ALT);
+	if(GetKeyState(VK_RMENU) & 0x8000)
+		modifiers |= static_cast<int>(KEY_MODIFIERS::R_ALT);
+
+	return static_cast<KEY_MODIFIERS>(modifiers);
 }

@@ -565,7 +565,7 @@ void Console::OnKeyDown(const KeyState& keyState)
 				BackspacePressed();
 			break;
 		case VK_SPACE:
-			if(keyState.mods == KEY_MODIFIERS::CONTROL) //TODO: This is kind of terrible, move to DeletePressed instead?
+			if(keyState.mods == KEY_MODIFIERS::L_CONTROL) //TODO: This is kind of terrible, move to DeletePressed instead?
 			{
 				completeList.ClearElements();
 				GenerateSuggestions(input.GetActiveCharacterBlockText());

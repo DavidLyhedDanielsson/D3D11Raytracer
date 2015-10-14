@@ -414,6 +414,8 @@ void TextField::Activate()
 
 void TextField::Deactivate()
 {
+	Deselect();
+
 	focus = false;
 	drawCursor = false;
 	update = false;
@@ -457,7 +459,7 @@ void TextField::OnKeyDown(const KeyState& keyState)
 				RightPressed(keyState);
 				break;
 			/*case 'X': //TODO!
-				if(keyState.mods == KEY_MODIFIERS::CONTROL
+				if(keyState.mods == KEY_MODIFIERS::L_CONTROL
 					&& SelectionMade())
 				{
 					glfwSetClipboardString(Input::GetListenWindow(), GetSelectedText().c_str());
@@ -467,13 +469,13 @@ void TextField::OnKeyDown(const KeyState& keyState)
 				}
 				break;
 			case 'C':
-				if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					glfwSetClipboardString(Input::GetListenWindow(), GetSelectedText().c_str());
 				}
 				break;
 			case 'V':
-				if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					const char* text = glfwGetClipboardString(Input::GetListenWindow());
 
@@ -491,7 +493,7 @@ void TextField::OnKeyDown(const KeyState& keyState)
 				if(lines.size() == 0)
 					break;
 
-				if(keyState.mods == KEY_MODIFIERS::CONTROL)
+				if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 				{
 					cursorLineIndex = 0;
 					cursorIndex = 0;
@@ -563,7 +565,7 @@ void TextField::OnMouseDown(const KeyState& keyState, const DirectX::XMFLOAT2& m
 
 						unsigned int lineIndex = (static_cast<unsigned int>(((mousePosition.y - workArea.GetMinPosition().y) + yOffset) / style->characterSet->GetLineHeight() + visibleStringsBegin));
 
-						if(keyState.mods == KEY_MODIFIERS::SHIFT)
+						if(keyState.mods == KEY_MODIFIERS::L_SHIFT)
 						{
 							if(!SelectionMade())
 								BeginSelection();
@@ -752,14 +754,14 @@ void TextField::UpPressed(const KeyState& keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(SelectionMade())
 				Deselect();
 
 			MoveCursorUp();
 			scrollbar.ScrollTo(cursorLineIndex);
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -767,7 +769,7 @@ void TextField::UpPressed(const KeyState& keyState)
 			scrollbar.ScrollTo(cursorLineIndex);
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			scrollbar.Scroll(-1);
 			UpdateVisibleStrings();
 			break;
@@ -784,14 +786,14 @@ void TextField::DownPressed(const KeyState& keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(SelectionMade())
 				Deselect();
 
 			MoveCursorDown();
 			scrollbar.ScrollTo(cursorLineIndex);
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -799,7 +801,7 @@ void TextField::DownPressed(const KeyState& keyState)
 			scrollbar.ScrollTo(cursorLineIndex);
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			scrollbar.Scroll(1);
 			UpdateVisibleStrings();
 			break;
@@ -814,7 +816,7 @@ void TextField::LeftPressed(const KeyState& keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(!SelectionMade())
 				MoveCursorLeft();
 			else
@@ -824,20 +826,20 @@ void TextField::LeftPressed(const KeyState& keyState)
 				Deselect();
 			}
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
 			MoveCursorLeft();
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			if(SelectionMade())
 				Deselect();
 
 			JumpCursorLeft();
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)):
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)):
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -855,7 +857,7 @@ void TextField::RightPressed(const KeyState& keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			if(!SelectionMade())
 			{
 				MoveCursorRight();
@@ -868,20 +870,20 @@ void TextField::RightPressed(const KeyState& keyState)
 				Deselect();
 			}
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
 			MoveCursorRight();
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			if(SelectionMade())
 				Deselect();
 
 			JumpCursorRight();
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)) :
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)) :
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -899,7 +901,7 @@ void TextField::BackspacePressed(const KeyState& keyState)
 	{
 		matchWidth = -1;
 
-		if(keyState.mods == KEY_MODIFIERS::CONTROL)
+		if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 		{
 			BeginSelection();
 			JumpCursorLeft();
@@ -954,7 +956,7 @@ void TextField::DeletePressed(const KeyState& keyState)
 	{
 		matchWidth = -1;
 
-		if(keyState.mods == KEY_MODIFIERS::CONTROL)
+		if(keyState.mods == KEY_MODIFIERS::L_CONTROL)
 		{
 			BeginSelection();
 			JumpCursorLeft();
@@ -1003,22 +1005,22 @@ void TextField::HomePressed(const KeyState & keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			Deselect();
 			SetCursorIndex(0);
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
 			SetCursorIndex(0);
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			cursorLineIndex = 0;
 			SetCursorIndex(0);
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)) :
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)) :
 			if(!SelectionMade())
 				BeginSelection();
 
@@ -1037,22 +1039,22 @@ void TextField::EndPressed(const KeyState & keyState)
 
 	switch(keyState.mods)
 	{
-		case KEY_MODIFIERS::UNKNOWN:
+		case KEY_MODIFIERS::NONE:
 			Deselect();
 			SetCursorIndex(static_cast<int>(std::get<0>(lines[cursorLineIndex]).size()));
 			break;
-		case KEY_MODIFIERS::SHIFT:
+		case KEY_MODIFIERS::L_SHIFT:
 			if(!SelectionMade())
 				BeginSelection();
 
 			SetCursorIndex(static_cast<int>(std::get<0>(lines[cursorLineIndex]).size()));
 			ExtendSelectionToCursor();
 			break;
-		case KEY_MODIFIERS::CONTROL:
+		case KEY_MODIFIERS::L_CONTROL:
 			cursorLineIndex = static_cast<int>(lines.size() - 1);
 			SetCursorIndex(static_cast<int>(std::get<0>(lines[cursorLineIndex]).size()));
 			break;
-		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::SHIFT) | static_cast<int>(KEY_MODIFIERS::CONTROL)) :
+		case static_cast<KEY_MODIFIERS>(static_cast<int>(KEY_MODIFIERS::L_SHIFT) | static_cast<int>(KEY_MODIFIERS::L_CONTROL)) :
 			if(!SelectionMade())
 				BeginSelection();
 
