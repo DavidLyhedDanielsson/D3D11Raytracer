@@ -38,7 +38,7 @@ Graph::Graph()
 Graph::~Graph()
 {}
 
-std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight)
+std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight, bool keepHistory)
 {
 	this->device = device;
 	this->deviceContext = context;
@@ -614,4 +614,30 @@ std::string Graph::FloatToString(float value) const
 int Graph::GetBackgroundWidth() const
 {
 	return backgroundWidth;
+}
+
+void Graph::Reset()
+{
+	for(auto& pair : tracks)
+		pair.second.Clear();
+}
+
+bool Graph::DumpValues(const std::string& path) const
+{
+	std::ofstream out(path);
+	if(!out.is_open())
+		return false;
+
+	for(auto& pair : tracks)
+	{
+		out << pair.first << " ";
+
+		auto values = pair.second.GetValues();
+		for(float value : values)
+			out << value << " ";
+
+		out << std::endl;
+	}
+
+	return true;
 }

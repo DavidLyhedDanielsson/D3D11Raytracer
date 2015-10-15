@@ -1,4 +1,5 @@
 #include "DXBuffer.h"
+#include <comdef.h>
 
 DXBuffer::DXBuffer()
 {}
@@ -52,7 +53,10 @@ std::string DXBuffer::CreateInternal(ID3D11Device* device, D3D11_BIND_FLAG bindF
 	HRESULT hRes = device->CreateBuffer(&viewProjBufferDesc, (initialData == nullptr ? nullptr : &data), &returnBufferDumb);
 	buffer.reset(returnBufferDumb);
 	if(FAILED(hRes))
-		return "Couldn't create buffer with size " + std::to_string(size);
+	{
+		_com_error error(hRes);
+		return "Couldn't create buffer with size " + std::string(error.ErrorMessage());
+	}
 
 	return "";
 }

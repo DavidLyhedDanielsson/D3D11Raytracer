@@ -151,8 +151,6 @@ private:
 	int dispatchX;
 	int dispatchY;
 
-	int lightFocus = 0;
-
 	bool paused;
 
 	bool cinematicCameraMode;
@@ -269,8 +267,11 @@ private:
 
 	int bezierVertexCount;
 
+	DXBuffer bezierTessFactorBuffer;
+
 	std::vector<BezierVertex> CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const;
 	void UploadBezierFrames();
+	Argument SetBezierTessFactors(const std::vector<Argument>& argument);
 
 	//////////////////////////////////////////////////
 	//Etc

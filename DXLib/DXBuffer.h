@@ -65,13 +65,14 @@ public:
 		, D3D11_BIND_FLAG bindFlag
 		, D3D11_USAGE usage
 		, D3D11_CPU_ACCESS_FLAG cpuAccessFlag
-		, void* intialData, DataTypes... types)
+		, void* initialData
+		, DataTypes... types)
 	{
 		std::vector<TYPE> dataTypes = { types... };
 
 		unsigned int size = 0;
 
-		for(TYPE dataType : bufferDataTypes)
+		for(TYPE dataType : dataTypes)
 		{
 			switch(dataType)
 			{

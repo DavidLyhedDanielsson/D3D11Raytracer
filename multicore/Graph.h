@@ -132,6 +132,14 @@ public:
 		return values;
 	}
 
+	void Clear()
+	{
+		values.clear();
+		addedValues = 0;
+		maxValue = 0;
+		minValue = 0;
+	}
+
 	DirectX::XMFLOAT3 color;
 	std::deque<float> values;
 
@@ -149,7 +157,7 @@ public:
 	Graph();
 	~Graph();
 
-	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight);
+	std::string Init(ID3D11Device* device, ID3D11DeviceContext* context, ContentManager* contentManager, DirectX::XMINT2 position, DirectX::XMINT2 size, float yMax, int avgPoints, int backbufferWidth, int backbufferHeight, bool keepHistory);
 
 	std::string AddTrack(std::string name, Track track);
 	std::string AddTracks(std::vector<std::string> trackNames, std::vector<Track> tracks);
@@ -160,6 +168,9 @@ public:
 	void Draw();
 
 	int GetBackgroundWidth() const;
+
+	void Reset();
+	bool DumpValues(const std::string& path) const;
 
 private:
 	int screenWidth;
@@ -209,7 +220,5 @@ private:
 	int CalculateMaxValues(const Track& track) const;
 	float CalculateYValue(float maxValue, float value) const;
 	std::string FloatToString(float value) const;
-
-	std::vector<DirectX::XMFLOAT2> CalculateNamePositions(const std::deque<float>& values) const;
 };
 #endif // Graph_h__

@@ -598,6 +598,30 @@ inline void operator>>(const std::string& lhs, Argument& rhs)
 	rhs.type = Argument::TYPE::STRING;
 }
 
+
+inline bool operator>>(const Argument& lhs, DirectX::XMFLOAT2& rhs)
+{
+	if(lhs.values.size() != 2)
+		return false;
+
+	rhs.x = std::stof(lhs.values[0]);
+	rhs.y = std::stof(lhs.values[1]);
+
+	return true;
+}
+
+inline bool operator>>(const DirectX::XMFLOAT2& lhs, Argument& rhs)
+{
+	rhs.values.clear();
+
+	rhs.type = Argument::TYPE::FLOAT;
+
+	rhs.values.emplace_back(std::to_string(lhs.x));
+	rhs.values.emplace_back(std::to_string(lhs.y));
+
+	return true;
+}
+
 inline bool operator>>(const Argument& lhs, DirectX::XMFLOAT3& rhs)
 {
 	if(lhs.values.size() != 3)

@@ -1,11 +1,17 @@
 #include "BezierConstants.hlsl"
 
+cbuffer TessFactors : register(b0)
+{
+	float firstTessFactor;
+	float secondTessFactor;
+};
+
 PatchTess ConstantMain(InputPatch<BezierNode, 2> patch, uint patchID : SV_PrimitiveID)
 {
 	PatchTess outData;
 
-	outData.edgeTess[0] = 4;
-	outData.edgeTess[1] = 4;
+	outData.edgeTess[0] = firstTessFactor;
+	outData.edgeTess[1] = secondTessFactor;
 
 	return outData;
 }

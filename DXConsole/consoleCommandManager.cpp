@@ -273,7 +273,7 @@ Argument ConsoleCommandManager::ParseExpression(std::string expression)
 				if(!std::isdigit(character)
 					&& character != '-'
 					&& character != '+')
-					throw std::invalid_argument("Evaluated \"" + expression + "\" to be an integer, but " + std::to_string(character) + " was not a number or a ±");
+					throw std::invalid_argument("Evaluated \"" + expression + "\" to be an integer, but " + character + " was not a number or a +/-");
 			}
 
 			if(TryExtract<int32_t>(sstream))
