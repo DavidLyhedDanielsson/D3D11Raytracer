@@ -1,4 +1,4 @@
-watch lightRotationRadius(10)
+watch lightRotationRadius()
 watch lightMinHeight(1)
 watch lightSinValMult(2)
 watch lightMaxHeight(9.5)

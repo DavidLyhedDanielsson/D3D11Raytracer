@@ -1,5 +1,7 @@
 #include "ShaderResourceBinds.h"
 
+#include "DXStructuredBuffer.h"
+
 #include <unordered_map>
 
 ShaderResourceBinds::ShaderResourceBinds()
@@ -59,6 +61,9 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 			case D3D_SIT_TEXTURE:
 				srvRegisters.insert(inputDesc.BindPoint);
 				break;
+			case D3D_SIT_STRUCTURED: //TODO: UAV?
+				srvRegisters.insert(inputDesc.BindPoint);
+				break;
 			default:
 				unknownBuffers.emplace_back(inputDesc.Name);
 				break;
@@ -96,12 +101,17 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 	CheckBoundSlots(srvs, srvRegisters, "SRV", shaderPath);
 }
 
-void ShaderResourceBinds::AddResource(ID3D11Buffer* buffer, int slot)
+void ShaderResourceBinds::AddResource(const DXConstantBuffer& buffer, int slot)
 {
 	if(cbuffers.find(slot) != cbuffers.end())
 		Logger::LogLine(LOG_TYPE::WARNING, "Trying to bind multiple cbuffers to slot " + std::to_string(slot));
 
-	cbuffers[slot].push_back(buffer);
+	cbuffers[slot].push_back(buffer.GetBuffer());
+}
+
+void ShaderResourceBinds::AddResource(const DXStructuredBuffer& buffer, int slot)
+{
+	AddResource(buffer.GetSRV(), slot);
 }
 
 void ShaderResourceBinds::AddResource(ID3D11SamplerState* sampler, int slot)

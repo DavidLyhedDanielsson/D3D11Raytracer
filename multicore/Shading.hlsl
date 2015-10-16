@@ -6,39 +6,42 @@ cbuffer pointlightBuffer : register(b0)
 	int lightCount;
 };
 
-cbuffer sphereBuffer : register(b1)
-{
-	float4 spheres[MAX_SPHERES];
-	float4 sphereColors[MAX_SPHERES];
-	int sphereCount;
-};
+//cbuffer sphereBuffer : register(b1)
+//{
+//	float4 spheres[MAX_SPHERES];
+//	float4 sphereColors[MAX_SPHERES];
+//	int sphereCount;
+//};
 
-cbuffer triangleBuffer : register(b2)
-{
-	float4 vertices[MAX_VERTICES];
-	int4 indicies[MAX_INDICIES / 3];
-	float4 triangleColors[MAX_INDICIES / 3];
-	int triangleCount;
-};
+//cbuffer triangleBuffer : register(b2)
+//{
+//	float4 vertices[MAX_VERTICES];
+//	int4 indicies[MAX_INDICIES / 3];
+//	float4 triangleColors[MAX_INDICIES / 3];
+//	int triangleCount;
+//};
 
-cbuffer attenuationBuffer : register(b3)
+cbuffer attenuationBuffer : register(b1)
 {
 	float a;
 	float b;
 	float c;
 };
 
-cbuffer cameraPositionBuffer : register(b4)
+cbuffer cameraPositionBuffer : register(b2)
 {
 	float3 cameraPosition;
 }
 
 RWTexture2D<float4> backbufferOut : register(u0);
 
-Texture2D<float4> rayPositions : register(t0);
-Texture2D<float4> rayNormals : register(t1);
-Texture2D<float4> rayColors : register(t2);
-Texture2D<float4> backbufferIn : register(t3);
+StructuredBuffer<Sphere> spheres : register(t0);
+StructuredBuffer<Vertex> vertices : register(t1);
+StructuredBuffer<Triangle> triangles : register(t2);
+Texture2D<float4> rayPositions : register(t3);
+Texture2D<float4> rayNormals : register(t4);
+Texture2D<float4> rayColors : register(t5);
+Texture2D<float4> backbufferIn : register(t6);
 
 sampler textureSampler : register(s0);
 
@@ -57,7 +60,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		&& backbufferIn[threadID.xy].w > 0.01f)
 	{
 		float3 rayPosition = rayPositions[threadID.xy].xyz;
-		int lastHit = rayPositions[threadID.xy].w;
+		uint lastHit = rayPositions[threadID.xy].w;
 		
 		for(int i = 0; i < lightCount; i++)
 		{
@@ -106,10 +109,15 @@ bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight
 {
 	int closestSphereIndex = -1;
 
-	for(int i = 0; i < sphereCount; ++i)
+	uint count = -1;
+	uint stride = -1;
+
+	spheres.GetDimensions(count, stride);
+
+	for(int i = 0; i < (int)count; ++i)
 	{
-		float3 spherePosition = spheres[i].xyz;
-		float sphereRadius = spheres[i].w;
+		float3 spherePosition = spheres[i].position;
+		float sphereRadius = spheres[i].radius;
 
 		float a = dot(rayDirection, (rayPosition - spherePosition));
 
@@ -134,11 +142,23 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 {
 	int closestTriangleIndex = -1;
 
-	for(int i = 0; i < triangleCount; ++i)
+	uint sphereCount = 0;
+	uint sphereStride = 0;
+
+	spheres.GetDimensions(sphereCount, sphereStride);
+
+	uint count = 0;
+	uint stride = 0;
+
+	triangles.GetDimensions(count, stride);
+
+	for(int i = 0; i < (int)count; ++i)
 	{
-		float3 v0 = vertices[indicies[i].x].xyz;
-		float3 v1 = vertices[indicies[i].y].xyz;
-		float3 v2 = vertices[indicies[i].z].xyz;
+		Triangle currTriangle = triangles[i];
+
+		float3 v0 = vertices[currTriangle.indicies.x].position;
+		float3 v1 = vertices[currTriangle.indicies.y].position;
+		float3 v2 = vertices[currTriangle.indicies.z].position;
 
 		float3 v0v2 = v2 - v0;
 		float3 v0v1 = v1 - v0;
@@ -153,7 +173,7 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 
 		if(distance > 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
 			&& distance < distanceToLight
-			&& sphereCount + i != lastHit)
+			&& (int)sphereCount + i != lastHit)
 		{
 			return false;
 		}

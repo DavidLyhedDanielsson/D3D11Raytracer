@@ -24,13 +24,14 @@
     <ClCompile Include="CharacterSet.cpp" />
     <ClCompile Include="CinematicCamera.cpp" />
     <ClCompile Include="DomainShader.cpp" />
-    <ClCompile Include="DXBuffer.cpp" />
+    <ClCompile Include="DXConstantBuffer.cpp" />
     <ClCompile Include="Content.cpp" />
     <ClCompile Include="ContentManager.cpp" />
     <ClCompile Include="D3D11Timer.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="DepthStencilStates.cpp" />
     <ClCompile Include="DXMath.cpp" />
+    <ClCompile Include="DXStructuredBuffer.cpp" />
     <ClCompile Include="FPSCamera.cpp" />
     <ClCompile Include="HullShader.cpp" />
     <ClCompile Include="Input.cpp" />
@@ -58,7 +59,7 @@
     <ClInclude Include="CharacterSet.h" />
     <ClInclude Include="CinematicCamera.h" />
     <ClInclude Include="DomainShader.h" />
-    <ClInclude Include="DXBuffer.h" />
+    <ClInclude Include="DXConstantBuffer.h" />
     <ClInclude Include="ConstructedString.h" />
     <ClInclude Include="Content.h" />
     <ClInclude Include="ContentCreationParameters.h" />
@@ -70,6 +71,7 @@
     <ClInclude Include="DepthStencilStates.h" />
     <ClInclude Include="DirectXHelpers.h" />
     <ClInclude Include="DXMath.h" />
+    <ClInclude Include="DXStructuredBuffer.h" />
     <ClInclude Include="FPSCamera.h" />
     <ClInclude Include="HullShader.h" />
     <ClInclude Include="Input.h" />

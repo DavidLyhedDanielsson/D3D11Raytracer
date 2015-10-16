@@ -5,25 +5,13 @@ RWTexture2D<float4> rayDirectionsOut : register(u1);
 RWTexture2D<float4> rayNormalOut : register(u2);
 RWTexture2D<float4> rayColorOut : register(u3);
 
-Texture2D<float4> rayPositions : register(t0);
-Texture2D<float4> rayDirections : register(t1);
+StructuredBuffer<Sphere> spheres : register(t0);
+StructuredBuffer<Vertex> vertices : register(t1);
+StructuredBuffer<Triangle> triangles : register(t2);
+Texture2D<float4> rayPositions : register(t3);
+Texture2D<float4> rayDirections : register(t4);
 
 sampler textureSampler : register(s0);
-
-cbuffer sphereBuffer : register(b0)
-{
-	float4 spheres[MAX_SPHERES];
-	float4 sphereColors[MAX_SPHERES];
-	int sphereCount;
-};
-
-cbuffer triangleBuffer : register(b1)
-{
-	float4 vertices[MAX_VERTICES];
-	int4 indicies[MAX_INDICIES / 3];
-	float4 triangleColors[MAX_INDICIES / 3];
-	int triangleCount;
-};
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
@@ -60,15 +48,20 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	if(closestTriangle != -1)
 	{
 		//A triangle was closest
+		
+		uint sphereCount = 0;
+		uint stride = 0;
 
-		rayColorOut[threadID.xy] = triangleColors[closestTriangle];
+		spheres.GetDimensions(sphereCount, stride);
+
+		rayColorOut[threadID.xy] = triangles[closestTriangle].color;
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
 	}
 	else
 	{
 		//A sphere was closest
 
-		rayColorOut[threadID.xy] = sphereColors[closestSphere];
+		rayColorOut[threadID.xy] = spheres[closestSphere].color;
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, closestSphere);
 	}
 }
@@ -77,10 +70,15 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout flo
 {
 	int closestSphereIndex = -1;
 
-	for(int i = 0; i < sphereCount; ++i)
+	uint count = 0;
+	uint stride = 0;
+
+	spheres.GetDimensions(count, stride);
+
+	for(int i = 0; i < (int)count; ++i)
 	{
-		float3 spherePosition = spheres[i].xyz;
-		float sphereRadius = spheres[i].w;
+		float3 spherePosition = spheres[i].position;
+		float sphereRadius = spheres[i].radius;
 
 		float a = dot(rayDirection, (rayPosition - spherePosition));
 
@@ -91,7 +89,7 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout flo
 
 		if(root < 0.0f)
 			continue;
-
+			
 		float distance = -a - sqrt(root);
 
 		if(distance < depth
@@ -107,7 +105,7 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout flo
 		return;
 
 	float3 hitPoint = rayPosition + rayDirection * depth;
-	float3 normal = hitPoint - spheres[closestSphereIndex].xyz;
+	float3 normal = hitPoint - spheres[closestSphereIndex].position;
 
 	currentNormal = normalize(normal);
 
@@ -118,11 +116,23 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout f
 {
 	int closestTriangleIndex = -1;
 
-	for(int i = 0; i < triangleCount; ++i)
+	uint sphereCount = 0;
+	uint sphereStride = 0;
+
+	spheres.GetDimensions(sphereCount, sphereStride);
+
+	uint count = 0;
+	uint stride = 0;
+
+	triangles.GetDimensions(count, stride);
+
+	for(int i = 0; i < (int)count; ++i)
 	{
-		float3 v0 = vertices[indicies[i].x].xyz;
-		float3 v1 = vertices[indicies[i].y].xyz;
-		float3 v2 = vertices[indicies[i].z].xyz;
+		Triangle currTriangle = triangles[i];
+
+		float3 v0 = vertices[currTriangle.indicies.x].position;
+		float3 v1 = vertices[currTriangle.indicies.y].position;
+		float3 v2 = vertices[currTriangle.indicies.z].position;
 
 		float3 v0v2 = v2 - v0;
 		float3 v0v1 = v1 - v0;
@@ -137,7 +147,7 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout f
 
 		if(distance > 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
 			&& distance < depth
-			&& sphereCount + i != lastHit)
+			&& (int)sphereCount + i != lastHit)
 		{
 			closestTriangleIndex = i;
 			depth = distance;
@@ -147,9 +157,11 @@ void TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout f
 	if(closestTriangleIndex == -1)
 		return;
 
-	float3 v0 = vertices[indicies[closestTriangleIndex].x].xyz;
-	float3 v1 = vertices[indicies[closestTriangleIndex].y].xyz;
-	float3 v2 = vertices[indicies[closestTriangleIndex].z].xyz;
+	Triangle currTriangle = triangles[closestTriangleIndex];
+
+	float3 v0 = vertices[currTriangle.indicies.x].position;
+	float3 v1 = vertices[currTriangle.indicies.y].position;
+	float3 v2 = vertices[currTriangle.indicies.z].position;
 
 	currentNormal = normalize(cross(v2 - v0, v1 - v0));
 

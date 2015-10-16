@@ -13,7 +13,8 @@
 #include <DXLib/spriteRenderer.h>
 #include <DXLib/keyState.h>
 #include <DXLib/D3D11Timer.h>
-#include <DXLib/DXBuffer.h>
+#include <DXLib/DXConstantBuffer.h>
+#include <DXLib/DXStructuredBuffer.h>
 #include <DXLib/FPSCamera.h>
 #include <DXLib/CinematicCamera.h>
 #include <DXLib/OBJFile.h>
@@ -21,7 +22,6 @@
 
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
-
 
 #include "Graph.h"
 #include "ComputeShader.h"
@@ -39,10 +39,6 @@ enum class BUFFER_DATA_TYPES
 
 const static int MAX_POINT_LIGHTS = 10;
 const static int MAX_SPHERES = 64;
-
-const static int MAX_TRIANGLES = 256;
-const static int MAX_VERTICES = MAX_TRIANGLES * 3;
-const static int MAX_INDICIES = MAX_TRIANGLES * 3;
 
 #define LogErrorReturnFalse(functionCall, messagePrefix)				\
 {																		\
@@ -110,20 +106,45 @@ namespace
 		int lightCount;
 	};
 
-	struct SphereBufferData
+	struct Sphere
 	{
-		DirectX::XMFLOAT4 spheres[MAX_SPHERES];
-		DirectX::XMFLOAT4 colors[MAX_SPHERES];
+		Sphere()
+		{}
+		Sphere(DirectX::XMFLOAT3 position, float radius, DirectX::XMFLOAT4 color)
+			: position(position)
+			, radius(radius)
+			, color(color)
+		{}
 
-		int sphereCount;
+		DirectX::XMFLOAT3 position;
+		float radius;
+		DirectX::XMFLOAT4 color;
 	};
 
-	struct TriangleBufferData
+	struct Triangle
 	{
-		DirectX::XMFLOAT4 vertices[MAX_VERTICES];
-		DirectX::XMINT4 triangleIndicies[MAX_INDICIES / 3];
-		DirectX::XMFLOAT4 colors[MAX_INDICIES / 3];
-		int triangleCount;
+		Triangle()
+		{}
+		Triangle(DirectX::XMINT3 indicies, DirectX::XMFLOAT4 color)
+			: indicies(indicies)
+			, color(color)
+		{}
+
+		DirectX::XMINT3 indicies;
+		DirectX::XMFLOAT4 color;
+		float padding;
+	};
+
+	struct TriangleVertex
+	{
+		TriangleVertex()
+		{}
+		TriangleVertex(DirectX::XMFLOAT3 position)
+			: position(position)
+		{}
+
+		DirectX::XMFLOAT3 position;
+		float padding;
 	};
 }
 
@@ -172,9 +193,11 @@ private:
 	COMUniquePtr<ID3D11Buffer> vertexBuffer;
 	COMUniquePtr<ID3D11Buffer> indexBuffer;
 
-	DXBuffer viewProjMatrixBuffer;
-	DXBuffer viewProjInverseBuffer;
-	DXBuffer sphereBuffer;
+	DXConstantBuffer viewProjMatrixBuffer;
+	DXConstantBuffer viewProjInverseBuffer;
+	DXStructuredBuffer sphereBuffer;
+	DXStructuredBuffer triangleVertexBuffer;
+	DXStructuredBuffer triangleBuffer;
 	//DXBuffer triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
@@ -195,9 +218,9 @@ private:
 	OBJFile* swordOBJ;
 
 	//Point lights
-	DXBuffer pointlightAttenuationBuffer;
-	DXBuffer pointLightBuffer;
-	DXBuffer cameraPositionBuffer;
+	DXConstantBuffer pointlightAttenuationBuffer;
+	DXConstantBuffer pointLightBuffer;
+	DXConstantBuffer cameraPositionBuffer;
 	PointlightBufferData pointLightBufferData;
 	LightAttenuationBufferData pointlightAttenuationBufferData;
 
@@ -224,9 +247,9 @@ private:
 
 	VertexShader bulbVertexShader;
 	PixelShader bulbPixelShader;
-	DXBuffer bulbViewProjMatrixBuffer;
-	DXBuffer bulbInstanceBuffer;
-	DXBuffer bulbVertexBuffer;
+	DXConstantBuffer bulbViewProjMatrixBuffer;
+	DXConstantBuffer bulbInstanceBuffer;
+	DXConstantBuffer bulbVertexBuffer;
 
 	Float4x4BufferData bulbInstanceData[MAX_POINT_LIGHTS];
 	Texture2D* bulbTexture;
@@ -234,7 +257,7 @@ private:
 	//////////////////////////////////////////////////
 	//OBJ
 	//////////////////////////////////////////////////
-	DXBuffer objBuffer;
+	//DXConstantBuffer objBuffer;
 
 	ContentManager contentManager;
 	SpriteRenderer spriteRenderer;
@@ -262,12 +285,12 @@ private:
 	HullShader bezierHullShader;
 	DomainShader bezierDomainShader;
 
-	DXBuffer bezierViewProjMatrixBuffer;
-	DXBuffer bezierVertexBuffer;
+	DXConstantBuffer bezierViewProjMatrixBuffer;
+	DXConstantBuffer bezierVertexBuffer;
 
 	int bezierVertexCount;
 
-	DXBuffer bezierTessFactorBuffer;
+	DXConstantBuffer bezierTessFactorBuffer;
 
 	std::vector<BezierVertex> CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const;
 	void UploadBezierFrames();
@@ -276,7 +299,7 @@ private:
 	//////////////////////////////////////////////////
 	//Etc
 	//////////////////////////////////////////////////
-	TriangleBufferData triangleBufferData;
+	//TriangleBufferData triangleBufferData;
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -295,7 +318,7 @@ private:
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
-	bool InitOBJ();
+	std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> InitOBJ();
 	bool InitBezier();
 
 	void InitInput();
