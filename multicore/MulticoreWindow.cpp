@@ -44,7 +44,7 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, bezierHullShader("main", "hs_5_0")
 	, bezierDomainShader("main", "ds_5_0")
 	, drawConsole(false)
-	, cinematicCameraMode(true)
+	, cinematicCameraMode(false)
 	, bezierVertexCount(0)
 	, swordOBJ(nullptr)
 {
@@ -109,7 +109,7 @@ bool MulticoreWindow::Init()
 		return false;
 
 	rayBounces = 1;
-	
+
 	if(cinematicCameraMode)
 		currentCamera = &cinematicCamera;
 	else
@@ -197,10 +197,10 @@ void MulticoreWindow::Run()
 
 			/*if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
 			{
-				run = false;
-				PostQuitMessage(0);
+			run = false;
+			PostQuitMessage(0);
 
-				gpuGraph.DumpValues("GPUGraph.txt");
+			gpuGraph.DumpValues("GPUGraph.txt");
 			}*/
 		}
 		else
@@ -446,7 +446,7 @@ Argument MulticoreWindow::AddCameraFrame(const std::vector<Argument>& argument)
 {
 	CameraKeyFrame newFrame;
 	newFrame.position = currentCamera->GetPosition();
-	
+
 	cinematicCamera.AddFrame(9999, newFrame);
 
 	UploadBezierFrames();
@@ -604,8 +604,10 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//Primary rays
 	//////////////////////////////////////////////////
 	ShaderResourceBinds primaryResourceBinds0;
+	//CBuffers
 	primaryResourceBinds0.AddResource(viewProjInverseBuffer, 0);
 
+	//UAVs
 	primaryResourceBinds0.AddResource(rayPositionUAV[0].get(), 0);
 	primaryResourceBinds0.AddResource(rayDirectionUAV[0].get(), 1);
 	primaryResourceBinds0.AddResource(rayNormalUAV.get(), 2);
@@ -620,31 +622,39 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//traceResourceBinds0.AddResource(sphereBuffer.GetBuffer(), 0);
 	//traceResourceBinds0.AddResource(objBuffer.GetBuffer(), 1);
 
+	//UAVs
 	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
 	traceResourceBinds0.AddResource(rayDirectionUAV[1].get(), 1);
 	traceResourceBinds0.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
 
-	traceResourceBinds0.AddResource(sphereBuffer, 0);
+	//CBuffers
+	traceResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
 	//traceResourceBinds0.AddResource(triangleVertexBuffer, 1);
 	//traceResourceBinds0.AddResource(triangleBuffer, 2);
-	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 3);
-	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 4);
+
+	//SRVs
+	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
+	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
 
 	ShaderResourceBinds traceResourceBinds1;
 	//traceResourceBinds1.AddResource(sphereBuffer.GetBuffer(), 0);
 	//traceResourceBinds1.AddResource(objBuffer.GetBuffer(), 1);
 
+	//UAVs
 	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
 	traceResourceBinds1.AddResource(rayDirectionUAV[0].get(), 1);
 	traceResourceBinds1.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
 
-	traceResourceBinds1.AddResource(sphereBuffer, 0);
+	//CBuffers
+	traceResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
 	//traceResourceBinds1.AddResource(triangleVertexBuffer, 1);
 	//traceResourceBinds1.AddResource(triangleBuffer, 2);
-	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 3);
-	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 4);
+
+	//SRVs
+	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
+	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
 
 	LogErrorReturnFalse(traceShader.CreateFromFile("Intersection.hlsl", device.get(), traceResourceBinds0, traceResourceBinds1), "");
 
@@ -652,34 +662,40 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//Coloring
 	//////////////////////////////////////////////////
 	ShaderResourceBinds shadeResourceBinds0;
-	shadeResourceBinds0.AddResource(pointLightBuffer, 0);
-	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 1);
-	shadeResourceBinds0.AddResource(cameraPositionBuffer, 2);
+	//CBuffers
+	shadeResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 4);
+	shadeResourceBinds0.AddResource(cameraPositionBuffer, 5);
 
+	//UAVs
 	shadeResourceBinds0.AddResource(outputColorUAV[0].get(), 0);
 
-	shadeResourceBinds0.AddResource(sphereBuffer, 0);
 	//shadeResourceBinds0.AddResource(triangleVertexBuffer, 1);
 	//shadeResourceBinds0.AddResource(triangleBuffer, 2);
-	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 3);
-	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 4);
-	shadeResourceBinds0.AddResource(rayColorSRV.get(), 5);
-	shadeResourceBinds0.AddResource(outputColorSRV[1].get(), 6);
+	//SRVs
+	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 0);
+	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 1);
+	shadeResourceBinds0.AddResource(rayColorSRV.get(), 2);
+	shadeResourceBinds0.AddResource(outputColorSRV[1].get(), 3);
 
 	ShaderResourceBinds shadeResourceBinds1;
-	shadeResourceBinds1.AddResource(pointLightBuffer, 0);
-	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 1);
-	shadeResourceBinds1.AddResource(cameraPositionBuffer, 2);
+	//CBuffers
+	shadeResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 4);
+	shadeResourceBinds1.AddResource(cameraPositionBuffer, 5);
 
+	//UAVs
 	shadeResourceBinds1.AddResource(outputColorUAV[1].get(), 0);
 
-	shadeResourceBinds1.AddResource(sphereBuffer, 0);
 	//shadeResourceBinds1.AddResource(triangleVertexBuffer, 1);
 	//shadeResourceBinds1.AddResource(triangleBuffer, 2);
-	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 3);
-	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 4);
-	shadeResourceBinds1.AddResource(rayColorSRV.get(), 5);
-	shadeResourceBinds1.AddResource(outputColorSRV[0].get(), 6);
+	//SRVs
+	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 0);
+	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 1);
+	shadeResourceBinds1.AddResource(rayColorSRV.get(), 2);
+	shadeResourceBinds1.AddResource(outputColorSRV[0].get(), 3);
 
 	LogErrorReturnFalse(intersectionShader.CreateFromFile("Shading.hlsl", device.get(), shadeResourceBinds0, shadeResourceBinds1), "");
 
@@ -687,7 +703,7 @@ bool MulticoreWindow::InitRaytraceShaders()
 	if(!console.AddCommand(reloadShadersCommand))
 		delete reloadShadersCommand;
 
-	ShaderResourceBinds compositResourceBinds0; 
+	ShaderResourceBinds compositResourceBinds0;
 	compositResourceBinds0.AddResource(backbufferUAV.get(), 0);
 	compositResourceBinds0.AddResource(outputColorSRV[0].get(), 0);
 
@@ -877,7 +893,11 @@ bool MulticoreWindow::InitRoom()
 {
 	//LogErrorReturnFalse(objBuffer.Create<TriangleBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData), "Couldn't create triangle buffer: ");
 
-	std::vector<Sphere> spheres;
+	SphereBuffer sphereBufferData;
+	sphereBufferData.sphereCount = 128;
+
+	std::vector<DirectX::XMFLOAT4> spheres;
+	std::vector<DirectX::XMFLOAT4> sphereColors;
 
 	float rotationIncrease = DirectX::XM_2PI * 0.1f;
 	float heightIncrease = 0.2f;
@@ -897,21 +917,24 @@ bool MulticoreWindow::InitRoom()
 
 	for(int i = 0; i < 128; ++i)
 	{
-		Sphere newSphere;
+		DirectX::XMFLOAT4 newSphere;
+		DirectX::XMFLOAT4 newColor;
 
-		newSphere.position = DirectX::XMFLOAT3(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius);
-		newSphere.radius = 0.5f;
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
 		if(i % 3 == 0)
-			newSphere.color = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
+			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
 		else if(i % 3 == 1)
-			newSphere.color = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.8f);
+			newColor = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.8f);
 		else if(i % 3 == 2)
-			newSphere.color = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.8f);
+			newColor = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.8f);
 
 		rotationValue += rotationIncrease;
 		heightValue += heightIncrease;
 
-		spheres.push_back(std::move(newSphere));
+		sphereBufferData.spheres.position[i] = newSphere;
+		sphereBufferData.spheres.color[i] = newColor;
+		//spheres.push_back(std::move(newSphere));
+		//sphereColors.push_back(std::move(newColor));
 	}
 
 	/*std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> triangles = InitOBJ();
@@ -1068,85 +1091,78 @@ bool MulticoreWindow::InitRoom()
 
 	for(int i = 0; i < newColors.size(); i++)
 	{
-/ *
-		triangleBufferData.vertices[offset * 3 + i * 3] = newVertices[i * 3];
-		triangleBufferData.vertices[offset * 3 + i * 3 + 1] = newVertices[i * 3 + 1];
-		triangleBufferData.vertices[offset * 3 + i * 3 + 2] = newVertices[i * 3 + 2];
+	/ *
+	triangleBufferData.vertices[offset * 3 + i * 3] = newVertices[i * 3];
+	triangleBufferData.vertices[offset * 3 + i * 3 + 1] = newVertices[i * 3 + 1];
+	triangleBufferData.vertices[offset * 3 + i * 3 + 2] = newVertices[i * 3 + 2];
 
-		triangleBufferData.colors[offset + i] = newColors[i];
+	triangleBufferData.colors[offset + i] = newColors[i];
 
-		triangleBufferData.triangleIndicies[offset + i] = DirectX::XMINT4(offset * 3 + i * 3, offset * 3 + i * 3 + 1, offset * 3 + i * 3 + 2, 0);
-		triangleBufferData.triangleCount++;* /
-		for(int j = 0; j < 3; ++j)
-			triangles.first.push_back(std::move(newVertices[i * 3 + j]));
+	triangleBufferData.triangleIndicies[offset + i] = DirectX::XMINT4(offset * 3 + i * 3, offset * 3 + i * 3 + 1, offset * 3 + i * 3 + 2, 0);
+	triangleBufferData.triangleCount++;* /
+	for(int j = 0; j < 3; ++j)
+	triangles.first.push_back(std::move(newVertices[i * 3 + j]));
 
-		Triangle newTriangle;
+	Triangle newTriangle;
 
-		newTriangle.indicies = DirectX::XMINT3(offset + i * 3, offset + i * 3 + 1, offset + i * 3 + 2);
-		newTriangle.color = newColors[i];
+	newTriangle.indicies = DirectX::XMINT3(offset + i * 3, offset + i * 3 + 1, offset + i * 3 + 2);
+	newTriangle.color = newColors[i];
 
-		triangles.second.push_back(std::move(newTriangle));
+	triangles.second.push_back(std::move(newTriangle));
 	}*/
 
 	//////////////////////////////////////////////////
 	//Buffers
 	//////////////////////////////////////////////////
-	LogErrorReturnFalse(sphereBuffer.Create<Sphere>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), spheres.size(), &spheres[0]), "Couldn't create sphere buffer: ");
+	LogErrorReturnFalse(sphereBuffer.Create<SphereBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
 	/*LogErrorReturnFalse(triangleVertexBuffer.Create<TriangleVertex>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.first.size(), &triangles.first[0]), "Couldn't create triangle vertex buffer: ");
 	LogErrorReturnFalse(triangleBuffer.Create<Triangle>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.second.size(), &triangles.second[0]), "Couldn't create triangle index buffer: ");*/
 
 	return true;
 }
 
-std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> MulticoreWindow::InitOBJ()
+std::pair<VertexBuffer, TriangleBuffer> MulticoreWindow::InitOBJ()
 {
-	std::vector<TriangleVertex> vertices;
-	std::vector<Triangle> triangles;
+	VertexBuffer returnVertexBuffer;
+	TriangleBuffer returnTriangleBuffer;
+
+	VertexBufferData vertices;
+	TriangleBufferData triangles;
 
 	swordOBJ = contentManager.Load<OBJFile>("sword.obj");
 	if(swordOBJ == nullptr)
-		return std::make_pair(vertices, triangles);
+		return std::make_pair(returnVertexBuffer, returnTriangleBuffer);
 
 	Mesh swordMesh = swordOBJ->GetMeshes().front();
 
+	if(swordMesh.vertices.size() > MAX_VERTICES)
+		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.vertices.size()) + " vertices which is larger than MAX_VERTICES (" + std::to_string(MAX_VERTICES) + "). Only the first " + std::to_string(MAX_VERTICES) + " will be used");
+
 	for(int i = 0, end = static_cast<int>(swordMesh.vertices.size()); i < end; ++i)
 	{
-		TriangleVertex newVertex;
+		vertices.position[i].x = swordMesh.vertices[i].position.x;
+		vertices.position[i].y = swordMesh.vertices[i].position.y + 3.5f;
+		vertices.position[i].z = swordMesh.vertices[i].position.z - 0.75f;
 
-		newVertex.position.x = swordMesh.vertices[i].position.x;
-		newVertex.position.y = swordMesh.vertices[i].position.y + 3.5f;
-		newVertex.position.z = swordMesh.vertices[i].position.z - 0.75f;
-
-		vertices.push_back(std::move(newVertex));
+		vertices.color[i] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.25f);
 	}
 
 	for(int i = 0, end = static_cast<int>(swordMesh.indicies.size()) / 3; i < end; ++i)
 	{
-		/*triangleBufferData.triangleIndicies[i].x = swordMesh.indicies[i * 3];
-		triangleBufferData.triangleIndicies[i].y = swordMesh.indicies[i * 3 + 1];
-		triangleBufferData.triangleIndicies[i].z = swordMesh.indicies[i * 3 + 2];
-		triangleBufferData.triangleIndicies[i].w = 0.0f;*/
-		Triangle newTriangle;
-
-		newTriangle.indicies.x = swordMesh.indicies[i * 3];
-		newTriangle.indicies.y = swordMesh.indicies[i * 3 + 1];
-		newTriangle.indicies.z = swordMesh.indicies[i * 3 + 2];
-
-		newTriangle.color = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.25f);
-
-		triangles.push_back(std::move(newTriangle));
-
+		triangles.vertices[i].x = swordMesh.indicies[i * 3];
+		triangles.vertices[i].y = swordMesh.indicies[i * 3 + 1];
+		triangles.vertices[i].z = swordMesh.indicies[i * 3 + 2];
 	}
 
 	/*triangleBufferData.triangleCount = swordMesh.indicies.size() / 3;
 	if(swordMesh.indicies.size() % 3 != 0)
-		Logger::LogLine(LOG_TYPE::WARNING, "OBJ indicies count isn't divisibly by 3");
+	Logger::LogLine(LOG_TYPE::WARNING, "OBJ indicies count isn't divisibly by 3");
 
 	for(int i = 0; i < triangleBufferData.triangleCount; ++i)
-		triangleBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.05f);*/
+	triangleBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.05f);*/
 
 	//return true;
-	return std::make_pair(vertices, triangles);
+	return std::make_pair(returnVertexBuffer, returnTriangleBuffer);
 }
 
 bool MulticoreWindow::InitBezier()
@@ -1165,8 +1181,8 @@ bool MulticoreWindow::InitBezier()
 	LogErrorReturnFalse(bezierVertexShader.CreateFromFile("BezierVertexShader.hlsl", device.get()), "Couldn't load bezier vertex shader: ");
 	bezierVertexShader.SetVertexData(device.get(),
 		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT }
-		, std::vector<std::string> { "BEGIN_ANCHOR", "END_ANCHOR", "BEGIN_HANDLE", "END_HANDLE", "LAMBDA" }
-		, std::vector<bool> { false, false, false, false, false });
+	, std::vector<std::string> { "BEGIN_ANCHOR", "END_ANCHOR", "BEGIN_HANDLE", "END_HANDLE", "LAMBDA" }
+	, std::vector<bool> { false, false, false, false, false });
 
 
 	DirectX::XMFLOAT2 tessFactors(1.0f, 1.0f);
@@ -1502,7 +1518,7 @@ void MulticoreWindow::UploadBezierFrames()
 {
 	auto frames = cinematicCamera.GetFrames();
 	std::vector<BezierVertex> vertices = CalcBezierVertices(frames);
-	
+
 	if(vertices.size() > 0)
 		bezierVertexBuffer.Update<BezierVertex>(deviceContext.get(), &vertices[0], static_cast<int>(vertices.size()));
 

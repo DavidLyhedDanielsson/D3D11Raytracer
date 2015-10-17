@@ -14,14 +14,16 @@
 #include <DXLib/keyState.h>
 #include <DXLib/D3D11Timer.h>
 #include <DXLib/DXConstantBuffer.h>
-#include <DXLib/DXStructuredBuffer.h>
 #include <DXLib/FPSCamera.h>
 #include <DXLib/CinematicCamera.h>
 #include <DXLib/OBJFile.h>
 #include <DXLib/DXMath.h>
 
+#include "SharedShaderBuffers.h"
+
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
+
 
 #include "Graph.h"
 #include "ComputeShader.h"
@@ -36,9 +38,6 @@ enum class BUFFER_DATA_TYPES
 	, FLOAT3
 	, FLOAT4
 };*/
-
-const static int MAX_POINT_LIGHTS = 10;
-const static int MAX_SPHERES = 64;
 
 #define LogErrorReturnFalse(functionCall, messagePrefix)				\
 {																		\
@@ -105,47 +104,6 @@ namespace
 		DirectX::XMFLOAT4 lights[MAX_POINT_LIGHTS];
 		int lightCount;
 	};
-
-	struct Sphere
-	{
-		Sphere()
-		{}
-		Sphere(DirectX::XMFLOAT3 position, float radius, DirectX::XMFLOAT4 color)
-			: position(position)
-			, radius(radius)
-			, color(color)
-		{}
-
-		DirectX::XMFLOAT3 position;
-		float radius;
-		DirectX::XMFLOAT4 color;
-	};
-
-	struct Triangle
-	{
-		Triangle()
-		{}
-		Triangle(DirectX::XMINT3 indicies, DirectX::XMFLOAT4 color)
-			: indicies(indicies)
-			, color(color)
-		{}
-
-		DirectX::XMINT3 indicies;
-		DirectX::XMFLOAT4 color;
-		float padding;
-	};
-
-	struct TriangleVertex
-	{
-		TriangleVertex()
-		{}
-		TriangleVertex(DirectX::XMFLOAT3 position)
-			: position(position)
-		{}
-
-		DirectX::XMFLOAT3 position;
-		float padding;
-	};
 }
 
 class MulticoreWindow :
@@ -195,9 +153,7 @@ private:
 
 	DXConstantBuffer viewProjMatrixBuffer;
 	DXConstantBuffer viewProjInverseBuffer;
-	DXStructuredBuffer sphereBuffer;
-	DXStructuredBuffer triangleVertexBuffer;
-	DXStructuredBuffer triangleBuffer;
+	DXConstantBuffer sphereBuffer;
 	//DXBuffer triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
@@ -257,7 +213,7 @@ private:
 	//////////////////////////////////////////////////
 	//OBJ
 	//////////////////////////////////////////////////
-	//DXConstantBuffer objBuffer;
+	DXConstantBuffer objBuffer;
 
 	ContentManager contentManager;
 	SpriteRenderer spriteRenderer;
@@ -299,7 +255,7 @@ private:
 	//////////////////////////////////////////////////
 	//Etc
 	//////////////////////////////////////////////////
-	//TriangleBufferData triangleBufferData;
+	TriangleBufferData triangleBufferData;
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -318,7 +274,7 @@ private:
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
-	std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> InitOBJ();
+	std::pair<VertexBuffer, TriangleBuffer> InitOBJ();
 	bool InitBezier();
 
 	void InitInput();

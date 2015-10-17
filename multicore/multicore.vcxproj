@@ -163,6 +163,8 @@
     <ClInclude Include="Graph.h" />
     <ClInclude Include="MulticoreWindow.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="SharedShaderConstants.h" />
+    <ClInclude Include="SharedShaderBuffers.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BezierConstants.hlsl">

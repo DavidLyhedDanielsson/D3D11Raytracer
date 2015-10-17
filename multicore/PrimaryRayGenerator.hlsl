@@ -1,4 +1,4 @@
-#include "Constants.hlsl"
+#include "SharedShaderConstants.h"
 
 RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);

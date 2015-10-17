@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Resource Files\Forward">
+      <UniqueIdentifier>{c08ab77d-3cab-48ce-bf6d-005a64a812f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Bezier">
+      <UniqueIdentifier>{c2e1fd18-23bd-42ab-a056-59cf80e5e76b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Ray">
+      <UniqueIdentifier>{c1b21bdb-eab2-4390-87f1-ac8605f0f360}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -47,49 +56,55 @@
     <ClInclude Include="Graph.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SharedShaderBuffers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SharedShaderConstants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="PrimaryRayGenerator.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="DashedLineVertexShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="DashedLinePixelShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="Constants.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="Shading.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="Intersection.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="Composit.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="BulbVertexShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="BulbPixelShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="BezierPixelShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="BezierVertexShader.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="BezierHullShader.hlsl">
-      <Filter>Resource Files</Filter>
+    <FxCompile Include="BezierConstants.hlsl">
+      <Filter>Resource Files\Bezier</Filter>
     </FxCompile>
     <FxCompile Include="BezierDomainShader.hlsl">
-      <Filter>Resource Files</Filter>
+      <Filter>Resource Files\Bezier</Filter>
     </FxCompile>
-    <FxCompile Include="BezierConstants.hlsl">
-      <Filter>Resource Files</Filter>
+    <FxCompile Include="BezierHullShader.hlsl">
+      <Filter>Resource Files\Bezier</Filter>
+    </FxCompile>
+    <FxCompile Include="BezierPixelShader.hlsl">
+      <Filter>Resource Files\Bezier</Filter>
+    </FxCompile>
+    <FxCompile Include="BezierVertexShader.hlsl">
+      <Filter>Resource Files\Bezier</Filter>
+    </FxCompile>
+    <FxCompile Include="BulbPixelShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="BulbVertexShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="DashedLinePixelShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="DashedLineVertexShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="Shading.hlsl">
+      <Filter>Resource Files\Ray</Filter>
+    </FxCompile>
+    <FxCompile Include="Composit.hlsl">
+      <Filter>Resource Files\Ray</Filter>
+    </FxCompile>
+    <FxCompile Include="Constants.hlsl">
+      <Filter>Resource Files\Ray</Filter>
+    </FxCompile>
+    <FxCompile Include="Intersection.hlsl">
+      <Filter>Resource Files\Ray</Filter>
+    </FxCompile>
+    <FxCompile Include="PrimaryRayGenerator.hlsl">
+      <Filter>Resource Files\Ray</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>
