@@ -166,9 +166,6 @@ void MulticoreWindow::Run()
 	if(!Init())
 		return;
 
-	std::chrono::nanoseconds accumulatedDelta(0);
-	int iterations = 0;
-
 	bool run = true;
 
 	Timer updateTimer;
@@ -198,13 +195,13 @@ void MulticoreWindow::Run()
 			cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
 			cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
 
-			if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
+			/*if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
 			{
 				run = false;
 				PostQuitMessage(0);
 
 				gpuGraph.DumpValues("GPUGraph.txt");
-			}
+			}*/
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -629,8 +626,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
 
 	traceResourceBinds0.AddResource(sphereBuffer, 0);
-	traceResourceBinds0.AddResource(triangleVertexBuffer, 1);
-	traceResourceBinds0.AddResource(triangleBuffer, 2);
+	//traceResourceBinds0.AddResource(triangleVertexBuffer, 1);
+	//traceResourceBinds0.AddResource(triangleBuffer, 2);
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 3);
 	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 4);
 
@@ -644,8 +641,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
 
 	traceResourceBinds1.AddResource(sphereBuffer, 0);
-	traceResourceBinds1.AddResource(triangleVertexBuffer, 1);
-	traceResourceBinds1.AddResource(triangleBuffer, 2);
+	//traceResourceBinds1.AddResource(triangleVertexBuffer, 1);
+	//traceResourceBinds1.AddResource(triangleBuffer, 2);
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 3);
 	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 4);
 
@@ -662,8 +659,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	shadeResourceBinds0.AddResource(outputColorUAV[0].get(), 0);
 
 	shadeResourceBinds0.AddResource(sphereBuffer, 0);
-	shadeResourceBinds0.AddResource(triangleVertexBuffer, 1);
-	shadeResourceBinds0.AddResource(triangleBuffer, 2);
+	//shadeResourceBinds0.AddResource(triangleVertexBuffer, 1);
+	//shadeResourceBinds0.AddResource(triangleBuffer, 2);
 	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 3);
 	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 4);
 	shadeResourceBinds0.AddResource(rayColorSRV.get(), 5);
@@ -677,8 +674,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	shadeResourceBinds1.AddResource(outputColorUAV[1].get(), 0);
 
 	shadeResourceBinds1.AddResource(sphereBuffer, 0);
-	shadeResourceBinds1.AddResource(triangleVertexBuffer, 1);
-	shadeResourceBinds1.AddResource(triangleBuffer, 2);
+	//shadeResourceBinds1.AddResource(triangleVertexBuffer, 1);
+	//shadeResourceBinds1.AddResource(triangleBuffer, 2);
 	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 3);
 	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 4);
 	shadeResourceBinds1.AddResource(rayColorSRV.get(), 5);
@@ -896,9 +893,9 @@ bool MulticoreWindow::InitRoom()
 	float tableHeight = 3.0f;
 	float tableSize = 2.0f;
 
-	spheres.emplace_back(DirectX::XMFLOAT3(0.0f, roomHeight, 0.0f), 3.0f, DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
+	//spheres.emplace_back(DirectX::XMFLOAT3(0.0f, roomHeight, 0.0f), 3.0f, DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 
-	for(int i = 1; i < 30; ++i)
+	for(int i = 0; i < 128; ++i)
 	{
 		Sphere newSphere;
 
@@ -917,7 +914,7 @@ bool MulticoreWindow::InitRoom()
 		spheres.push_back(std::move(newSphere));
 	}
 
-	std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> triangles = InitOBJ();
+	/*std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> triangles = InitOBJ();
 
 	//////////////////////////////////////////////////
 	//Room
@@ -1071,7 +1068,7 @@ bool MulticoreWindow::InitRoom()
 
 	for(int i = 0; i < newColors.size(); i++)
 	{
-/*
+/ *
 		triangleBufferData.vertices[offset * 3 + i * 3] = newVertices[i * 3];
 		triangleBufferData.vertices[offset * 3 + i * 3 + 1] = newVertices[i * 3 + 1];
 		triangleBufferData.vertices[offset * 3 + i * 3 + 2] = newVertices[i * 3 + 2];
@@ -1079,7 +1076,7 @@ bool MulticoreWindow::InitRoom()
 		triangleBufferData.colors[offset + i] = newColors[i];
 
 		triangleBufferData.triangleIndicies[offset + i] = DirectX::XMINT4(offset * 3 + i * 3, offset * 3 + i * 3 + 1, offset * 3 + i * 3 + 2, 0);
-		triangleBufferData.triangleCount++;*/
+		triangleBufferData.triangleCount++;* /
 		for(int j = 0; j < 3; ++j)
 			triangles.first.push_back(std::move(newVertices[i * 3 + j]));
 
@@ -1089,14 +1086,14 @@ bool MulticoreWindow::InitRoom()
 		newTriangle.color = newColors[i];
 
 		triangles.second.push_back(std::move(newTriangle));
-	}
+	}*/
 
 	//////////////////////////////////////////////////
 	//Buffers
 	//////////////////////////////////////////////////
 	LogErrorReturnFalse(sphereBuffer.Create<Sphere>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), spheres.size(), &spheres[0]), "Couldn't create sphere buffer: ");
-	LogErrorReturnFalse(triangleVertexBuffer.Create<TriangleVertex>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.first.size(), &triangles.first[0]), "Couldn't create triangle vertex buffer: ");
-	LogErrorReturnFalse(triangleBuffer.Create<Triangle>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.second.size(), &triangles.second[0]), "Couldn't create triangle index buffer: ");
+	/*LogErrorReturnFalse(triangleVertexBuffer.Create<TriangleVertex>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.first.size(), &triangles.first[0]), "Couldn't create triangle vertex buffer: ");
+	LogErrorReturnFalse(triangleBuffer.Create<Triangle>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.second.size(), &triangles.second[0]), "Couldn't create triangle index buffer: ");*/
 
 	return true;
 }
@@ -1219,18 +1216,18 @@ void MulticoreWindow::InitConsole()
 void MulticoreWindow::DrawUpdatePointlights()
 {
 	//First light is special and extra cool
-	/*pointLightBufferData.lights[0].x = 0.0f;
-	pointLightBufferData.lights[0].y = ((1.0f + std::sinf(sinVal)) * 0.5f) * (9.8f - 3.5f) + 3.5f;
+	pointLightBufferData.lights[0].x = 0.0f;
+	pointLightBufferData.lights[0].y = ((1.0f + std::sinf(sinVal)) * 0.5f) * 128 * 0.2f;
 	pointLightBufferData.lights[0].z = 0.0f;
 	pointLightBufferData.lights[0].w = lightRadius;
 
 	float angleIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;*/
+	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;
 
-	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
+	//float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
+	//float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
 
-	for(int i = 0; i < pointLightBufferData.lightCount; i++)
+	for(int i = 1; i < pointLightBufferData.lightCount; i++)
 	{
 		pointLightBufferData.lights[i].x = std::cosf(otherSinVal + angleIncrease * i) * lightRotationRadius;
 		pointLightBufferData.lights[i].y = ((1.0f + std::sinf(sinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
@@ -1507,7 +1504,7 @@ void MulticoreWindow::UploadBezierFrames()
 	std::vector<BezierVertex> vertices = CalcBezierVertices(frames);
 	
 	if(vertices.size() > 0)
-		bezierVertexBuffer.Update(deviceContext.get(), &vertices[0]);
+		bezierVertexBuffer.Update<BezierVertex>(deviceContext.get(), &vertices[0], static_cast<int>(vertices.size()));
 
 	bezierVertexCount = vertices.size();
 }

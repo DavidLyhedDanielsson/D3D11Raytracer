@@ -135,7 +135,14 @@ public:
 		return CreateStructuredInternal(device, usage, cpuAccessFlag, sizeof(T) * arraySize, sizeof(T), initialData);
 	}
 
+	bool Update(ID3D11DeviceContext* deviceContext, void* newData, int dataSize) const;
 	bool Update(ID3D11DeviceContext* deviceContext, void* newData) const;
+
+	template<typename T>
+	bool Update(ID3D11DeviceContext* deviceContext, void* newData, int arraySize) const
+	{
+		return Update(deviceContext, newData, sizeof(T) * arraySize);
+	}
 
 	ID3D11Buffer* GetBuffer() const;
 private:
@@ -143,6 +150,7 @@ private:
 
 	int size;
 	int paddedSize;
+	int elementSize;
 
 	std::string CreateInternal(ID3D11Device* device
 		, D3D11_BIND_FLAG bindFlag

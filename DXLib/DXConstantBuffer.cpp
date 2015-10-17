@@ -7,7 +7,7 @@ DXConstantBuffer::DXConstantBuffer()
 DXConstantBuffer::~DXConstantBuffer()
 {}
 
-bool DXConstantBuffer::Update(ID3D11DeviceContext* deviceContext, void* newData) const
+bool DXConstantBuffer::Update(ID3D11DeviceContext* deviceContext, void* newData, int dataSize) const
 {
 	D3D11_MAPPED_SUBRESOURCE mappedSubresource;
 	ZeroStruct(mappedSubresource);
@@ -15,11 +15,16 @@ bool DXConstantBuffer::Update(ID3D11DeviceContext* deviceContext, void* newData)
 	if(FAILED(deviceContext->Map(buffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedSubresource)))
 		return false;
 
-	memcpy(mappedSubresource.pData, newData, size);
+	memcpy(mappedSubresource.pData, newData, dataSize);
 
 	deviceContext->Unmap(buffer.get(), 0);
 
 	return true;
+}
+
+bool DXConstantBuffer::Update(ID3D11DeviceContext* deviceContext, void* newData) const
+{
+	return Update(deviceContext, newData, this->size);
 }
 
 ID3D11Buffer* DXConstantBuffer::GetBuffer() const

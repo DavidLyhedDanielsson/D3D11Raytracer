@@ -101,58 +101,58 @@ public:
 	template<>
 	void Unbind<ComputeShader>(ID3D11DeviceContext* deviceContext)
 	{
-		if(cbufferCount > 0)
-			deviceContext->CSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
-		if(samplerCount > 0)
-			deviceContext->CSSetSamplers(0, samplerCount, &samplersNullptr[0]);
-		if(uavCount > 0)
-			deviceContext->CSSetUnorderedAccessViews(0, uavCount, &uavsNullptr[0], nullptr);
-		if(srvCount > 0)
-			deviceContext->CSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+		for(const auto& pair : cbuffersNullptr)
+			deviceContext->CSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplersNullptr)
+			deviceContext->CSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : uavsNullptr)
+			deviceContext->CSSetUnorderedAccessViews(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0], nullptr);
+		for(const auto& pair : srvsNullptr)
+			deviceContext->CSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
 	}
 
 	template<>
 	void Unbind<PixelShader>(ID3D11DeviceContext* deviceContext)
 	{
-		if(cbufferCount > 0)
-			deviceContext->PSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
-		if(samplerCount > 0)
-			deviceContext->PSSetSamplers(0, samplerCount, &samplersNullptr[0]);
-		if(srvCount > 0)
-			deviceContext->PSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+		for(const auto& pair : cbuffersNullptr)
+			deviceContext->PSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplersNullptr)
+			deviceContext->PSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvsNullptr)
+			deviceContext->PSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
 	}
 
 	template<>
 	void Unbind<VertexShader>(ID3D11DeviceContext* deviceContext)
 	{
-		if(cbufferCount > 0)
-			deviceContext->PSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
-		if(samplerCount > 0)
-			deviceContext->PSSetSamplers(0, samplerCount, &samplersNullptr[0]);
-		if(srvCount > 0)
-			deviceContext->PSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+		for(const auto& pair : cbuffersNullptr)
+			deviceContext->VSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplersNullptr)
+			deviceContext->VSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvsNullptr)
+			deviceContext->VSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
 	}
 
 	template<>
 	void Unbind<HullShader>(ID3D11DeviceContext* deviceContext)
 	{
-		if(cbufferCount > 0)
-			deviceContext->HSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
-		if(samplerCount > 0)
-			deviceContext->HSSetSamplers(0, samplerCount, &samplersNullptr[0]);
-		if(srvCount > 0)
-			deviceContext->HSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+		for(const auto& pair : cbuffersNullptr)
+			deviceContext->HSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplersNullptr)
+			deviceContext->HSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvsNullptr)
+			deviceContext->HSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
 	}
 
 	template<>
 	void Unbind<DomainShader>(ID3D11DeviceContext* deviceContext)
 	{
-		if(cbufferCount > 0)
-			deviceContext->DSSetConstantBuffers(0, cbufferCount, &cbuffersNullptr[0]);
-		if(samplerCount > 0)
-			deviceContext->DSSetSamplers(0, samplerCount, &samplersNullptr[0]);
-		if(srvCount > 0)
-			deviceContext->DSSetShaderResources(0, srvCount, &srvsNullptr[0]);
+		for(const auto& pair : cbuffersNullptr)
+			deviceContext->DSSetConstantBuffers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : samplersNullptr)
+			deviceContext->DSSetSamplers(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
+		for(const auto& pair : srvsNullptr)
+			deviceContext->DSSetShaderResources(pair.first, static_cast<UINT>(pair.second.size()), &pair.second[0]);
 	}
 private:
 	UINT cbufferCount;
@@ -169,10 +169,10 @@ private:
 	std::map<int, std::vector<ID3D11ShaderResourceView*>> srvs;
 
 	//There's probably a better way of setting nullptrs
-	std::vector<ID3D11Buffer*> cbuffersNullptr;
-	std::vector<ID3D11SamplerState*> samplersNullptr;
-	std::vector<ID3D11UnorderedAccessView*> uavsNullptr;
-	std::vector<ID3D11ShaderResourceView*> srvsNullptr;
+	std::map<int, std::vector<ID3D11Buffer*>> cbuffersNullptr;
+	std::map<int, std::vector<ID3D11SamplerState*>> samplersNullptr;
+	std::map<int, std::vector<ID3D11UnorderedAccessView*>> uavsNullptr;
+	std::map<int, std::vector<ID3D11ShaderResourceView*>> srvsNullptr;
 
 	template<typename T>
 	void ConcatMap(std::map<int, std::vector<T>>& lhs)

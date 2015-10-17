@@ -22,19 +22,35 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 	uavCount = static_cast<UINT>(uavs.size());
 	srvCount = static_cast<UINT>(srvs.size());
 
-	if(cbuffers.size() > 0)
+	/*if(cbuffers.size() > 0)
 		cbuffersNullptr.resize(cbuffers.size(), nullptr);
 	if(samplers.size() > 0)
 		samplersNullptr.resize(samplers.size(), nullptr);
 	if(uavs.size() > 0)
 		uavsNullptr.resize(uavs.size(), nullptr);
 	if(srvs.size() > 0)
-		srvsNullptr.resize(srvs.size(), nullptr);
+		srvsNullptr.resize(srvs.size(), nullptr);*/
 
 	ConcatMap(cbuffers);
 	ConcatMap(samplers);
 	ConcatMap(uavs);
 	ConcatMap(srvs);
+
+	cbuffersNullptr = cbuffers;
+	for(auto& pair : cbuffersNullptr)
+		std::fill(pair.second.begin(), pair.second.end(), nullptr);
+
+	samplersNullptr = samplers;
+	for(auto& pair : samplersNullptr)
+		std::fill(pair.second.begin(), pair.second.end(), nullptr);
+
+	uavsNullptr = uavs;
+	for(auto& pair : uavsNullptr)
+		std::fill(pair.second.begin(), pair.second.end(), nullptr);
+
+	srvsNullptr = srvs;
+	for(auto& pair : srvsNullptr)
+		std::fill(pair.second.begin(), pair.second.end(), nullptr);
 
 	std::set<UINT> cbufferRegisters;
 	std::set<UINT> samplerRegisters;
