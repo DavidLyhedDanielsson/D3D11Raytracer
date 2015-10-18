@@ -19,8 +19,6 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, paused(false)
 	, billboardSamplerState(nullptr)
 	, backbufferUAV(nullptr)
-	, vertexBuffer(nullptr)
-	, indexBuffer(nullptr)
 	, outputColorUAV { nullptr, nullptr }
 	, outputColorSRV{ nullptr, nullptr }
 	, rayNormalUAV(nullptr)
@@ -69,7 +67,7 @@ bool MulticoreWindow::Init()
 	InitConsole();
 	InitInput();
 
-	rayBounces = 1;
+	rayBounces = 5;
 	auto rayBouncesCommand = new CommandGetSet<int>("RayBounces", &rayBounces);
 	if(!console.AddCommand(rayBouncesCommand))
 		delete rayBouncesCommand;
@@ -116,7 +114,7 @@ bool MulticoreWindow::Init()
 		currentCamera = &fpsCamera;
 
 	//Etc
-	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(3.0f, 3.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(-12.0f, 3.0f, 12.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 3.5f, 0.0f));
 
@@ -195,13 +193,16 @@ void MulticoreWindow::Run()
 			cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
 			cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
 
-			/*if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
+			if(cinematicCameraMode)
 			{
-			run = false;
-			PostQuitMessage(0);
+				if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
+				{
+					run = false;
+					PostQuitMessage(0);
 
-			gpuGraph.DumpValues("GPUGraph.txt");
-			}*/
+					gpuGraph.DumpValues("GPUGraph.txt");
+				}
+			}
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -597,7 +598,6 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//////////////////////////////////////////////////
 	//Cbuffers
 	//////////////////////////////////////////////////
-	LogErrorReturnFalse(viewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create view proj buffer: ");
 	LogErrorReturnFalse(viewProjInverseBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create view proj inverse buffer: ");
 
 	//////////////////////////////////////////////////
@@ -619,8 +619,10 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//Intersection
 	//////////////////////////////////////////////////
 	ShaderResourceBinds traceResourceBinds0;
-	//traceResourceBinds0.AddResource(sphereBuffer.GetBuffer(), 0);
-	//traceResourceBinds0.AddResource(objBuffer.GetBuffer(), 1);
+	//CBuffers
+	traceResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
@@ -628,29 +630,21 @@ bool MulticoreWindow::InitRaytraceShaders()
 	traceResourceBinds0.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
 
-	//CBuffers
-	traceResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	//traceResourceBinds0.AddResource(triangleVertexBuffer, 1);
-	//traceResourceBinds0.AddResource(triangleBuffer, 2);
-
 	//SRVs
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
 
 	ShaderResourceBinds traceResourceBinds1;
-	//traceResourceBinds1.AddResource(sphereBuffer.GetBuffer(), 0);
-	//traceResourceBinds1.AddResource(objBuffer.GetBuffer(), 1);
+	//CBuffers
+	traceResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
 	traceResourceBinds1.AddResource(rayDirectionUAV[0].get(), 1);
 	traceResourceBinds1.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
-
-	//CBuffers
-	traceResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	//traceResourceBinds1.AddResource(triangleVertexBuffer, 1);
-	//traceResourceBinds1.AddResource(triangleBuffer, 2);
 
 	//SRVs
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
@@ -664,6 +658,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	ShaderResourceBinds shadeResourceBinds0;
 	//CBuffers
 	shadeResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds0.AddResource(cameraPositionBuffer, 5);
@@ -671,8 +667,6 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//UAVs
 	shadeResourceBinds0.AddResource(outputColorUAV[0].get(), 0);
 
-	//shadeResourceBinds0.AddResource(triangleVertexBuffer, 1);
-	//shadeResourceBinds0.AddResource(triangleBuffer, 2);
 	//SRVs
 	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 0);
 	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 1);
@@ -682,6 +676,8 @@ bool MulticoreWindow::InitRaytraceShaders()
 	ShaderResourceBinds shadeResourceBinds1;
 	//CBuffers
 	shadeResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds1.AddResource(cameraPositionBuffer, 5);
@@ -689,8 +685,6 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//UAVs
 	shadeResourceBinds1.AddResource(outputColorUAV[1].get(), 0);
 
-	//shadeResourceBinds1.AddResource(triangleVertexBuffer, 1);
-	//shadeResourceBinds1.AddResource(triangleBuffer, 2);
 	//SRVs
 	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 0);
 	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 1);
@@ -765,11 +759,11 @@ bool MulticoreWindow::InitPointLights()
 
 	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
 
-	lightRadius = 15.0f;
+	lightIntensity = 15.0f;
 
 	pointLightBufferData.lightCount = 5;
 	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
-		pointLightBufferData.lights[i].w = lightRadius;
+		pointLightBufferData.lights[i].w = lightIntensity;
 
 	LogErrorReturnFalse(pointLightBuffer.Create<PointlightBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
 
@@ -784,7 +778,7 @@ bool MulticoreWindow::InitPointLights()
 	lightOtherSinValMult = 1.0f;
 
 	auto lightRotationRadiusCommand = new CommandGetSet<float>("lightRotationRadius", &lightRotationRadius);
-	auto lightRadiusCommand = new CommandGetSet<float>("lightRadius", &lightRadius);
+	auto lightIntensityCommand = new CommandGetSet<float>("lightIntensity", &lightIntensity);
 	auto lightMinHeightCommand = new CommandGetSet<float>("lightMinHeight", &lightMinHeight);
 	auto lightMaxHeightCommand = new CommandGetSet<float>("lightMaxHeight", &lightMaxHeight);
 	auto lightVerticalSpeedCommand = new CommandGetSet<float>("lightVerticalSpeed", &lightVerticalSpeed);
@@ -794,8 +788,8 @@ bool MulticoreWindow::InitPointLights()
 
 	if(!console.AddCommand(lightRotationRadiusCommand))
 		delete lightRotationRadiusCommand;
-	if(!console.AddCommand(lightRadiusCommand))
-		delete lightRadiusCommand;
+	if(!console.AddCommand(lightIntensityCommand))
+		delete lightIntensityCommand;
 	if(!console.AddCommand(lightMinHeightCommand))
 		delete lightMinHeightCommand;
 	if(!console.AddCommand(lightMaxHeightCommand))
@@ -891,10 +885,11 @@ bool MulticoreWindow::InitGraphs()
 
 bool MulticoreWindow::InitRoom()
 {
-	//LogErrorReturnFalse(objBuffer.Create<TriangleBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData), "Couldn't create triangle buffer: ");
-
+	//////////////////////////////////////////////////
+	//Spheres
+	//////////////////////////////////////////////////
 	SphereBuffer sphereBufferData;
-	sphereBufferData.sphereCount = 128;
+	sphereBufferData.sphereCount = 0;
 
 	std::vector<DirectX::XMFLOAT4> spheres;
 	std::vector<DirectX::XMFLOAT4> sphereColors;
@@ -915,7 +910,31 @@ bool MulticoreWindow::InitRoom()
 
 	//spheres.emplace_back(DirectX::XMFLOAT3(0.0f, roomHeight, 0.0f), 3.0f, DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 
-	for(int i = 0; i < 128; ++i)
+	rotationValue = 0.0f;
+
+	for(int i = 0; i < 0; ++i)
+	{
+		DirectX::XMFLOAT4 newSphere;
+		DirectX::XMFLOAT4 newColor;
+
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, 0.5f, std::sinf(rotationValue) * radius, 0.5f);
+		if(i % 3 == 0)
+			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
+		else if(i % 3 == 1)
+			newColor = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.8f);
+		else if(i % 3 == 2)
+			newColor = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.8f);
+
+		rotationValue += DirectX::XM_2PI / 16.0f;
+		heightValue += heightIncrease;
+
+		sphereBufferData.spheres.position[i] = newSphere;
+		sphereBufferData.spheres.color[i] = newColor;
+		++sphereBufferData.sphereCount;
+	}
+
+	//Spiral
+	/*for(int i = 1; i < 32; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
@@ -933,236 +952,212 @@ bool MulticoreWindow::InitRoom()
 
 		sphereBufferData.spheres.position[i] = newSphere;
 		sphereBufferData.spheres.color[i] = newColor;
-		//spheres.push_back(std::move(newSphere));
-		//sphereColors.push_back(std::move(newColor));
-	}
+	}*/
 
-	/*std::pair<std::vector<TriangleVertex>, std::vector<Triangle>> triangles = InitOBJ();
+	LogErrorReturnFalse(sphereBuffer.Create<SphereBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
+
+	//////////////////////////////////////////////////
+	//Triangles
+	//////////////////////////////////////////////////
+	VertexBuffer vertexBufferData;
+	TriangleBuffer triangleBufferData;
+	
+	triangleBufferData.triangleCount = 0;
+
+	/*vertexBufferData.vertices.position[0] = DirectX::XMFLOAT4(-10.0f, 0.0f, -10.0f, 0.0f);
+	vertexBufferData.vertices.position[1] = DirectX::XMFLOAT4(0.0f, 0.0f, 10.0f, 0.0f);
+	vertexBufferData.vertices.position[2] = DirectX::XMFLOAT4(10.0f, 0.0f, -10.0f, 0.0f);
+
+	vertexBufferData.vertices.color[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+	vertexBufferData.vertices.color[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+	vertexBufferData.vertices.color[2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+
+	triangleBufferData.triangles.vertices[0] = DirectX::XMINT4(0, 2, 1, 0);*/
+
+	//triangleBufferData.triangleCount = 0;
+	LoadOBJ(vertexBufferData, triangleBufferData);
 
 	//////////////////////////////////////////////////
 	//Room
 	//////////////////////////////////////////////////
-	std::vector<DirectX::XMFLOAT3> newVertices;
-	std::vector<DirectX::XMFLOAT4> newColors;
+	//y+-
+	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, 0.0f, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	AddFace(DirectX::XMFLOAT3(-roomSize, roomSize, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
+
+	//x+-
+	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(-roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	AddFace(DirectX::XMFLOAT3(roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
+
+	//z+-
+	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, -roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
+	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
 
 	//Floor
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
+	/*newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);s
 
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize);
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
+	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
 
 	//Ceiling
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
 
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
+	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
 
 	//z+ wall
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize);
+	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
 
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize);
-
-	//z- wall
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize);
-
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize);
-
-	//x+ wall
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
-
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize);
-
-	//x- wall
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize);
-
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize);
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize);
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize);
-
-
-	//////////////////////////////////////////////////
-	//Table
-	//////////////////////////////////////////////////
-	//z+ wall
-	newVertices.emplace_back(-tableSize, 0.0f, tableSize);
-	newVertices.emplace_back(-tableSize, tableHeight, tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, tableSize);
-
-	newVertices.emplace_back(-tableSize, tableHeight, tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, tableSize);
+	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
 
 	//z- wall
-	newVertices.emplace_back(-tableSize, 0.0f, -tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, -tableSize);
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize);
+	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
 
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, -tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, -tableSize);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
 
 	//x+ wall
-	newVertices.emplace_back(tableSize, 0.0f, -tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, -tableSize);
+	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
 
-	newVertices.emplace_back(tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(tableSize, 0.0f, tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, tableSize);
+	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
 
 	//x- wall
-	newVertices.emplace_back(-tableSize, 0.0f, -tableSize);
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(-tableSize, 0.0f, tableSize);
+	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
 
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(-tableSize, tableHeight, tableSize);
-	newVertices.emplace_back(-tableSize, 0.0f, tableSize);
-
-	//Table mirror
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize );
-	newVertices.emplace_back(tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, tableSize);
-
-	newVertices.emplace_back(-tableSize, tableHeight, tableSize);
-	newVertices.emplace_back(-tableSize, tableHeight, -tableSize);
-	newVertices.emplace_back(tableSize, tableHeight, tableSize);
+	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
+	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
 
 	//Floor
-	newColors.emplace_back(0.2f, 0.3f, 0.8f, 0.0f);
-	newColors.emplace_back(0.2f, 0.3f, 0.8f, 0.0f);
+	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.0f);
+	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.0f);
 
 	//Ceiling
 	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 
 	//z+ wall
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.8f);
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.8f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 
 	//z- wall
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.8f);
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.8f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 
 	//x+ wall
-	newColors.emplace_back(0.8f, 0.8f, 0.0f, 0.0f);
-	newColors.emplace_back(0.8f, 0.8f, 0.0f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 
 	//x- wall
-	newColors.emplace_back(0.0f, 0.8f, 0.8f, 0.0f);
-	newColors.emplace_back(0.0f, 0.8f, 0.8f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
+	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
 
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
+	//Create tiled floor
+	float tileSize = 1.0f;
 
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.0f);
-
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 1.0f);
-	newColors.emplace_back(1.0f, 1.0f, 1.0f, 1.0f);
-
-	int offset = triangles.first.size();
-
-	for(int i = 0; i < newColors.size(); i++)
+	for(int y = 0; y < (roomSize * 2) / tileSize; y++)
 	{
-	/ *
-	triangleBufferData.vertices[offset * 3 + i * 3] = newVertices[i * 3];
-	triangleBufferData.vertices[offset * 3 + i * 3 + 1] = newVertices[i * 3 + 1];
-	triangleBufferData.vertices[offset * 3 + i * 3 + 2] = newVertices[i * 3 + 2];
+		for(int x = y % 2; x < (roomSize * 2) / tileSize; x += 2)
+		{
+			DirectX::XMFLOAT3 min(-roomSize + x * tileSize, 0.01f, -roomSize + y * tileSize);
+			DirectX::XMFLOAT3 max(min.x + tileSize, min.y, min.z + tileSize);
 
-	triangleBufferData.colors[offset + i] = newColors[i];
+			newVertices.emplace_back(min.x, min.y, min.z, 0.0f);
+			newVertices.emplace_back(max.x, min.y, min.z, 0.0f);
+			newVertices.emplace_back(max.x, max.y, max.z, 0.0f);
 
-	triangleBufferData.triangleIndicies[offset + i] = DirectX::XMINT4(offset * 3 + i * 3, offset * 3 + i * 3 + 1, offset * 3 + i * 3 + 2, 0);
-	triangleBufferData.triangleCount++;* /
-	for(int j = 0; j < 3; ++j)
-	triangles.first.push_back(std::move(newVertices[i * 3 + j]));
+			newVertices.emplace_back(min.x, min.y, max.z, 0.0f);
+			newVertices.emplace_back(min.x, min.y, min.z, 0.0f);
+			newVertices.emplace_back(max.x, max.y, max.z, 0.0f);
 
-	Triangle newTriangle;
-
-	newTriangle.indicies = DirectX::XMINT3(offset + i * 3, offset + i * 3 + 1, offset + i * 3 + 2);
-	newTriangle.color = newColors[i];
-
-	triangles.second.push_back(std::move(newTriangle));
+			newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.5f);
+			newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.5f);
+		}
 	}*/
 
 	//////////////////////////////////////////////////
 	//Buffers
 	//////////////////////////////////////////////////
-	LogErrorReturnFalse(sphereBuffer.Create<SphereBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
-	/*LogErrorReturnFalse(triangleVertexBuffer.Create<TriangleVertex>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.first.size(), &triangles.first[0]), "Couldn't create triangle vertex buffer: ");
-	LogErrorReturnFalse(triangleBuffer.Create<Triangle>(device.get(), D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), triangles.second.size(), &triangles.second[0]), "Couldn't create triangle index buffer: ");*/
+	LogErrorReturnFalse(triangleVertexBuffer.Create<VertexBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &vertexBufferData), "Couldn't create triangle vertex buffer: ");
+	LogErrorReturnFalse(triangleBuffer.Create<TriangleBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData), "Couldn't create triangle index buffer: ");
 
 	return true;
 }
 
-std::pair<VertexBuffer, TriangleBuffer> MulticoreWindow::InitOBJ()
+void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer)
 {
-	VertexBuffer returnVertexBuffer;
-	TriangleBuffer returnTriangleBuffer;
+	//VertexBuffer returnVertexBuffer;
+	//TriangleBuffer returnTriangleBuffer;
 
-	VertexBufferData vertices;
-	TriangleBufferData triangles;
+	//VertexBufferData vertices;
+	//TriangleBufferData triangles;
 
 	swordOBJ = contentManager.Load<OBJFile>("sword.obj");
 	if(swordOBJ == nullptr)
-		return std::make_pair(returnVertexBuffer, returnTriangleBuffer);
+		return;
 
 	Mesh swordMesh = swordOBJ->GetMeshes().front();
 
 	if(swordMesh.vertices.size() > MAX_VERTICES)
 		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.vertices.size()) + " vertices which is larger than MAX_VERTICES (" + std::to_string(MAX_VERTICES) + "). Only the first " + std::to_string(MAX_VERTICES) + " will be used");
 
+	if(triangleBuffer.triangleCount + swordMesh.indicies.size() / 3 > MAX_INDICIES)
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.indicies.size()) + " indicies and the buffer currently contains " + std::to_string(triangleBuffer.triangleCount) + " indicies. Can't add the model's indicies since it would overflow the buffer");
+		return;
+	}
+
+	int vertexOffset = -1;
+
+	for(int i = 0; i < triangleBuffer.triangleCount; i++)
+	{
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].x);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].y);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].z);
+	}
+
+	if(vertexOffset + swordMesh.vertices.size() > MAX_VERTICES)
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.vertices.size()) + " vertices and the buffer currently contains " + std::to_string(swordMesh.vertices.size()) + " vertices. Can't add the model's vertices since it would overflow the buffer");
+		return;
+	}
+
 	for(int i = 0, end = static_cast<int>(swordMesh.vertices.size()); i < end; ++i)
 	{
-		vertices.position[i].x = swordMesh.vertices[i].position.x;
-		vertices.position[i].y = swordMesh.vertices[i].position.y + 3.5f;
-		vertices.position[i].z = swordMesh.vertices[i].position.z - 0.75f;
+		vertexBuffer.vertices.position[i].x = swordMesh.vertices[i].position.x;
+		vertexBuffer.vertices.position[i].y = swordMesh.vertices[i].position.y + 3.5f;
+		vertexBuffer.vertices.position[i].z = swordMesh.vertices[i].position.z - 0.75f;
 
-		vertices.color[i] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.25f);
+		vertexBuffer.vertices.color[i] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.25f);
 	}
 
 	for(int i = 0, end = static_cast<int>(swordMesh.indicies.size()) / 3; i < end; ++i)
 	{
-		triangles.vertices[i].x = swordMesh.indicies[i * 3];
-		triangles.vertices[i].y = swordMesh.indicies[i * 3 + 1];
-		triangles.vertices[i].z = swordMesh.indicies[i * 3 + 2];
+		triangleBuffer.triangles.vertices[i].x = swordMesh.indicies[i * 3];
+		triangleBuffer.triangles.vertices[i].y = swordMesh.indicies[i * 3 + 1];
+		triangleBuffer.triangles.vertices[i].z = swordMesh.indicies[i * 3 + 2];
+		triangleBuffer.triangles.vertices[i].w = 0;
+
+		++triangleBuffer.triangleCount;
 	}
-
-	/*triangleBufferData.triangleCount = swordMesh.indicies.size() / 3;
-	if(swordMesh.indicies.size() % 3 != 0)
-	Logger::LogLine(LOG_TYPE::WARNING, "OBJ indicies count isn't divisibly by 3");
-
-	for(int i = 0; i < triangleBufferData.triangleCount; ++i)
-	triangleBufferData.colors[i] = DirectX::XMFLOAT4(rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), rand() / static_cast<float>(RAND_MAX), 0.05f);*/
-
-	//return true;
-	return std::make_pair(returnVertexBuffer, returnTriangleBuffer);
 }
 
 bool MulticoreWindow::InitBezier()
@@ -1170,7 +1165,7 @@ bool MulticoreWindow::InitBezier()
 	std::vector<CameraKeyFrame> cameraKeyFrames = cinematicCamera.GetFrames();
 
 	//Vertices
-	LogErrorReturnFalse(bezierVertexBuffer.Create<BezierVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, BEZIER_MAX_LINES * 2), "Couldn't create bezier vertex buffer: ");
+	LogErrorReturnFalse(bezierVertexBuffer.Create<BezierVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_BEZIER_LINES * 2), "Couldn't create bezier vertex buffer: ");
 
 	LogErrorReturnFalse(bezierViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create bezier view projection matrix buffer: ");
 
@@ -1231,25 +1226,20 @@ void MulticoreWindow::InitConsole()
 
 void MulticoreWindow::DrawUpdatePointlights()
 {
-	//First light is special and extra cool
-	pointLightBufferData.lights[0].x = 0.0f;
-	pointLightBufferData.lights[0].y = ((1.0f + std::sinf(sinVal)) * 0.5f) * 128 * 0.2f;
-	pointLightBufferData.lights[0].z = 0.0f;
-	pointLightBufferData.lights[0].w = lightRadius;
+	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
+	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
 
-	float angleIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / (pointLightBufferData.lightCount - 1) * lightSinValMult;
-
-	//float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
-	//float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
-
-	for(int i = 1; i < pointLightBufferData.lightCount; i++)
+	for(int i = 0; i < pointLightBufferData.lightCount; i++)
 	{
 		pointLightBufferData.lights[i].x = std::cosf(otherSinVal + angleIncrease * i) * lightRotationRadius;
 		pointLightBufferData.lights[i].y = ((1.0f + std::sinf(sinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
 		pointLightBufferData.lights[i].z = std::sinf(otherSinVal + angleIncrease * i) * lightRotationRadius;
-		pointLightBufferData.lights[i].w = lightRadius;
+		pointLightBufferData.lights[i].w = lightIntensity;
 	}
+
+	//First light is special and extra cool
+	//pointLightBufferData.lights[0].x = 0.0f;
+	//pointLightBufferData.lights[0].z = 0.0f;
 
 	pointLightBuffer.Update(deviceContext.get(), &pointLightBufferData);
 }
@@ -1392,7 +1382,7 @@ Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argumen
 		return "Expected 0-10 lights";
 
 	for(int i = pointLightBufferData.lightCount, end = newCount; i < newCount; ++i)
-		pointLightBufferData.lights[i].w = lightRadius;
+		pointLightBufferData.lights[i].w = lightIntensity;
 
 	pointLightBufferData.lightCount = newCount;
 
@@ -1481,6 +1471,67 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 	}
 
 	return true;
+}
+
+void MulticoreWindow::AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, DirectX::XMFLOAT4 color, VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, bool flipWindingOrder) const
+{
+	int vertexOffset = -1;
+
+	for(int i = 0; i < triangleBuffer.triangleCount; i++)
+	{
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].x);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].y);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].z);
+	}
+
+	vertexOffset++;
+
+	if(min.x == max.x)
+	{
+		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, max.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(min.x, max.y, max.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(min.x, min.y, max.z, 0.0f);
+	}
+	else if(min.y == max.y)
+	{
+		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, min.y, max.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(max.x, min.y, max.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(max.x, min.y, min.z, 0.0f);
+	}
+	else if(min.z == max.z)
+	{
+		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, max.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(max.x, max.y, min.z, 0.0f);
+		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(max.x, min.y, min.z, 0.0f);
+	}
+	else
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't resolve axis when creating face, check input");
+		return;
+	}
+
+	vertexBuffer.vertices.color[vertexOffset + 0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
+	vertexBuffer.vertices.color[vertexOffset + 1] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+	vertexBuffer.vertices.color[vertexOffset + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+	vertexBuffer.vertices.color[vertexOffset + 3] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+
+	int indexOffset = triangleBuffer.triangleCount;
+
+	if(!flipWindingOrder)
+	{
+		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 2, vertexOffset + 1, 0);
+		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 2, vertexOffset, vertexOffset + 3, 0);
+	}
+	else
+	{
+		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 2, 0);
+		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset, vertexOffset + 2, 0);
+	}
+
+	triangleBuffer.triangleCount += 2;
 }
 
 std::vector<BezierVertex> MulticoreWindow::CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const

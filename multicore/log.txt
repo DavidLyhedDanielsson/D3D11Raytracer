@@ -1,0 +1,1 @@
+[INFO] Found "o" tag when loading sword.obj, these aren't implemented so it will simply be ignored

@@ -132,6 +132,11 @@ private:
 
 	bool paused;
 
+	std::unordered_set<int> keyMap;
+
+	//////////////////////////////////////////////////
+	//Camera
+	//////////////////////////////////////////////////
 	bool cinematicCameraMode;
 
 	FPSCamera fpsCamera;
@@ -141,66 +146,88 @@ private:
 	DirectX::XMFLOAT3 cameraLookAt;
 	std::vector<DirectX::XMFLOAT3> cameraAnchors;
 
-	std::unordered_set<int> keyMap;
-
-	ID3D11BlendState* billboardBlendState;
-	ID3D11SamplerState* billboardSamplerState;
-	ID3D11RasterizerState* billboardRasterizerState;
+	//////////////////////////////////////////////////
+	//Ray tracing
+	//////////////////////////////////////////////////
+	const static int MAX_BOUNCES = 20;
+	int rayBounces;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
-	COMUniquePtr<ID3D11Buffer> vertexBuffer;
-	COMUniquePtr<ID3D11Buffer> indexBuffer;
-
-	DXConstantBuffer viewProjMatrixBuffer;
-	DXConstantBuffer viewProjInverseBuffer;
-	DXConstantBuffer sphereBuffer;
-	//DXBuffer triangleBuffer;
 
 	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> outputColorSRV[2];
 
+	//Contains the ray's current color (accumulates over bounces)
 	COMUniquePtr<ID3D11UnorderedAccessView> rayColorUAV;
-	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
-	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> rayColorSRV;
+	//Contains the ray's current direction (changes with every bounce)
+	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV[2];
+	//Contains the ray's current position (changes with every bounce unless normal == 0)
+	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
 	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV[2];
 
+	//Contains the normal at the ray's intersection location
+	//Also used to check if the ray didn't hit anything, in that case it will be (0, 0, 0)
 	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
 	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
-	
-	int rayBounces;
 
-	OBJFile* swordOBJ;
+	//Used to create primary rays
+	DXConstantBuffer viewProjInverseBuffer;
 
+	//Spheres to ray trace against
+	DXConstantBuffer sphereBuffer;
+	DXConstantBuffer triangleVertexBuffer;
+	DXConstantBuffer triangleBuffer;
+
+	////////////////////
 	//Point lights
-	DXConstantBuffer pointlightAttenuationBuffer;
-	DXConstantBuffer pointLightBuffer;
-	DXConstantBuffer cameraPositionBuffer;
-	PointlightBufferData pointLightBufferData;
-	LightAttenuationBufferData pointlightAttenuationBufferData;
+	////////////////////
+	//Intensity of the light. This is the multiplied with the diffuse factor before dividing with the attenuation factor
+	float lightIntensity;
 
-	float lightRadius;
-
+	//Used to calculate light offsets (relative to each other)
 	float lightSinValMult;
 	float lightOtherSinValMult;
 
+	//Radius of the rotating point lights
 	float lightRotationRadius;
+	//Top and bottom height of all moving point lights
 	float lightMinHeight;
 	float lightMaxHeight;
 
 	float lightVerticalSpeed;
 	float lightHorizontalSpeed;
 
-	const static int MAX_BOUNCES = 20;
+	DXConstantBuffer pointlightAttenuationBuffer;
+	DXConstantBuffer pointLightBuffer;
+	DXConstantBuffer cameraPositionBuffer;
+	PointlightBufferData pointLightBufferData;
+	LightAttenuationBufferData pointlightAttenuationBufferData;
 
-	std::vector<unsigned int> indexData;
-
+	////////////////////
+	//Shaders
+	////////////////////
 	ComputeShader primaryRayGenerator;
 	ComputeShader traceShader;
 	ComputeShader intersectionShader;
 	ComputeShader compositShader;
 
+	////////////////////
+	//Etc
+	////////////////////
+	OBJFile* swordOBJ;
+
+	//////////////////////////////////////////////////
+	//Forward rendering
+	//////////////////////////////////////////////////
+	ID3D11BlendState* billboardBlendState;
+	ID3D11SamplerState* billboardSamplerState;
+	ID3D11RasterizerState* billboardRasterizerState;
+
+	////////////////////
+	//Point lights
+	////////////////////
 	VertexShader bulbVertexShader;
 	PixelShader bulbPixelShader;
 	DXConstantBuffer bulbViewProjMatrixBuffer;
@@ -211,30 +238,10 @@ private:
 	Texture2D* bulbTexture;
 
 	//////////////////////////////////////////////////
-	//OBJ
-	//////////////////////////////////////////////////
-	DXConstantBuffer objBuffer;
-
-	ContentManager contentManager;
-	SpriteRenderer spriteRenderer;
-
-	CharacterSet* calibri16;
-
-	GUIManager guiManager;
-	
-	Timer gameTimer;
-	D3D11Timer d3d11Timer;
-
-	Graph cpuGraph;
-	Graph gpuGraph;
-
-	Console console;
-	bool drawConsole;
-
-	//////////////////////////////////////////////////
 	//Bezier drawing
 	//////////////////////////////////////////////////
-	const static int BEZIER_MAX_LINES = 50;
+	const static int MAX_BEZIER_LINES = 50;
+	int bezierVertexCount;
 
 	PixelShader bezierPixelShader;
 	VertexShader bezierVertexShader;
@@ -243,8 +250,6 @@ private:
 
 	DXConstantBuffer bezierViewProjMatrixBuffer;
 	DXConstantBuffer bezierVertexBuffer;
-
-	int bezierVertexCount;
 
 	DXConstantBuffer bezierTessFactorBuffer;
 
@@ -255,7 +260,22 @@ private:
 	//////////////////////////////////////////////////
 	//Etc
 	//////////////////////////////////////////////////
-	TriangleBufferData triangleBufferData;
+	ContentManager contentManager;
+	SpriteRenderer spriteRenderer;
+
+	CharacterSet* calibri16;
+
+	GUIManager guiManager;
+
+	Timer gameTimer;
+	D3D11Timer d3d11Timer;
+
+	Graph cpuGraph;
+	Graph gpuGraph;
+
+	Console console;
+	bool drawConsole;
+
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -274,7 +294,7 @@ private:
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
-	std::pair<VertexBuffer, TriangleBuffer> InitOBJ();
+	void LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer);
 	bool InitBezier();
 
 	void InitInput();
@@ -296,5 +316,7 @@ private:
 	Argument ReloadRaytraceShaders(const std::vector<Argument>& argument);
 
 	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
+
+	void AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, DirectX::XMFLOAT4 color, VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, bool flipWindingOrder) const;
 };
 

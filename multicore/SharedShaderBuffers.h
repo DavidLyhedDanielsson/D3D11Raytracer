@@ -27,11 +27,6 @@ typedef DirectX::XMINT4 int4;
 #define TRIANGLE_BUFFER_REGISTRY_INDEX_DEF 2
 #define POINT_LIGHT_BUFFER_REGISTRY_INDEX_DEF 3
 
-const static int SPHERE_BUFFER_REGISTRY_INDEX = SPHERE_BUFFER_REGISTRY_INDEX_DEF;
-const static int VERTEX_BUFFER_REGISTRY_INDEX = VERTEX_BUFFER_REGISTRY_INDEX_DEF;
-const static int TRIANGLE_BUFFER_REGISTRY_INDEX = TRIANGLE_BUFFER_REGISTRY_INDEX_DEF;
-const static int POINT_LIGHT_BUFFER_REGISTRY_INDEX = POINT_LIGHT_BUFFER_REGISTRY_INDEX_DEF;
-
 struct SphereBufferData
 {
 	//Keeping position and color separate plays nice with the cache
@@ -52,7 +47,7 @@ struct TriangleBufferData
 
 struct PointLightBufferData
 {
-	float4 position[MAX_POINT_LIGHTS]; //position + strength
+	float4 position[MAX_POINT_LIGHTS]; //position + intensity
 };
 
 Buffer(SphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX_DEF)
@@ -79,10 +74,14 @@ Buffer(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX_DEF)
 };
 
 #ifdef _WIN32
+const static int SPHERE_BUFFER_REGISTRY_INDEX = SPHERE_BUFFER_REGISTRY_INDEX_DEF;
+const static int VERTEX_BUFFER_REGISTRY_INDEX = VERTEX_BUFFER_REGISTRY_INDEX_DEF;
+const static int TRIANGLE_BUFFER_REGISTRY_INDEX = TRIANGLE_BUFFER_REGISTRY_INDEX_DEF;
+const static int POINT_LIGHT_BUFFER_REGISTRY_INDEX = POINT_LIGHT_BUFFER_REGISTRY_INDEX_DEF;
+
 static_assert(sizeof(SphereBuffer) / 16.0f <= D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT, "SphereBuffer has more than D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT elements");
 static_assert(sizeof(VertexBuffer) / 16.0f <= D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT, "VertexBuffer has more than D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT elements");
 static_assert(sizeof(TriangleBuffer) / 16.0f <= D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT, "TriangleBuffer has more than D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT elements");
-#endif
 
 #undef Buffer
 
@@ -90,5 +89,6 @@ static_assert(sizeof(TriangleBuffer) / 16.0f <= D3D11_REQ_CONSTANT_BUFFER_ELEMEN
 #undef VERTEX_BUFFER_REGISTRY_INDEX_DEF
 #undef TRIANGLE_BUFFER_REGISTRY_INDEX_DEF
 #undef POINT_LIGHT_BUFFER_REGISTRY_INDEX_DEF
+#endif
 
 #endif // SharedShaderBuffers_h__
