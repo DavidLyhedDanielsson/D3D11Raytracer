@@ -13,6 +13,7 @@
 #include <DXConsole/console.h>
 #include <DXConsole/commandGetSet.h>
 #include <DXConsole/commandCallMethod.h>
+#include <DXLib/SamplerStates.h>
 
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
@@ -114,14 +115,14 @@ bool MulticoreWindow::Init()
 		currentCamera = &fpsCamera;
 
 	//Etc
-	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(-12.0f, 3.0f, 12.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 3.5f, 0.0f));
 
 	std::vector<CameraKeyFrame> cinematicKeyFrames;
 	CameraKeyFrame newFrame;
 
-	newFrame.position = DirectX::XMFLOAT3(-1.85f, 3.45f, -0.0f);
+	/*newFrame.position = DirectX::XMFLOAT3(-1.85f, 3.45f, -0.0f);
 	cinematicKeyFrames.push_back(newFrame);
 
 	newFrame.position = DirectX::XMFLOAT3(-0.0f, 3.5f, -2.5f);
@@ -137,6 +138,15 @@ bool MulticoreWindow::Init()
 	cinematicKeyFrames.push_back(newFrame);
 
 	newFrame.position = DirectX::XMFLOAT3(-4.0f, 5.0f, 2.65f);
+	cinematicKeyFrames.push_back(newFrame);*/
+
+	newFrame.position = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f);
+	cinematicKeyFrames.push_back(newFrame);
+
+	newFrame.position = DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f);
 	cinematicKeyFrames.push_back(newFrame);
 
 	cinematicCamera.SetKeyFrames(cinematicKeyFrames);
@@ -234,6 +244,9 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 	else if(!drawConsole)
 	{
 		float cameraSpeed = 0.005f * deltaMS;
+
+		if(keyMap.count(VK_SHIFT))
+			cameraSpeed *= 5.0f;
 
 		if(keyMap.count('W'))
 			fpsCamera.MoveFoward(cameraSpeed);
@@ -633,6 +646,10 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//SRVs
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
+	traceResourceBinds0.AddResource(swordOBJ->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+
+	//Samplers
+	traceResourceBinds0.AddResource(SamplerStates::linearClamp, 0);
 
 	ShaderResourceBinds traceResourceBinds1;
 	//CBuffers
@@ -649,6 +666,10 @@ bool MulticoreWindow::InitRaytraceShaders()
 	//SRVs
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
 	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
+	traceResourceBinds1.AddResource(swordOBJ->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+
+	//Samplers
+	traceResourceBinds1.AddResource(SamplerStates::linearClamp, 0);
 
 	LogErrorReturnFalse(traceShader.CreateFromFile("Intersection.hlsl", device.get(), traceResourceBinds0, traceResourceBinds1), "");
 
@@ -981,16 +1002,16 @@ bool MulticoreWindow::InitRoom()
 	//Room
 	//////////////////////////////////////////////////
 	//y+-
-	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, 0.0f, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
-	AddFace(DirectX::XMFLOAT3(-roomSize, roomSize, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
+	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, 0.0f, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	//AddFace(DirectX::XMFLOAT3(-roomSize, roomSize, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
 
 	//x+-
-	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(-roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
-	AddFace(DirectX::XMFLOAT3(roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
+	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(-roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	//AddFace(DirectX::XMFLOAT3(roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
 
 	//z+-
-	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, -roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
-	AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
+	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, -roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
 
 	//Floor
 	/*newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
@@ -1146,7 +1167,10 @@ void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triang
 		vertexBuffer.vertices.position[i].y = swordMesh.vertices[i].position.y + 3.5f;
 		vertexBuffer.vertices.position[i].z = swordMesh.vertices[i].position.z - 0.75f;
 
-		vertexBuffer.vertices.color[i] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.25f);
+		vertexBuffer.vertices.texCoord[i].x = swordMesh.vertices[i].texCoord.x;
+		vertexBuffer.vertices.texCoord[i].y = swordMesh.vertices[i].texCoord.y;
+		vertexBuffer.vertices.texCoord[i].z = 0.0f;
+		vertexBuffer.vertices.texCoord[i].w = 0.0f;
 	}
 
 	for(int i = 0, end = static_cast<int>(swordMesh.indicies.size()) / 3; i < end; ++i)
@@ -1513,22 +1537,22 @@ void MulticoreWindow::AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, Dire
 		return;
 	}
 
-	vertexBuffer.vertices.color[vertexOffset + 0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
-	vertexBuffer.vertices.color[vertexOffset + 1] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
-	vertexBuffer.vertices.color[vertexOffset + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
-	vertexBuffer.vertices.color[vertexOffset + 3] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
+	vertexBuffer.vertices.texCoord[vertexOffset + 0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
+	vertexBuffer.vertices.texCoord[vertexOffset + 1] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
+	vertexBuffer.vertices.texCoord[vertexOffset + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
+	vertexBuffer.vertices.texCoord[vertexOffset + 3] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
 
 	int indexOffset = triangleBuffer.triangleCount;
 
 	if(!flipWindingOrder)
 	{
 		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 2, vertexOffset + 1, 0);
-		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 2, vertexOffset, vertexOffset + 3, 0);
+		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 2, vertexOffset, 0);
 	}
 	else
 	{
-		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 2, 0);
-		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset, vertexOffset + 2, 0);
+		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 3, 0);
+		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 1, vertexOffset + 2, 0);
 	}
 
 	triangleBuffer.triangleCount += 2;

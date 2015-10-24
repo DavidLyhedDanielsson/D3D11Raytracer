@@ -37,7 +37,7 @@ struct SphereBufferData
 struct VertexBufferData
 {
 	float4 position[MAX_VERTICES]; //position + padding
-	float4 color[MAX_TRIANGLES]; //color + reflectivity
+	float4 texCoord[MAX_TRIANGLES]; //tex coords + reflectivity
 };
 
 struct TriangleBufferData

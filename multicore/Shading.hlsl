@@ -165,6 +165,40 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 
 	for(int i = 0; i < triangleCount; ++i)
 	{
+		float3 v0 = vertices.position[triangles.vertices[i].x].xyz;
+		float3 v1 = vertices.position[triangles.vertices[i].y].xyz;
+		float3 v2 = vertices.position[triangles.vertices[i].z].xyz;
+
+		float3 e0 = v1 - v0;
+		float3 e1 = v2 - v0;
+
+		float3 detCross = cross(rayDirection, e1);
+		float det = dot(e0, detCross);
+
+		float detInv = 1.0f / det;
+
+		float3 rayDist = rayPosition - v0;
+		float tempU = dot(rayDist, detCross) * detInv;
+
+		if(tempU < 0.0f || tempU > 1.0f)
+			continue;
+
+		float3 vPrep = cross(rayDist, e0);
+		float tempV = dot(rayDirection, vPrep) * detInv;
+
+		if(tempV < 0.0f || tempU + tempV > 1.0f)
+			continue;
+
+		float t = dot(e1, vPrep) * detInv;
+
+		if(t > 0.0f 
+			&& sphereCount + i != lastHit
+			&& t < distanceToLight * 0.95f)
+		{
+			return false;
+		}
+
+
 		//float3 v0 = vertices.position[triangles.vertices[i].x].xyz;
 		//float3 v1 = vertices.position[triangles.vertices[i].y].xyz;
 		//float3 v2 = vertices.position[triangles.vertices[i].z].xyz;
@@ -187,40 +221,42 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 		//	return false;
 		//}
 
-		if(sphereCount + i == lastHit)
-			continue;
 
-		float3 a = vertices.position[triangles.vertices[i].x].xyz;
-		float3 b = vertices.position[triangles.vertices[i].y].xyz;
-		float3 c = vertices.position[triangles.vertices[i].z].xyz;
 
-		float3 ab = b - a;
-		float3 ac = c - a;
+		//if(sphereCount + i == lastHit)
+		//	continue;
 
-		float3 normal = cross(ac, ab);
+		//float3 a = vertices.position[triangles.vertices[i].x].xyz;
+		//float3 b = vertices.position[triangles.vertices[i].y].xyz;
+		//float3 c = vertices.position[triangles.vertices[i].z].xyz;
 
-		float d = dot(-rayDirection, normal);
-		if(d < 0.0f)
-			continue;
+		//float3 ab = b - a;
+		//float3 ac = c - a;
 
-		float3 ap = rayPosition - a;
-		float t = dot(ap, normal);
-		if(t < 0.0f)
-			continue;
+		//float3 normal = cross(ac, ab);
 
-		float3 e = cross(rayDirection, ap);
-		float tempV = dot(ac, e);
-		if(tempV < 0.0f || tempV > d)
-			continue;
-		float tempW = -dot(ab, e);
-		if(tempW < 0.0f || tempV + tempW > d)
-			continue;
+		//float d = dot(-rayDirection, normal);
+		//if(d < 0.0f)
+		//	continue;
 
-		float dInv = 1.0f / d;
+		//float3 ap = rayPosition - a;
+		//float t = dot(ap, normal);
+		//if(t < 0.0f)
+		//	continue;
+
+		//float3 e = cross(rayDirection, ap);
+		//float tempV = dot(ac, e);
+		//if(tempV < 0.0f || tempV > d)
+		//	continue;
+		//float tempW = -dot(ab, e);
+		//if(tempW < 0.0f || tempV + tempW > d)
+		//	continue;
+
+		//float dInv = 1.0f / d;
 		
-		t *= dInv;
-		if(t < distanceToLight)
-			return false;
+		//t *= dInv;
+		//if(t < distanceToLight)
+		//	return false;
 	}
 
 	return true;
