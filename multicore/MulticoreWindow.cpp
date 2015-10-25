@@ -919,7 +919,7 @@ bool MulticoreWindow::InitRoom()
 	float heightIncrease = 0.2f;
 
 	float rotationValue = 0.0f;
-	float heightValue = 2.0f;
+	float heightValue = 0.0f;
 
 	float radius = 4.0f;
 
@@ -933,12 +933,12 @@ bool MulticoreWindow::InitRoom()
 
 	rotationValue = 0.0f;
 
-	for(int i = 0; i < 0; ++i)
+	for(int i = 0; i < 32; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
 
-		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, 0.5f, std::sinf(rotationValue) * radius, 0.5f);
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
 		if(i % 3 == 0)
 			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
 		else if(i % 3 == 1)
@@ -953,27 +953,6 @@ bool MulticoreWindow::InitRoom()
 		sphereBufferData.spheres.color[i] = newColor;
 		++sphereBufferData.sphereCount;
 	}
-
-	//Spiral
-	/*for(int i = 1; i < 32; ++i)
-	{
-		DirectX::XMFLOAT4 newSphere;
-		DirectX::XMFLOAT4 newColor;
-
-		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
-		if(i % 3 == 0)
-			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
-		else if(i % 3 == 1)
-			newColor = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.8f);
-		else if(i % 3 == 2)
-			newColor = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.8f);
-
-		rotationValue += rotationIncrease;
-		heightValue += heightIncrease;
-
-		sphereBufferData.spheres.position[i] = newSphere;
-		sphereBufferData.spheres.color[i] = newColor;
-	}*/
 
 	LogErrorReturnFalse(sphereBuffer.Create<SphereBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
 
@@ -1016,7 +995,7 @@ bool MulticoreWindow::InitRoom()
 	//Floor
 	/*newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
 	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);s
+	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
 
 	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
 	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);

@@ -71,7 +71,7 @@ sampler textureSampler : register(s0);
 bool SphereTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit);
 bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLight, float3 rayDirection, int lastHit);
 
-const static float AMBIENT_FAC = 0.1f;
+const static float AMBIENT_FAC = 0.3f;
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
