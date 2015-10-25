@@ -1,51 +1,4 @@
-//#include "SharedShaderBuffers.h"
-#include "SharedShaderConstants.h"
-
-struct SphereBufferData
-{
-	//Keeping position and color separate plays nice with the cache
-	float4 position[MAX_SPHERES]; //position + radius
-	float4 color[MAX_SPHERES]; //color + reflectivity
-};
-
-struct VertexBufferData
-{
-	float4 position[MAX_VERTICES]; //position + padding
-	float4 color[MAX_TRIANGLES]; //color + reflectivity
-};
-
-struct TriangleBufferData
-{
-	int4 vertices[MAX_TRIANGLES]; //vertices + padding
-};
-
-struct PointLightBufferData
-{
-	float4 position[MAX_POINT_LIGHTS]; //position + intensity
-};
-
-cbuffer SphereBuffer : register(b0)
-{
-	SphereBufferData spheres;
-	int sphereCount;
-};
-
-cbuffer VertexBuffer : register(b1)
-{
-	VertexBufferData vertices;
-};
-
-cbuffer TriangleBuffer : register(b2)
-{
-	TriangleBufferData triangles;
-	int triangleCount;
-};
-
-cbuffer pointLightBuffer : register(b3)
-{
-	PointLightBufferData pointLights;
-	int lightCount;
-};
+#include "SharedShaderBuffers.h"
 
 cbuffer attenuationBuffer : register(b4)
 {
@@ -165,9 +118,9 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 
 	for(int i = 0; i < triangleCount; ++i)
 	{
-		float3 v0 = vertices.position[triangles.vertices[i].x].xyz;
-		float3 v1 = vertices.position[triangles.vertices[i].y].xyz;
-		float3 v2 = vertices.position[triangles.vertices[i].z].xyz;
+		float3 v0 = vertices[triangles.indicies[i].x].position.xyz;
+		float3 v1 = vertices[triangles.indicies[i].y].position.xyz;
+		float3 v2 = vertices[triangles.indicies[i].z].position.xyz;
 
 		float3 e0 = v1 - v0;
 		float3 e1 = v2 - v0;

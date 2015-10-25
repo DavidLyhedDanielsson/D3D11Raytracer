@@ -294,7 +294,7 @@ private:
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
-	void LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer);
+	void LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, const DirectX::XMFLOAT3& offset);
 	bool InitBezier();
 
 	void InitInput();

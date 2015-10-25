@@ -933,7 +933,7 @@ bool MulticoreWindow::InitRoom()
 
 	rotationValue = 0.0f;
 
-	for(int i = 0; i < 32; ++i)
+	for(int i = 0; i < 0; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
@@ -964,18 +964,14 @@ bool MulticoreWindow::InitRoom()
 	
 	triangleBufferData.triangleCount = 0;
 
-	/*vertexBufferData.vertices.position[0] = DirectX::XMFLOAT4(-10.0f, 0.0f, -10.0f, 0.0f);
-	vertexBufferData.vertices.position[1] = DirectX::XMFLOAT4(0.0f, 0.0f, 10.0f, 0.0f);
-	vertexBufferData.vertices.position[2] = DirectX::XMFLOAT4(10.0f, 0.0f, -10.0f, 0.0f);
-
-	vertexBufferData.vertices.color[0] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
-	vertexBufferData.vertices.color[1] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
-	vertexBufferData.vertices.color[2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
-
-	triangleBufferData.triangles.vertices[0] = DirectX::XMINT4(0, 2, 1, 0);*/
-
-	//triangleBufferData.triangleCount = 0;
-	LoadOBJ(vertexBufferData, triangleBufferData);
+	for(int z = 0; z < 2; z++)
+	{
+		for(int y = 0; y < 2; y++)
+		{
+			for(int x = 0; x < 2; x++)
+				LoadOBJ(vertexBufferData, triangleBufferData, DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+		}
+	}
 
 	//////////////////////////////////////////////////
 	//Room
@@ -1102,7 +1098,7 @@ bool MulticoreWindow::InitRoom()
 	return true;
 }
 
-void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer)
+void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, const DirectX::XMFLOAT3& offset)
 {
 	//VertexBuffer returnVertexBuffer;
 	//TriangleBuffer returnTriangleBuffer;
@@ -1125,13 +1121,13 @@ void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triang
 		return;
 	}
 
-	int vertexOffset = -1;
+	int vertexOffset = 0;
 
 	for(int i = 0; i < triangleBuffer.triangleCount; i++)
 	{
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].x);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].y);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].z);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].x + 1);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].y + 1);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].z + 1);
 	}
 
 	if(vertexOffset + swordMesh.vertices.size() > MAX_VERTICES)
@@ -1142,22 +1138,39 @@ void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triang
 
 	for(int i = 0, end = static_cast<int>(swordMesh.vertices.size()); i < end; ++i)
 	{
-		vertexBuffer.vertices.position[i].x = swordMesh.vertices[i].position.x;
-		vertexBuffer.vertices.position[i].y = swordMesh.vertices[i].position.y + 3.5f;
-		vertexBuffer.vertices.position[i].z = swordMesh.vertices[i].position.z - 0.75f;
+		vertexBuffer.vertices[vertexOffset + i].position.x = swordMesh.vertices[i].position.x + offset.x;
+		vertexBuffer.vertices[vertexOffset + i].position.y = swordMesh.vertices[i].position.y + offset.y; // 3.5f;
+		vertexBuffer.vertices[vertexOffset + i].position.z = swordMesh.vertices[i].position.z + offset.z; // -0.75f;
 
-		vertexBuffer.vertices.texCoord[i].x = swordMesh.vertices[i].texCoord.x;
-		vertexBuffer.vertices.texCoord[i].y = swordMesh.vertices[i].texCoord.y;
-		vertexBuffer.vertices.texCoord[i].z = 0.0f;
-		vertexBuffer.vertices.texCoord[i].w = 0.0f;
+		/*vertexBuffer.vertices.position[vertexOffset + i].x = swordMesh.vertices[i].position.x + offset.x;
+		vertexBuffer.vertices.position[vertexOffset + i].y = swordMesh.vertices[i].position.y + offset.y; // 3.5f;
+		vertexBuffer.vertices.position[vertexOffset + i].z = swordMesh.vertices[i].position.z + offset.z; // -0.75f;*/
+
+		int u = swordMesh.vertices[i].texCoord.x * 0xFFFF;
+		int v = swordMesh.vertices[i].texCoord.y * 0xFFFF;
+
+		vertexBuffer.vertices[vertexOffset + i].texCoord = ((u << 16) | v);
+		//int asdf = 5;
+		//vertexBuffer.vertices.texCoord[vertexOffset + i] = ((u << 16) | v);
+
+		//float unpackedU = (vertexBuffer.vertices.texCoord[vertexOffset + i] >> 16 & 0xFFFF) / static_cast<float>(0xFFFF);
+		//float unpackedV = (vertexBuffer.vertices.texCoord[vertexOffset + i] & 0xFFFF) / static_cast<float>(0xFFFF);
+
+		//int bananJA = 15;
+		//vertexBuffer.vertices.texCoord[vertexOffset + i].x = swordMesh.vertices[i].texCoord.x;
+		//vertexBuffer.vertices.texCoord[vertexOffset + i].y = swordMesh.vertices[i].texCoord.y;
+		//vertexBuffer.vertices.texCoord[vertexOffset + i].z = 0.0f;
+		//vertexBuffer.vertices.texCoord[vertexOffset + i].w = 0.0f;
 	}
+
+	int triangleOffset = triangleBuffer.triangleCount;
 
 	for(int i = 0, end = static_cast<int>(swordMesh.indicies.size()) / 3; i < end; ++i)
 	{
-		triangleBuffer.triangles.vertices[i].x = swordMesh.indicies[i * 3];
-		triangleBuffer.triangles.vertices[i].y = swordMesh.indicies[i * 3 + 1];
-		triangleBuffer.triangles.vertices[i].z = swordMesh.indicies[i * 3 + 2];
-		triangleBuffer.triangles.vertices[i].w = 0;
+		triangleBuffer.triangles.indicies[triangleOffset + i].x = vertexOffset + swordMesh.indicies[i * 3];
+		triangleBuffer.triangles.indicies[triangleOffset + i].y = vertexOffset + swordMesh.indicies[i * 3 + 1];
+		triangleBuffer.triangles.indicies[triangleOffset + i].z = vertexOffset + swordMesh.indicies[i * 3 + 2];
+		triangleBuffer.triangles.indicies[triangleOffset + i].w = 0;
 
 		++triangleBuffer.triangleCount;
 	}
@@ -1478,13 +1491,13 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 
 void MulticoreWindow::AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, DirectX::XMFLOAT4 color, VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, bool flipWindingOrder) const
 {
-	int vertexOffset = -1;
+	/*int vertexOffset = -1;
 
 	for(int i = 0; i < triangleBuffer.triangleCount; i++)
 	{
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].x);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].y);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.vertices[i].z);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].x);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].y);
+		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].z);
 	}
 
 	vertexOffset++;
@@ -1525,16 +1538,16 @@ void MulticoreWindow::AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, Dire
 
 	if(!flipWindingOrder)
 	{
-		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 2, vertexOffset + 1, 0);
-		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 2, vertexOffset, 0);
+		triangleBuffer.triangles.indicies[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 2, vertexOffset + 1, 0);
+		triangleBuffer.triangles.indicies[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 2, vertexOffset, 0);
 	}
 	else
 	{
-		triangleBuffer.triangles.vertices[indexOffset + 1] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 3, 0);
-		triangleBuffer.triangles.vertices[indexOffset] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 1, vertexOffset + 2, 0);
+		triangleBuffer.triangles.indicies[indexOffset + 1] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 3, 0);
+		triangleBuffer.triangles.indicies[indexOffset] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 1, vertexOffset + 2, 0);
 	}
 
-	triangleBuffer.triangleCount += 2;
+	triangleBuffer.triangleCount += 2;*/
 }
 
 std::vector<BezierVertex> MulticoreWindow::CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const

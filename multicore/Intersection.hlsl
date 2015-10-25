@@ -1,5 +1,4 @@
 #include "SharedShaderBuffers.h"
-//#include "SharedShaderConstants.h"
 
 RWTexture2D<float4> rayPositionsOut : register(u0);
 RWTexture2D<float4> rayDirectionsOut : register(u1);
@@ -19,6 +18,8 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 float TripleProduct(float3 a, float3 b, float3 z);
 
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates);
+
+float2 UnpackTexcoords(int intValue);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -120,9 +121,9 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 
 	for(int i = 0; i < triangleCount; ++i)
 	{
-		float3 v0 = vertices.position[triangles.vertices[i].x].xyz;
-		float3 v1 = vertices.position[triangles.vertices[i].y].xyz;
-		float3 v2 = vertices.position[triangles.vertices[i].z].xyz;
+		float3 v0 = vertices[triangles.indicies[i].x].position.xyz;
+		float3 v1 = vertices[triangles.indicies[i].y].position.xyz;
+		float3 v2 = vertices[triangles.indicies[i].z].position.xyz;
 
 		float3 e0 = v1 - v0;
 		float3 e1 = v2 - v0;
@@ -148,7 +149,7 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 
 		if(t > 0.0f 
 			&& t < depth
-			&& i + sphereCount != lastHit)
+			&& i != lastHit)
 		{
 			u = tempU;
 			v = tempV;
@@ -180,13 +181,18 @@ float TripleProduct(float3 a, float3 b, float3 c)
 
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
 {
-	float2 v0 = vertices.texCoord[triangles.vertices[triangleIndex].x].xy;
-	float2 v1 = vertices.texCoord[triangles.vertices[triangleIndex].y].xy;
-	float2 v2 = vertices.texCoord[triangles.vertices[triangleIndex].z].xy;
+	float2 v0 = UnpackTexcoords(vertices[triangles.indicies[triangleIndex].x].texCoord);
+	float2 v1 = UnpackTexcoords(vertices[triangles.indicies[triangleIndex].y].texCoord);
+	float2 v2 = UnpackTexcoords(vertices[triangles.indicies[triangleIndex].z].texCoord);
 
 	float2 currentTexCoord = v0 + (v1 - v0) * barycentricCoordinates.x + (v2 - v0) * barycentricCoordinates.y;
 
 	currentTexCoord.y = 1.0f - currentTexCoord.y;
 
 	return float4(diffuseTexture.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.5f);
+}
+
+float2 UnpackTexcoords(int intValue)
+{
+	return float2((intValue >> 16) & 0xFFFF, intValue & 0xFFFF) / (float)(0xFFFF);
 }

@@ -36,13 +36,16 @@ struct SphereBufferData
 
 struct VertexBufferData
 {
-	float4 position[MAX_VERTICES]; //position + padding
-	float4 texCoord[MAX_TRIANGLES]; //tex coords + reflectivity
+	//float3 position[MAX_VERTICES]; //position
+	//int texCoord[MAX_VERTICES]; //tex coords packed into an int, first 16 bits = u, last 16 bits = v
+
+	float3 position;
+	int texCoord;
 };
 
 struct TriangleBufferData
 {
-	int4 vertices[MAX_TRIANGLES]; //vertices + padding
+	int4 indicies[MAX_TRIANGLES]; //vertices + padding
 };
 
 struct PointLightBufferData
@@ -58,7 +61,7 @@ Buffer(SphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX_DEF)
 
 Buffer(VertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX_DEF)
 {
-	VertexBufferData vertices;
+	VertexBufferData vertices[MAX_VERTICES];
 };
 
 Buffer(TriangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX_DEF)
