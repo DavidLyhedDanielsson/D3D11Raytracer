@@ -27,6 +27,7 @@
     <ClInclude Include="commandDumpConsole.h" />
     <ClInclude Include="commandGetSet.h" />
     <ClInclude Include="commandGetSetList.h" />
+    <ClInclude Include="commandGetterSetter.h" />
     <ClInclude Include="commandHelp.h" />
     <ClInclude Include="commandPrint.h" />
     <ClInclude Include="Common.h" />

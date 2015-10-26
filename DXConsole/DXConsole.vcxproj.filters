@@ -132,6 +132,9 @@
     <ClInclude Include="dictionary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="commandGetterSetter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dictionaryEntry.cpp">

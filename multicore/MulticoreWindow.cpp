@@ -15,27 +15,16 @@
 #include <DXConsole/commandCallMethod.h>
 #include <DXLib/SamplerStates.h>
 
+#include "ShaderProgram.h"
+#include "SimpleShaderProgram.h"
+
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
 	, paused(false)
 	, billboardSamplerState(nullptr)
 	, backbufferUAV(nullptr)
-	, outputColorUAV { nullptr, nullptr }
-	, outputColorSRV{ nullptr, nullptr }
-	, rayNormalUAV(nullptr)
-	, rayNormalSRV(nullptr)
-	, rayColorUAV(nullptr)
-	, rayDirectionUAV{ nullptr, nullptr }
-	, rayPositionUAV{ nullptr, nullptr }
-	, rayColorSRV(nullptr)
-	, rayDirectionSRV{ nullptr, nullptr }
-	, rayPositionSRV{ nullptr, nullptr }
 	, billboardBlendState(nullptr)
 	, bulbTexture(nullptr)
-	, primaryRayGenerator("main", "cs_5_0")
-	, traceShader("main", "cs_5_0")
-	, intersectionShader("main", "cs_5_0")
-	, compositShader("main", "cs_5_0")
 	, bulbVertexShader("main", "vs_5_0")
 	, bulbPixelShader("main", "ps_5_0")
 	, bezierPixelShader("main", "ps_5_0")
@@ -45,7 +34,6 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, drawConsole(false)
 	, cinematicCameraMode(false)
 	, bezierVertexCount(0)
-	, swordOBJ(nullptr)
 {
 }
 
@@ -55,8 +43,6 @@ MulticoreWindow::~MulticoreWindow()
 bool MulticoreWindow::Init()
 {
 	srand(static_cast<unsigned int>(time(nullptr)));
-	dispatchX = width / 32;
-	dispatchY = height / 16;
 
 	//Content manager
 	contentManager.Init(device.get());
@@ -67,11 +53,6 @@ bool MulticoreWindow::Init()
 
 	InitConsole();
 	InitInput();
-
-	rayBounces = 5;
-	auto rayBouncesCommand = new CommandGetSet<int>("RayBounces", &rayBounces);
-	if(!console.AddCommand(rayBouncesCommand))
-		delete rayBouncesCommand;
 
 	auto resetCamera = new CommandCallMethod("ResetCamera", std::bind(&MulticoreWindow::ResetCamera, this, std::placeholders::_1));
 	auto pauseCamera = new CommandCallMethod("PauseCamera", std::bind(&MulticoreWindow::PauseCamera, this, std::placeholders::_1));
@@ -91,6 +72,10 @@ bool MulticoreWindow::Init()
 	console.AddCommand(printCameraFrames);
 	console.AddCommand(setCameraTargetSpeed);
 
+	simpleShaderProgram.reset(new SimpleShaderProgram());
+	currentShaderProgram = simpleShaderProgram.get();
+	if(!simpleShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
 
 	if(!InitSRVs())
 		return false;
@@ -99,15 +84,13 @@ bool MulticoreWindow::Init()
 	if(!InitPointLights())
 		return false;
 
-	if(!InitRaytraceShaders())
-		return false;
-
 	if(!InitBulb())
 		return false;
 	if(!InitGraphs())
 		return false;
 
-	rayBounces = 1;
+	if(!simpleShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
 
 	if(cinematicCameraMode)
 		currentCamera = &cinematicCamera;
@@ -203,24 +186,21 @@ void MulticoreWindow::Run()
 			cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
 			cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
 
-			if(cinematicCameraMode)
+			/*if(cinematicCameraMode) //TODO!
 			{
 				if(std::chrono::duration_cast<std::chrono::seconds>(gameTimer.GetTime()).count() >= 24)
 				{
 					run = false;
 					PostQuitMessage(0);
 
-					gpuGraph.DumpValues("GPUGraph.txt");
+					graph.DumpValues("GPUGraph.txt");
 				}
-			}
+			}*/
 		}
 		else
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 }
-
-float sinVal = 0.0f;
-float otherSinVal = 0.0f;
 
 void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 {
@@ -271,9 +251,6 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		SetCursorPos(midPoint.x, midPoint.y);
 	}
 
-	sinVal += deltaMS * lightVerticalSpeed;
-	otherSinVal += deltaMS * lightHorizontalSpeed;
-
 	guiManager.Update(delta);
 }
 
@@ -291,36 +268,7 @@ void MulticoreWindow::Draw()
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
-	d3d11Timer.Start();
-	DrawRayPrimary();
-	d3d11Timer.Stop("Primary");
-
-	for(int i = 0; i < rayBounces; ++i)
-	{
-		DrawRayIntersection(i % 2);
-		d3d11Timer.Stop("Trace" + std::to_string(i));
-		DrawRayShading(i % 2);
-		d3d11Timer.Stop("Shade" + std::to_string(i));
-	}
-
-	DrawComposit((rayBounces + 1) % 2);
-
-	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
-
-	float traceTime = 0.0f;
-	float shadeTime = 0.0f;
-	for(const auto& pair : d3d11Times)
-	{
-		if(pair.first.compare(0, 5, "Trace") == 0)
-			traceTime += static_cast<float>(pair.second);
-		else if(pair.first.compare(0, 5, "Shade") == 0)
-			shadeTime += static_cast<float>(pair.second);
-		else
-			gpuGraph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
-	}
-
-	gpuGraph.AddValueToTrack("Trace", traceTime);
-	gpuGraph.AddValueToTrack("Shade", shadeTime);
+	currentShaderProgram->Draw();
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -349,13 +297,15 @@ void MulticoreWindow::Draw()
 
 	guiManager.Draw(&spriteRenderer);
 
-	gpuGraph.Draw(&spriteRenderer);
-	cpuGraph.Draw(&spriteRenderer);
+	currentShaderProgram->DrawGraph(&spriteRenderer);
+	//gpuGraph.Draw(&spriteRenderer);
+	//cpuGraph.Draw(&spriteRenderer);
 
 	spriteRenderer.End();
 
-	gpuGraph.Draw();
-	cpuGraph.Draw();
+	currentShaderProgram->DrawGraph();
+	//gpuGraph.Draw();
+	//cpuGraph.Draw();
 
 	swapChain->Present(1, 0);
 }
@@ -571,163 +521,6 @@ bool MulticoreWindow::InitSRVs()
 		return false;
 	}
 
-	//////////////////////////////////////////////////
-	//Rays
-	//////////////////////////////////////////////////
-	//Position
-	if(!CreateUAVSRVCombo(width, height, rayPositionUAV[0], rayPositionSRV[0]))
-		return false;
-
-	if(!CreateUAVSRVCombo(width, height, rayPositionUAV[1], rayPositionSRV[1]))
-		return false;
-
-	//Direction
-	if(!CreateUAVSRVCombo(width, height, rayDirectionUAV[0], rayDirectionSRV[0]))
-		return false;
-
-	if(!CreateUAVSRVCombo(width, height, rayDirectionUAV[1], rayDirectionSRV[1]))
-		return false;
-
-	//Normal
-	if(!CreateUAVSRVCombo(width, height, rayNormalUAV, rayNormalSRV))
-		return false;
-
-	//Color
-	if(!CreateUAVSRVCombo(width, height, rayColorUAV, rayColorSRV))
-		return false;
-
-	//Output
-	if(!CreateUAVSRVCombo(width, height, outputColorUAV[0], outputColorSRV[0]))
-		return false;
-
-	if(!CreateUAVSRVCombo(width, height, outputColorUAV[1], outputColorSRV[1]))
-		return false;
-
-	return true;
-}
-
-bool MulticoreWindow::InitRaytraceShaders()
-{
-	//////////////////////////////////////////////////
-	//Cbuffers
-	//////////////////////////////////////////////////
-	LogErrorReturnFalse(viewProjInverseBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create view proj inverse buffer: ");
-
-	//////////////////////////////////////////////////
-	//Primary rays
-	//////////////////////////////////////////////////
-	ShaderResourceBinds primaryResourceBinds0;
-	//CBuffers
-	primaryResourceBinds0.AddResource(viewProjInverseBuffer, 0);
-
-	//UAVs
-	primaryResourceBinds0.AddResource(rayPositionUAV[0].get(), 0);
-	primaryResourceBinds0.AddResource(rayDirectionUAV[0].get(), 1);
-	primaryResourceBinds0.AddResource(rayNormalUAV.get(), 2);
-	primaryResourceBinds0.AddResource(outputColorUAV[1].get(), 3);
-
-	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile("PrimaryRayGenerator.hlsl", device.get(), primaryResourceBinds0), "");
-
-	//////////////////////////////////////////////////
-	//Intersection
-	//////////////////////////////////////////////////
-	ShaderResourceBinds traceResourceBinds0;
-	//CBuffers
-	traceResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
-
-	//UAVs
-	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
-	traceResourceBinds0.AddResource(rayDirectionUAV[1].get(), 1);
-	traceResourceBinds0.AddResource(rayNormalUAV.get(), 2);
-	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
-
-	//SRVs
-	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
-	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
-	traceResourceBinds0.AddResource(swordOBJ->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
-
-	//Samplers
-	traceResourceBinds0.AddResource(SamplerStates::linearClamp, 0);
-
-	ShaderResourceBinds traceResourceBinds1;
-	//CBuffers
-	traceResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
-
-	//UAVs
-	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
-	traceResourceBinds1.AddResource(rayDirectionUAV[0].get(), 1);
-	traceResourceBinds1.AddResource(rayNormalUAV.get(), 2);
-	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
-
-	//SRVs
-	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
-	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
-	traceResourceBinds1.AddResource(swordOBJ->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
-
-	//Samplers
-	traceResourceBinds1.AddResource(SamplerStates::linearClamp, 0);
-
-	LogErrorReturnFalse(traceShader.CreateFromFile("Intersection.hlsl", device.get(), traceResourceBinds0, traceResourceBinds1), "");
-
-	//////////////////////////////////////////////////
-	//Coloring
-	//////////////////////////////////////////////////
-	ShaderResourceBinds shadeResourceBinds0;
-	//CBuffers
-	shadeResourceBinds0.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 4);
-	shadeResourceBinds0.AddResource(cameraPositionBuffer, 5);
-
-	//UAVs
-	shadeResourceBinds0.AddResource(outputColorUAV[0].get(), 0);
-
-	//SRVs
-	shadeResourceBinds0.AddResource(rayPositionSRV[1].get(), 0);
-	shadeResourceBinds0.AddResource(rayNormalSRV.get(), 1);
-	shadeResourceBinds0.AddResource(rayColorSRV.get(), 2);
-	shadeResourceBinds0.AddResource(outputColorSRV[1].get(), 3);
-
-	ShaderResourceBinds shadeResourceBinds1;
-	//CBuffers
-	shadeResourceBinds1.AddResource(sphereBuffer, SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleVertexBuffer, VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleBuffer, TRIANGLE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 4);
-	shadeResourceBinds1.AddResource(cameraPositionBuffer, 5);
-
-	//UAVs
-	shadeResourceBinds1.AddResource(outputColorUAV[1].get(), 0);
-
-	//SRVs
-	shadeResourceBinds1.AddResource(rayPositionSRV[0].get(), 0);
-	shadeResourceBinds1.AddResource(rayNormalSRV.get(), 1);
-	shadeResourceBinds1.AddResource(rayColorSRV.get(), 2);
-	shadeResourceBinds1.AddResource(outputColorSRV[0].get(), 3);
-
-	LogErrorReturnFalse(intersectionShader.CreateFromFile("Shading.hlsl", device.get(), shadeResourceBinds0, shadeResourceBinds1), "");
-
-	auto reloadShadersCommand = new CommandCallMethod("ReloadShaders", std::bind(&MulticoreWindow::ReloadRaytraceShaders, this, std::placeholders::_1), false);
-	if(!console.AddCommand(reloadShadersCommand))
-		delete reloadShadersCommand;
-
-	ShaderResourceBinds compositResourceBinds0;
-	compositResourceBinds0.AddResource(backbufferUAV.get(), 0);
-	compositResourceBinds0.AddResource(outputColorSRV[0].get(), 0);
-
-	ShaderResourceBinds compositResourceBinds1;
-	compositResourceBinds1.AddResource(backbufferUAV.get(), 0);
-	compositResourceBinds1.AddResource(outputColorSRV[1].get(), 0);
-
-	LogErrorReturnFalse(compositShader.CreateFromFile("Composit.hlsl", device.get(), compositResourceBinds0, compositResourceBinds1), "");
-
 	return true;
 }
 
@@ -770,23 +563,22 @@ bool MulticoreWindow::InitBulb()
 
 bool MulticoreWindow::InitPointLights()
 {
-	LogErrorReturnFalse(cameraPositionBuffer.Create<CameraPositionBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create point light camera position buffer: ");
+	LightAttenuation lightAttenuation;
 
-	LogErrorReturnFalse(pointlightAttenuationBuffer.Create<LightAttenuationBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
+	lightAttenuation.factors[0] = 2.5f;
+	lightAttenuation.factors[1] = 0.2f;
+	lightAttenuation.factors[2] = 1.0f;
 
-	pointlightAttenuationBufferData.factors[0] = 2.5f;
-	pointlightAttenuationBufferData.factors[1] = 0.2f;
-	pointlightAttenuationBufferData.factors[2] = 1.0f;
+	currentShaderProgram->SetLightAttenuationFactors(lightAttenuation);
 
-	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
+	PointLights pointlights;
 
 	lightIntensity = 15.0f;
 
-	pointLightBufferData.lightCount = 5;
+	pointlights.lightCount = 1;
 	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
-		pointLightBufferData.lights[i].w = lightIntensity;
+		pointlights.lights[i].w = lightIntensity;
 
-	LogErrorReturnFalse(pointLightBuffer.Create<PointlightBufferData>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, static_cast<void*>(&pointLightBufferData)), "Couldn't create point light buffer: ");
 
 	lightRotationRadius = 5.0f;
 	lightMinHeight = 1.0f;
@@ -824,13 +616,6 @@ bool MulticoreWindow::InitPointLights()
 	if(!console.AddCommand(lightOtherSinValMultCommand))
 		delete lightOtherSinValMultCommand;
 
-	auto setNumberOfLights = new CommandCallMethod("SetNumberOfLights", std::bind(&MulticoreWindow::SetNumberOfLights, this, std::placeholders::_1), false);
-	if(!console.AddCommand(setNumberOfLights))
-		delete setNumberOfLights;
-	auto setLightAttenuationFactors = new CommandCallMethod("SetLightAttenuationFactors", std::bind(&MulticoreWindow::SetLightAttenuationFactors, this, std::placeholders::_1), false);
-	if(!console.AddCommand(setLightAttenuationFactors))
-		delete setLightAttenuationFactors;
-
 	return true;
 }
 
@@ -861,46 +646,6 @@ bool MulticoreWindow::InitGraphs()
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add CPU tracks to graph: " + errorString);
 		return false;
 	}
-
-	//GPU
-#ifdef _DEBUG
-	int gpuMSAverage = 10;
-#else
-	int gpuMSAverage = 10;
-#endif
-
-	std::vector<Track> gpuTracks{ Track(gpuMSAverage, 1.0f) };
-
-	std::vector<std::string> timerQueries{ "Primary" }; // , "Trace", "Shade" };
-
-	for(int i = 0; i < MAX_BOUNCES; i++)
-	{
-		timerQueries.emplace_back("Trace" + std::to_string(i));
-		timerQueries.emplace_back("Shade" + std::to_string(i));
-	}
-
-	if(!d3d11Timer.Init(device.get(), deviceContext.get(), timerQueries))
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize d3d11Timer");
-		return false;
-	}
-
-	std::vector<std::string> gpuTrackNames{ "Primary", "Trace", "Shade" };
-
-	errorString = gpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(256 + cpuGraph.GetBackgroundWidth(), 720 - 128), DirectX::XMINT2(256, 128), 100.0f, 1, width, height, true);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize GPU graph: " + errorString);
-		return false;
-	}
-
-	errorString = gpuGraph.AddTracks(gpuTrackNames, gpuTracks);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add GPU tracks to graph: " + errorString);
-		return false;
-	}
-
 	return true;
 }
 
@@ -909,29 +654,15 @@ bool MulticoreWindow::InitRoom()
 	//////////////////////////////////////////////////
 	//Spheres
 	//////////////////////////////////////////////////
-	SphereBuffer sphereBufferData;
-	sphereBufferData.sphereCount = 0;
-
 	std::vector<DirectX::XMFLOAT4> spheres;
 	std::vector<DirectX::XMFLOAT4> sphereColors;
 
-	float rotationIncrease = DirectX::XM_2PI * 0.1f;
 	float heightIncrease = 0.2f;
 
 	float rotationValue = 0.0f;
 	float heightValue = 0.0f;
 
 	float radius = 4.0f;
-
-	float roomHeight = 10.0f;
-	float roomSize = 12.0f;
-
-	float tableHeight = 3.0f;
-	float tableSize = 2.0f;
-
-	//spheres.emplace_back(DirectX::XMFLOAT3(0.0f, roomHeight, 0.0f), 3.0f, DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
-
-	rotationValue = 0.0f;
 
 	for(int i = 0; i < 0; ++i)
 	{
@@ -949,231 +680,22 @@ bool MulticoreWindow::InitRoom()
 		rotationValue += DirectX::XM_2PI / 16.0f;
 		heightValue += heightIncrease;
 
-		sphereBufferData.spheres.position[i] = newSphere;
-		sphereBufferData.spheres.color[i] = newColor;
-		++sphereBufferData.sphereCount;
+		currentShaderProgram->AddSphere(newSphere, newColor);
 	}
-
-	LogErrorReturnFalse(sphereBuffer.Create<SphereBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");
 
 	//////////////////////////////////////////////////
 	//Triangles
 	//////////////////////////////////////////////////
-	VertexBuffer vertexBufferData;
-	TriangleBuffer triangleBufferData;
-	
-	triangleBufferData.triangleCount = 0;
-
 	for(int z = 0; z < 2; z++)
 	{
 		for(int y = 0; y < 2; y++)
 		{
 			for(int x = 0; x < 2; x++)
-				LoadOBJ(vertexBufferData, triangleBufferData, DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+				currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
 		}
 	}
-
-	//////////////////////////////////////////////////
-	//Room
-	//////////////////////////////////////////////////
-	//y+-
-	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, 0.0f, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
-	//AddFace(DirectX::XMFLOAT3(-roomSize, roomSize, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
-
-	//x+-
-	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(-roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
-	//AddFace(DirectX::XMFLOAT3(roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
-
-	//z+-
-	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, roomSize), DirectX::XMFLOAT3(roomSize, roomSize, roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, true);
-	//AddFace(DirectX::XMFLOAT3(-roomSize, 0.0f, -roomSize), DirectX::XMFLOAT3(roomSize, roomSize, -roomSize), DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.5f), vertexBufferData, triangleBufferData, false);
-
-	//Floor
-	/*newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-
-	//Ceiling
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
-
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-
-	//z+ wall
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
-
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
-
-	//z- wall
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
-
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
-
-	//x+ wall
-	newVertices.emplace_back(roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-
-	newVertices.emplace_back(roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(roomSize, 0.0f, roomSize, 0.0f);
-
-	//x- wall
-	newVertices.emplace_back(-roomSize, 0.0f, -roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
-
-	newVertices.emplace_back(-roomSize, roomHeight, -roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, roomHeight, roomSize, 0.0f);
-	newVertices.emplace_back(-roomSize, 0.0f, roomSize, 0.0f);
-
-	//Floor
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.0f);
-	newColors.emplace_back(0.0f, 0.0f, 0.0f, 0.0f);
-
-	//Ceiling
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-
-	//z+ wall
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-
-	//z- wall
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-
-	//x+ wall
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-
-	//x- wall
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-	newColors.emplace_back(0.5f, 0.5f, 0.6f, 0.0f);
-
-	//Create tiled floor
-	float tileSize = 1.0f;
-
-	for(int y = 0; y < (roomSize * 2) / tileSize; y++)
-	{
-		for(int x = y % 2; x < (roomSize * 2) / tileSize; x += 2)
-		{
-			DirectX::XMFLOAT3 min(-roomSize + x * tileSize, 0.01f, -roomSize + y * tileSize);
-			DirectX::XMFLOAT3 max(min.x + tileSize, min.y, min.z + tileSize);
-
-			newVertices.emplace_back(min.x, min.y, min.z, 0.0f);
-			newVertices.emplace_back(max.x, min.y, min.z, 0.0f);
-			newVertices.emplace_back(max.x, max.y, max.z, 0.0f);
-
-			newVertices.emplace_back(min.x, min.y, max.z, 0.0f);
-			newVertices.emplace_back(min.x, min.y, min.z, 0.0f);
-			newVertices.emplace_back(max.x, max.y, max.z, 0.0f);
-
-			newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.5f);
-			newColors.emplace_back(1.0f, 1.0f, 1.0f, 0.5f);
-		}
-	}*/
-
-	//////////////////////////////////////////////////
-	//Buffers
-	//////////////////////////////////////////////////
-	LogErrorReturnFalse(triangleVertexBuffer.Create<VertexBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &vertexBufferData), "Couldn't create triangle vertex buffer: ");
-	LogErrorReturnFalse(triangleBuffer.Create<TriangleBuffer>(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &triangleBufferData), "Couldn't create triangle index buffer: ");
 
 	return true;
-}
-
-void MulticoreWindow::LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, const DirectX::XMFLOAT3& offset)
-{
-	//VertexBuffer returnVertexBuffer;
-	//TriangleBuffer returnTriangleBuffer;
-
-	//VertexBufferData vertices;
-	//TriangleBufferData triangles;
-
-	swordOBJ = contentManager.Load<OBJFile>("sword.obj");
-	if(swordOBJ == nullptr)
-		return;
-
-	Mesh swordMesh = swordOBJ->GetMeshes().front();
-
-	if(swordMesh.vertices.size() > MAX_VERTICES)
-		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.vertices.size()) + " vertices which is larger than MAX_VERTICES (" + std::to_string(MAX_VERTICES) + "). Only the first " + std::to_string(MAX_VERTICES) + " will be used");
-
-	if(triangleBuffer.triangleCount + swordMesh.indicies.size() / 3 > MAX_INDICIES)
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.indicies.size()) + " indicies and the buffer currently contains " + std::to_string(triangleBuffer.triangleCount) + " indicies. Can't add the model's indicies since it would overflow the buffer");
-		return;
-	}
-
-	int vertexOffset = 0;
-
-	for(int i = 0; i < triangleBuffer.triangleCount; i++)
-	{
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].x + 1);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].y + 1);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].z + 1);
-	}
-
-	if(vertexOffset + swordMesh.vertices.size() > MAX_VERTICES)
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(swordMesh.vertices.size()) + " vertices and the buffer currently contains " + std::to_string(swordMesh.vertices.size()) + " vertices. Can't add the model's vertices since it would overflow the buffer");
-		return;
-	}
-
-	for(int i = 0, end = static_cast<int>(swordMesh.vertices.size()); i < end; ++i)
-	{
-		vertexBuffer.vertices[vertexOffset + i].position.x = swordMesh.vertices[i].position.x + offset.x;
-		vertexBuffer.vertices[vertexOffset + i].position.y = swordMesh.vertices[i].position.y + offset.y; // 3.5f;
-		vertexBuffer.vertices[vertexOffset + i].position.z = swordMesh.vertices[i].position.z + offset.z; // -0.75f;
-
-		/*vertexBuffer.vertices.position[vertexOffset + i].x = swordMesh.vertices[i].position.x + offset.x;
-		vertexBuffer.vertices.position[vertexOffset + i].y = swordMesh.vertices[i].position.y + offset.y; // 3.5f;
-		vertexBuffer.vertices.position[vertexOffset + i].z = swordMesh.vertices[i].position.z + offset.z; // -0.75f;*/
-
-		int u = swordMesh.vertices[i].texCoord.x * 0xFFFF;
-		int v = swordMesh.vertices[i].texCoord.y * 0xFFFF;
-
-		vertexBuffer.vertices[vertexOffset + i].texCoord = ((u << 16) | v);
-		//int asdf = 5;
-		//vertexBuffer.vertices.texCoord[vertexOffset + i] = ((u << 16) | v);
-
-		//float unpackedU = (vertexBuffer.vertices.texCoord[vertexOffset + i] >> 16 & 0xFFFF) / static_cast<float>(0xFFFF);
-		//float unpackedV = (vertexBuffer.vertices.texCoord[vertexOffset + i] & 0xFFFF) / static_cast<float>(0xFFFF);
-
-		//int bananJA = 15;
-		//vertexBuffer.vertices.texCoord[vertexOffset + i].x = swordMesh.vertices[i].texCoord.x;
-		//vertexBuffer.vertices.texCoord[vertexOffset + i].y = swordMesh.vertices[i].texCoord.y;
-		//vertexBuffer.vertices.texCoord[vertexOffset + i].z = 0.0f;
-		//vertexBuffer.vertices.texCoord[vertexOffset + i].w = 0.0f;
-	}
-
-	int triangleOffset = triangleBuffer.triangleCount;
-
-	for(int i = 0, end = static_cast<int>(swordMesh.indicies.size()) / 3; i < end; ++i)
-	{
-		triangleBuffer.triangles.indicies[triangleOffset + i].x = vertexOffset + swordMesh.indicies[i * 3];
-		triangleBuffer.triangles.indicies[triangleOffset + i].y = vertexOffset + swordMesh.indicies[i * 3 + 1];
-		triangleBuffer.triangles.indicies[triangleOffset + i].z = vertexOffset + swordMesh.indicies[i * 3 + 2];
-		triangleBuffer.triangles.indicies[triangleOffset + i].w = 0;
-
-		++triangleBuffer.triangleCount;
-	}
 }
 
 bool MulticoreWindow::InitBezier()
@@ -1242,22 +764,22 @@ void MulticoreWindow::InitConsole()
 
 void MulticoreWindow::DrawUpdatePointlights()
 {
-	float angleIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightOtherSinValMult;
-	float heightIncrease = DirectX::XM_2PI / pointLightBufferData.lightCount * lightSinValMult;
+	PointLights newData;
 
-	for(int i = 0; i < pointLightBufferData.lightCount; i++)
+	newData.lightCount = currentShaderProgram->GetNumberOfLights();
+
+	float angleIncrease = DirectX::XM_2PI / newData.lightCount * lightOtherSinValMult;
+	float heightIncrease = DirectX::XM_2PI / newData.lightCount * lightSinValMult;
+
+	for(int i = 0; i < newData.lightCount; i++)
 	{
-		pointLightBufferData.lights[i].x = std::cosf(otherSinVal + angleIncrease * i) * lightRotationRadius;
-		pointLightBufferData.lights[i].y = ((1.0f + std::sinf(sinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
-		pointLightBufferData.lights[i].z = std::sinf(otherSinVal + angleIncrease * i) * lightRotationRadius;
-		pointLightBufferData.lights[i].w = lightIntensity;
+		newData.lights[i].x = std::cosf(lightOtherSinVal + angleIncrease * i) * lightRotationRadius;
+		newData.lights[i].y = ((1.0f + std::sinf(lightSinVal + heightIncrease * i)) * 0.5f) * (lightMaxHeight - lightMinHeight) + lightMinHeight;
+		newData.lights[i].z = std::sinf(lightOtherSinVal + angleIncrease * i) * lightRotationRadius;
+		newData.lights[i].w = lightIntensity;
 	}
 
-	//First light is special and extra cool
-	//pointLightBufferData.lights[0].x = 0.0f;
-	//pointLightBufferData.lights[0].z = 0.0f;
-
-	pointLightBuffer.Update(deviceContext.get(), &pointLightBufferData);
+	currentShaderProgram->SetPointLights(newData);
 }
 
 void MulticoreWindow::DrawUpdateMVP()
@@ -1273,52 +795,25 @@ void MulticoreWindow::DrawUpdateMVP()
 	DirectX::XMMATRIX xmViewProjMatrix = DirectX::XMMatrixMultiplyTranspose(xmViewMatrix, xmProjectionMatrix);
 
 	DirectX::XMStoreFloat4x4(&viewProjectionMatrix, xmViewProjMatrix);
+
+	currentShaderProgram->SetViewProjMatrix(viewProjectionMatrix);
+	currentShaderProgram->SetCameraPosition(currentCamera->GetPosition());
+
 	DirectX::XMStoreFloat4x4(&viewProjectionMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
 
-	viewProjInverseBuffer.Update(deviceContext.get(), &viewProjectionMatrixInverse);
+	//viewProjInverseBuffer.Update(deviceContext.get(), &viewProjectionMatrixInverse);
 
 	bulbViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
 	bezierViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
-
-	//Camera position for shading
-	DirectX::XMFLOAT3 cameraPosition = currentCamera->GetPosition();
-
-	cameraPositionBuffer.Update(deviceContext.get(), &cameraPosition);
-}
-
-void MulticoreWindow::DrawRayPrimary()
-{
-	primaryRayGenerator.Bind(deviceContext.get());
-	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	primaryRayGenerator.Unbind(deviceContext.get());
-}
-
-void MulticoreWindow::DrawRayIntersection(int config)
-{
-	traceShader.Bind(deviceContext.get(), config);
-	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	traceShader.Unbind(deviceContext.get());
-}
-
-void MulticoreWindow::DrawRayShading(int config)
-{
-	intersectionShader.Bind(deviceContext.get(), config);
-	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	intersectionShader.Unbind(deviceContext.get());
-}
-
-void MulticoreWindow::DrawComposit(int config)
-{
-	compositShader.Bind(deviceContext.get(), config);
-	deviceContext->Dispatch(dispatchX, dispatchY, 1);
-	compositShader.Unbind(deviceContext.get());
 }
 
 void MulticoreWindow::DrawBulbs()
 {
-	for(int i = 0; i < pointLightBufferData.lightCount; i++)
+	PointLights pointslights = currentShaderProgram->GetPointLights();
+
+	for(int i = 0; i < pointslights.lightCount; i++)
 	{
-		DirectX::XMMATRIX worldMatrix = DirectX::XMMatrixTranslation(pointLightBufferData.lights[i].x, pointLightBufferData.lights[i].y, pointLightBufferData.lights[i].z);
+		DirectX::XMMATRIX worldMatrix = DirectX::XMMatrixTranslation(pointslights.lights[i].x, pointslights.lights[i].y, pointslights.lights[i].z);
 		DirectX::XMStoreFloat4x4(&bulbInstanceData[i].matrix, worldMatrix);
 	}
 
@@ -1344,7 +839,7 @@ void MulticoreWindow::DrawBulbs()
 
 	bulbVertexShader.Bind(deviceContext.get());
 	bulbPixelShader.Bind(deviceContext.get());
-	deviceContext->DrawInstanced(6, pointLightBufferData.lightCount, 0, 0);
+	deviceContext->DrawInstanced(6, pointslights.lightCount, 0, 0);
 	bulbVertexShader.Unbind(deviceContext.get());
 	bulbPixelShader.Unbind(deviceContext.get());
 }
@@ -1371,6 +866,7 @@ void MulticoreWindow::DrawBezier()
 	bezierDomainShader.Unbind(deviceContext.get());
 }
 
+/*
 Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argument)
 {
 	if(argument.size() != 1)
@@ -1397,36 +893,19 @@ Argument MulticoreWindow::SetNumberOfLights(const std::vector<Argument>& argumen
 	if(newCount > 10 || newCount < 0)
 		return "Expected 0-10 lights";
 
-	for(int i = pointLightBufferData.lightCount, end = newCount; i < newCount; ++i)
+	/ *for(int i = pointLightBufferData.lightCount, end = newCount; i < newCount; ++i)
 		pointLightBufferData.lights[i].w = lightIntensity;
 
-	pointLightBufferData.lightCount = newCount;
+	pointLightBufferData.lightCount = newCount;* /
 
 	return "lightCount set";
-}
+}*/
 
-Argument MulticoreWindow::SetLightAttenuationFactors(const std::vector<Argument>& argument)
-{
-	if(argument.size() > 3)
-		return "Expected 3 arguments";
-
-	for(int i = 0; i < argument.size(); i++)
-	{
-		float factor;
-
-		if(!(argument[i] >> factor))
-			return "Couldn't convert second argument to float";
-
-		pointlightAttenuationBufferData.factors[i] = factor;
-	}
-
-	pointlightAttenuationBuffer.Update(deviceContext.get(), &pointlightAttenuationBufferData);
-
-	return "Updated attenuation factors";
-}
-
+/*
 Argument MulticoreWindow::ReloadRaytraceShaders(const std::vector<Argument>& argument)
 {
+	currentshader
+
 	std::string errorString = primaryRayGenerator.Recreate(device.get());
 	if(!errorString.empty())
 		return "Couldn't reload primary ray shader: " + errorString;
@@ -1438,7 +917,7 @@ Argument MulticoreWindow::ReloadRaytraceShaders(const std::vector<Argument>& arg
 		return "Couldn't reload primary ray shader: " + errorString;
 
 	return "Successfully reloaded shaders";
-}
+}*/
 
 bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv)
 {

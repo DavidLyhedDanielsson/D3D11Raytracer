@@ -156,6 +156,8 @@
     <ClCompile Include="Graph.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MulticoreWindow.cpp" />
+    <ClCompile Include="ShaderProgram.cpp" />
+    <ClCompile Include="SimpleShaderProgram.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ComputeShader.h" />
@@ -163,8 +165,10 @@
     <ClInclude Include="Graph.h" />
     <ClInclude Include="MulticoreWindow.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ShaderProgram.h" />
     <ClInclude Include="SharedShaderConstants.h" />
     <ClInclude Include="SharedShaderBuffers.h" />
+    <ClInclude Include="SimpleShaderProgram.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BezierConstants.hlsl">

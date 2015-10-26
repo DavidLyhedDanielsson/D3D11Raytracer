@@ -4,7 +4,8 @@
 #include <memory>
 #include <d3d11.h>
 #include <Windows.h>
-#include <DirectXMath.h>
+
+#include "DXMath.h"
 
 struct COMUniqueDeleter 
 {

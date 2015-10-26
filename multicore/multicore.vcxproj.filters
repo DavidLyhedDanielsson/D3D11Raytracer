@@ -22,6 +22,12 @@
     <Filter Include="Resource Files\Ray">
       <UniqueIdentifier>{c1b21bdb-eab2-4390-87f1-ac8605f0f360}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ShaderPrograms">
+      <UniqueIdentifier>{7679dd5f-d63a-42a7-89d4-0fce2b5377ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ShaderPrograms">
+      <UniqueIdentifier>{18e6eccd-500f-49f6-baa4-8bbe3864520a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -38,6 +44,12 @@
     </ClCompile>
     <ClCompile Include="Graph.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SimpleShaderProgram.cpp">
+      <Filter>Source Files\ShaderPrograms</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderProgram.cpp">
+      <Filter>Source Files\ShaderPrograms</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -61,6 +73,12 @@
     </ClInclude>
     <ClInclude Include="SharedShaderConstants.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SimpleShaderProgram.h">
+      <Filter>Header Files\ShaderPrograms</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderProgram.h">
+      <Filter>Header Files\ShaderPrograms</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

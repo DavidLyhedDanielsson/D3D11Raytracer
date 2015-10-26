@@ -28,6 +28,9 @@
 #include "Graph.h"
 #include "ComputeShader.h"
 
+class ShaderProgram;
+class SimpleShaderProgram;
+
 /*
 enum class BUFFER_DATA_TYPES
 {
@@ -84,25 +87,9 @@ namespace
 		uint8_t padding[12]; //12 bytes of padding = 64 bytes
 	};
 
-	struct CameraPositionBufferData
-	{
-		DirectX::XMFLOAT3 position;
-	};
-
 	struct Float4x4BufferData 
 	{
 		DirectX::XMFLOAT4X4 matrix;
-	};
-
-	struct LightAttenuationBufferData
-	{
-		float factors[3];
-	};
-
-	struct PointlightBufferData
-	{
-		DirectX::XMFLOAT4 lights[MAX_POINT_LIGHTS];
-		int lightCount;
 	};
 }
 
@@ -127,9 +114,6 @@ public:
 	void ScrollEvent(int distance);
 
 private:
-	int dispatchX;
-	int dispatchY;
-
 	bool paused;
 
 	std::unordered_set<int> keyMap;
@@ -149,74 +133,7 @@ private:
 	//////////////////////////////////////////////////
 	//Ray tracing
 	//////////////////////////////////////////////////
-	const static int MAX_BOUNCES = 20;
-	int rayBounces;
-
 	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
-
-	COMUniquePtr<ID3D11UnorderedAccessView> outputColorUAV[2];
-	COMUniquePtr<ID3D11ShaderResourceView> outputColorSRV[2];
-
-	//Contains the ray's current color (accumulates over bounces)
-	COMUniquePtr<ID3D11UnorderedAccessView> rayColorUAV;
-	COMUniquePtr<ID3D11ShaderResourceView> rayColorSRV;
-	//Contains the ray's current direction (changes with every bounce)
-	COMUniquePtr<ID3D11UnorderedAccessView> rayDirectionUAV[2];
-	COMUniquePtr<ID3D11ShaderResourceView> rayDirectionSRV[2];
-	//Contains the ray's current position (changes with every bounce unless normal == 0)
-	COMUniquePtr<ID3D11UnorderedAccessView> rayPositionUAV[2];
-	COMUniquePtr<ID3D11ShaderResourceView> rayPositionSRV[2];
-
-	//Contains the normal at the ray's intersection location
-	//Also used to check if the ray didn't hit anything, in that case it will be (0, 0, 0)
-	COMUniquePtr<ID3D11UnorderedAccessView> rayNormalUAV;
-	COMUniquePtr<ID3D11ShaderResourceView> rayNormalSRV;
-
-	//Used to create primary rays
-	DXConstantBuffer viewProjInverseBuffer;
-
-	//Spheres to ray trace against
-	DXConstantBuffer sphereBuffer;
-	DXConstantBuffer triangleVertexBuffer;
-	DXConstantBuffer triangleBuffer;
-
-	////////////////////
-	//Point lights
-	////////////////////
-	//Intensity of the light. This is the multiplied with the diffuse factor before dividing with the attenuation factor
-	float lightIntensity;
-
-	//Used to calculate light offsets (relative to each other)
-	float lightSinValMult;
-	float lightOtherSinValMult;
-
-	//Radius of the rotating point lights
-	float lightRotationRadius;
-	//Top and bottom height of all moving point lights
-	float lightMinHeight;
-	float lightMaxHeight;
-
-	float lightVerticalSpeed;
-	float lightHorizontalSpeed;
-
-	DXConstantBuffer pointlightAttenuationBuffer;
-	DXConstantBuffer pointLightBuffer;
-	DXConstantBuffer cameraPositionBuffer;
-	PointlightBufferData pointLightBufferData;
-	LightAttenuationBufferData pointlightAttenuationBufferData;
-
-	////////////////////
-	//Shaders
-	////////////////////
-	ComputeShader primaryRayGenerator;
-	ComputeShader traceShader;
-	ComputeShader intersectionShader;
-	ComputeShader compositShader;
-
-	////////////////////
-	//Etc
-	////////////////////
-	OBJFile* swordOBJ;
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -233,6 +150,25 @@ private:
 	DXConstantBuffer bulbViewProjMatrixBuffer;
 	DXConstantBuffer bulbInstanceBuffer;
 	DXConstantBuffer bulbVertexBuffer;
+
+	//Intensity of the light. This is the multiplied with the diffuse factor before dividing with the attenuation factor
+	float lightIntensity;
+
+	//Used to calculate light offsets (relative to each other)
+	float lightSinValMult;
+	float lightOtherSinValMult;
+
+	float lightSinVal;
+	float lightOtherSinVal;
+
+	//Radius of the rotating point lights
+	float lightRotationRadius;
+	//Top and bottom height of all moving point lights
+	float lightMinHeight;
+	float lightMaxHeight;
+
+	float lightVerticalSpeed;
+	float lightHorizontalSpeed;
 
 	Float4x4BufferData bulbInstanceData[MAX_POINT_LIGHTS];
 	Texture2D* bulbTexture;
@@ -268,14 +204,14 @@ private:
 	GUIManager guiManager;
 
 	Timer gameTimer;
-	D3D11Timer d3d11Timer;
 
 	Graph cpuGraph;
-	Graph gpuGraph;
 
 	Console console;
 	bool drawConsole;
 
+	ShaderProgram* currentShaderProgram;
+	std::unique_ptr<SimpleShaderProgram> simpleShaderProgram;
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -288,13 +224,11 @@ private:
 	Argument SetCameraTargetSpeed(const std::vector<Argument>& argument);
 
 	bool InitSRVs();
-	bool InitRaytraceShaders();
 
 	bool InitBulb();
 	bool InitPointLights();
 	bool InitGraphs();
 	bool InitRoom();
-	void LoadOBJ(VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, const DirectX::XMFLOAT3& offset);
 	bool InitBezier();
 
 	void InitInput();
@@ -303,17 +237,9 @@ private:
 	void DrawUpdatePointlights();
 
 	void DrawUpdateMVP();
-	void DrawRayPrimary();
-	void DrawRayIntersection(int config);
-	void DrawRayShading(int config);
-	void DrawComposit(int config);
 
 	void DrawBulbs();
 	void DrawBezier();
-
-	Argument SetNumberOfLights(const std::vector<Argument>& argument);
-	Argument SetLightAttenuationFactors(const std::vector<Argument>& argument);
-	Argument ReloadRaytraceShaders(const std::vector<Argument>& argument);
 
 	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
 
