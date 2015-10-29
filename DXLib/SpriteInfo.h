@@ -1,7 +1,7 @@
 #ifndef SpriteInfo_h__
 #define SpriteInfo_h__
 
-#include <DXLib/rect.h>
+#include "Rect.h"
 
 #include <DirectXMath.h>
 

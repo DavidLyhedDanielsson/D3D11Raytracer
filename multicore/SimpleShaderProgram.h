@@ -16,14 +16,13 @@ public:
 	~SimpleShaderProgram() = default;
 
 	bool Init(ID3D11Device* device, ID3D11DeviceContext* deviceContext, UINT backBufferWidth, UINT backBufferHeight, Console* console, ContentManager* contentManager) override;
-	bool InitBuffers(ID3D11UnorderedAccessView* backBufferUAV);
+	bool InitBuffers(ID3D11UnorderedAccessView* backBufferUAV) override;
 
-	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) override;
-	
 	void Update(std::chrono::nanoseconds delta) override;
 	void Draw() override;
 
 	void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) override;
+	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) override;
 private:
 	int dispatchX;
 	int dispatchY;
@@ -74,7 +73,7 @@ private:
 	bool InitUAVSRV() override;
 	bool InitShaders() override;
 
-	virtual std::string ReloadShadersInternal() override;
+	std::string ReloadShadersInternal() override;
 
 	void DrawRayPrimary();
 	void DrawRayIntersection(int config);

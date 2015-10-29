@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <string>
+#include <vector>
 
 class DXConstantBuffer
 {
@@ -123,16 +124,6 @@ public:
 		, void* initialData = nullptr)
 	{
 		return CreateInternal(device, bindFlag, usage, cpuAccessFlag, sizeof(T) * arraySize, initialData);
-	}
-
-	template<typename T>
-	std::string CreateStructured(ID3D11Device* device
-		, D3D11_USAGE usage
-		, D3D11_CPU_ACCESS_FLAG cpuAccessFlag
-		, int arraySize
-		, void* initialData = nullptr)
-	{
-		return CreateStructuredInternal(device, usage, cpuAccessFlag, sizeof(T) * arraySize, sizeof(T), initialData);
 	}
 
 	bool Update(ID3D11DeviceContext* deviceContext, void* newData, int dataSize) const;

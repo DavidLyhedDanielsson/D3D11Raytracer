@@ -151,6 +151,8 @@ private:
 	DXConstantBuffer bulbInstanceBuffer;
 	DXConstantBuffer bulbVertexBuffer;
 
+	int numberOfLights;
+
 	//Intensity of the light. This is the multiplied with the diffuse factor before dividing with the attenuation factor
 	float lightIntensity;
 

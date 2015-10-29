@@ -45,63 +45,6 @@ bool SimpleShaderProgram::InitBuffers(ID3D11UnorderedAccessView* backBufferUAV)
 	return true;
 }
 
-void SimpleShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
-{
-	objFile = contentManager->Load<OBJFile>(path);
-	if(objFile == nullptr)
-		return;
-
-	Mesh mesh = objFile->GetMeshes().front();
-
-	if(mesh.vertices.size() > MAX_VERTICES)
-		Logger::LogLine(LOG_TYPE::WARNING, path + " has " + std::to_string(mesh.vertices.size()) + " vertices which is larger than MAX_VERTICES (" + std::to_string(MAX_VERTICES) + "). Only the first " + std::to_string(MAX_VERTICES) + " will be used");
-
-	if(triangleBufferData.triangleCount + mesh.indicies.size() / 3 > MAX_INDICIES)
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, path + " has " + std::to_string(mesh.indicies.size()) + " indicies and the buffer currently contains " + std::to_string(triangleBufferData.triangleCount) + " indicies. Can't add the model's indicies since it would overflow the buffer");
-		return;
-	}
-
-	int vertexOffset = 0;
-
-	for(int i = 0; i < triangleBufferData.triangleCount; i++)
-	{
-		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].x + 1);
-		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].y + 1);
-		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].z + 1);
-	}
-
-	if(vertexOffset + mesh.vertices.size() > MAX_VERTICES)
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(mesh.vertices.size()) + " vertices and the buffer currently contains " + std::to_string(mesh.vertices.size()) + " vertices. Can't add the model's vertices since it would overflow the buffer");
-		return;
-	}
-
-	for(int i = 0, end = static_cast<int>(mesh.vertices.size()); i < end; ++i)
-	{
-		vertexBufferData.vertices[vertexOffset + i].position.x = mesh.vertices[i].position.x + position.x;
-		vertexBufferData.vertices[vertexOffset + i].position.y = mesh.vertices[i].position.y + position.y;
-		vertexBufferData.vertices[vertexOffset + i].position.z = mesh.vertices[i].position.z + position.z;
-
-		int u = mesh.vertices[i].texCoord.x * 0xFFFF;
-		int v = mesh.vertices[i].texCoord.y * 0xFFFF;
-
-		vertexBufferData.vertices[vertexOffset + i].texCoord = ((u << 16) | v);
-	}
-
-	int triangleOffset = triangleBufferData.triangleCount;
-
-	for(int i = 0, end = static_cast<int>(mesh.indicies.size()) / 3; i < end; ++i)
-	{
-		triangleBufferData.triangles.indicies[triangleOffset + i].x = vertexOffset + mesh.indicies[i * 3];
-		triangleBufferData.triangles.indicies[triangleOffset + i].y = vertexOffset + mesh.indicies[i * 3 + 1];
-		triangleBufferData.triangles.indicies[triangleOffset + i].z = vertexOffset + mesh.indicies[i * 3 + 2];
-		triangleBufferData.triangles.indicies[triangleOffset + i].w = 0;
-
-		++triangleBufferData.triangleCount;
-	}
-}
-
 bool SimpleShaderProgram::InitUAVSRV()
 {
 	//Position
@@ -322,6 +265,63 @@ void SimpleShaderProgram::DrawComposit(int config)
 	compositShader.Bind(deviceContext, config);
 	deviceContext->Dispatch(dispatchX, dispatchY, 1);
 	compositShader.Unbind(deviceContext);
+}
+
+void SimpleShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
+{
+	objFile = contentManager->Load<OBJFile>(path);
+	if(objFile == nullptr)
+		return;
+
+	Mesh mesh = objFile->GetMeshes().front();
+
+	if(mesh.vertices.size() > MAX_VERTICES)
+		Logger::LogLine(LOG_TYPE::WARNING, path + " has " + std::to_string(mesh.vertices.size()) + " vertices which is larger than MAX_VERTICES (" + std::to_string(MAX_VERTICES) + "). Only the first " + std::to_string(MAX_VERTICES) + " will be used");
+
+	if(triangleBufferData.triangleCount + mesh.indicies.size() / 3 > MAX_INDICIES)
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, path + " has " + std::to_string(mesh.indicies.size()) + " indicies and the buffer currently contains " + std::to_string(triangleBufferData.triangleCount) + " indicies. Can't add the model's indicies since it would overflow the buffer");
+		return;
+	}
+
+	int vertexOffset = 0;
+
+	for(int i = 0; i < triangleBufferData.triangleCount; i++)
+	{
+		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].x + 1);
+		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].y + 1);
+		vertexOffset = std::max(vertexOffset, triangleBufferData.triangles.indicies[i].z + 1);
+	}
+
+	if(vertexOffset + mesh.vertices.size() > MAX_VERTICES)
+	{
+		Logger::LogLine(LOG_TYPE::WARNING, "sword.obj has " + std::to_string(mesh.vertices.size()) + " vertices and the buffer currently contains " + std::to_string(mesh.vertices.size()) + " vertices. Can't add the model's vertices since it would overflow the buffer");
+		return;
+	}
+
+	for(int i = 0, end = static_cast<int>(mesh.vertices.size()); i < end; ++i)
+	{
+		vertexBufferData.vertices[vertexOffset + i].position.x = mesh.vertices[i].position.x + position.x;
+		vertexBufferData.vertices[vertexOffset + i].position.y = mesh.vertices[i].position.y + position.y;
+		vertexBufferData.vertices[vertexOffset + i].position.z = mesh.vertices[i].position.z + position.z;
+
+		int u = mesh.vertices[i].texCoord.x * 0xFFFF;
+		int v = mesh.vertices[i].texCoord.y * 0xFFFF;
+
+		vertexBufferData.vertices[vertexOffset + i].texCoord = ((u << 16) | v);
+	}
+
+	int triangleOffset = triangleBufferData.triangleCount;
+
+	for(int i = 0, end = static_cast<int>(mesh.indicies.size()) / 3; i < end; ++i)
+	{
+		triangleBufferData.triangles.indicies[triangleOffset + i].x = vertexOffset + mesh.indicies[i * 3];
+		triangleBufferData.triangles.indicies[triangleOffset + i].y = vertexOffset + mesh.indicies[i * 3 + 1];
+		triangleBufferData.triangles.indicies[triangleOffset + i].z = vertexOffset + mesh.indicies[i * 3 + 2];
+		triangleBufferData.triangles.indicies[triangleOffset + i].w = 0;
+
+		++triangleBufferData.triangleCount;
+	}
 }
 
 void SimpleShaderProgram::AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color)

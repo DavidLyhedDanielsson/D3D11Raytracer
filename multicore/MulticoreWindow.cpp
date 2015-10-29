@@ -8,12 +8,12 @@
 #include <DXLib/Logger.h>
 #include <DXLib/input.h>
 #include <DXLib/States.h>
-#include <DXLib/OBJFile.h>
+#include <DXLib/SamplerStates.h>
 
 #include <DXConsole/console.h>
 #include <DXConsole/commandGetSet.h>
 #include <DXConsole/commandCallMethod.h>
-#include <DXLib/SamplerStates.h>
+#include <DXConsole/commandGetterSetter.h>
 
 #include "ShaderProgram.h"
 #include "SimpleShaderProgram.h"
@@ -34,6 +34,8 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, drawConsole(false)
 	, cinematicCameraMode(false)
 	, bezierVertexCount(0)
+	, lightSinVal(0.0f)
+	, lightOtherSinVal(0.0f)
 {
 }
 
@@ -250,6 +252,9 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		ClientToScreen(hWnd, &midPoint);
 		SetCursorPos(midPoint.x, midPoint.y);
 	}
+
+	lightSinVal += deltaMS * lightVerticalSpeed;
+	lightOtherSinVal += deltaMS * lightHorizontalSpeed;
 
 	guiManager.Update(delta);
 }
@@ -590,6 +595,9 @@ bool MulticoreWindow::InitPointLights()
 	lightSinValMult = 2.0f;
 	lightOtherSinValMult = 1.0f;
 
+	numberOfLights = 1;
+
+	auto numberOfLightsCommand = new CommandGetSet<int>("numberOfLights", &numberOfLights);
 	auto lightRotationRadiusCommand = new CommandGetSet<float>("lightRotationRadius", &lightRotationRadius);
 	auto lightIntensityCommand = new CommandGetSet<float>("lightIntensity", &lightIntensity);
 	auto lightMinHeightCommand = new CommandGetSet<float>("lightMinHeight", &lightMinHeight);
@@ -599,6 +607,8 @@ bool MulticoreWindow::InitPointLights()
 	auto lightSinValMultCommand = new CommandGetSet<float>("lightSinValMult", &lightSinValMult);
 	auto lightOtherSinValMultCommand = new CommandGetSet<float>("lightOtherSinValMult", &lightOtherSinValMult);
 
+	if(!console.AddCommand(numberOfLightsCommand))
+		delete numberOfLightsCommand;
 	if(!console.AddCommand(lightRotationRadiusCommand))
 		delete lightRotationRadiusCommand;
 	if(!console.AddCommand(lightIntensityCommand))
@@ -766,7 +776,7 @@ void MulticoreWindow::DrawUpdatePointlights()
 {
 	PointLights newData;
 
-	newData.lightCount = currentShaderProgram->GetNumberOfLights();
+	newData.lightCount = numberOfLights;
 
 	float angleIncrease = DirectX::XM_2PI / newData.lightCount * lightOtherSinValMult;
 	float heightIncrease = DirectX::XM_2PI / newData.lightCount * lightSinValMult;

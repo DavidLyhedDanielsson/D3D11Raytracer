@@ -67,17 +67,13 @@ public:
 
 	std::string ReloadShaders();
 
-	void SetNumberOfLights(int numberOfLights);
 	void SetLightAttenuationFactors(LightAttenuation factors);
-
-	int GetNumberOfLights() const;
-	LightAttenuation GetLightAttenuationFactors() const;
-
 	void SetPointLights(PointLights pointLights);
-	PointLights GetPointLights();
-
 	void SetViewProjMatrix(DirectX::XMFLOAT4X4 viewProjMatrix);
 	void SetCameraPosition(DirectX::XMFLOAT3 cameraPosition);
+
+	LightAttenuation GetLightAttenuationFactors() const;
+	PointLights GetPointLights();
 
 protected:
 	std::string CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
@@ -110,9 +106,6 @@ protected:
 	DXConstantBuffer cameraPositionBuffer;
 	PointLights pointLightBufferData;
 	LightAttenuation pointlightAttenuationBufferData;
-
-	float sinVal;
-	float otherSinVal;
 
 	virtual bool InitUAVSRV() = 0;
 	virtual bool InitShaders() = 0;

@@ -11,6 +11,7 @@ ShaderProgram::ShaderProgram()
 	: device(nullptr)
 	, deviceContext(nullptr)
 	, backBufferUAV(nullptr)
+	, console(nullptr)
 {
 }
 
@@ -71,11 +72,6 @@ std::string ShaderProgram::ReloadShaders()
 	return ReloadShadersInternal();
 }
 
-void ShaderProgram::SetNumberOfLights(int numberOfLights)
-{
-	//TODO!
-}
-
 void ShaderProgram::SetLightAttenuationFactors(LightAttenuation factors)
 {
 	pointlightAttenuationBufferData = factors;
@@ -83,26 +79,11 @@ void ShaderProgram::SetLightAttenuationFactors(LightAttenuation factors)
 	pointlightAttenuationBuffer.Update(deviceContext, &pointlightAttenuationBufferData);
 }
 
-int ShaderProgram::GetNumberOfLights() const
-{
-	return pointLightBufferData.lightCount;
-}
-
-LightAttenuation ShaderProgram::GetLightAttenuationFactors() const
-{
-	return pointlightAttenuationBufferData;
-}
-
 void ShaderProgram::SetPointLights(PointLights pointLights)
 {
 	pointLightBufferData = pointLights;
 
 	pointLightBuffer.Update(deviceContext, &pointLightBufferData);
-}
-
-PointLights ShaderProgram::GetPointLights()
-{
-	return pointLightBufferData;
 }
 
 void ShaderProgram::SetViewProjMatrix(DirectX::XMFLOAT4X4 viewProjMatrix)
@@ -113,6 +94,16 @@ void ShaderProgram::SetViewProjMatrix(DirectX::XMFLOAT4X4 viewProjMatrix)
 void ShaderProgram::SetCameraPosition(DirectX::XMFLOAT3 cameraPosition)
 {
 	this->cameraPosition = cameraPosition;
+}
+
+LightAttenuation ShaderProgram::GetLightAttenuationFactors() const
+{
+	return pointlightAttenuationBufferData;
+}
+
+PointLights ShaderProgram::GetPointLights()
+{
+	return pointLightBufferData;
 }
 
 std::string ShaderProgram::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv)
@@ -165,10 +156,6 @@ bool ShaderProgram::InitPointLights()
 	LogErrorReturnFalse(cameraPositionBuffer.Create<CameraPositionBufferData>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create point light camera position buffer: ");
 	LogErrorReturnFalse(pointlightAttenuationBuffer.Create<LightAttenuation>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create light attenuation buffer: ");
 	LogErrorReturnFalse(pointLightBuffer.Create<PointLights>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create point light buffer: ");
-
-	auto setNumberOfLights = new CommandGetterSetter<int>("numberOfLights", std::bind(&ShaderProgram::GetNumberOfLights, this), std::bind(&ShaderProgram::SetNumberOfLights, this, std::placeholders::_1));
-	if(!console->AddCommand(setNumberOfLights))
-		delete setNumberOfLights;
 
 	auto setLightAttenuationFactors = new CommandGetterSetter<LightAttenuation>("lightAttenuationFactors", std::bind(&ShaderProgram::GetLightAttenuationFactors, this), std::bind(&ShaderProgram::SetLightAttenuationFactors, this, std::placeholders::_1));
 	if(!console->AddCommand(setLightAttenuationFactors))
