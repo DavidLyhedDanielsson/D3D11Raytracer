@@ -18,6 +18,7 @@
 #include "ShaderProgram.h"
 #include "ConstantBufferShaderProgram.h"
 #include "StructuredBufferShaderProgram.h"
+#include "AABBStructuredBufferShaderProgram.h"
 
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
@@ -65,7 +66,6 @@ bool MulticoreWindow::Init()
 	auto removeCameraFrame = new CommandCallMethod("RemoveCameraFrame", std::bind(&MulticoreWindow::RemoveCameraFrame, this, std::placeholders::_1));
 	auto printCameraFrames = new CommandCallMethod("PrintCameraFrames", std::bind(&MulticoreWindow::PrintCameraFrames, this, std::placeholders::_1));
 	auto setCameraTargetSpeed = new CommandCallMethod("SetCameraTargetSpeed", std::bind(&MulticoreWindow::SetCameraTargetSpeed, this, std::placeholders::_1));
-	auto setShaderProgram = new CommandCallMethod("SetShaderProgram", std::bind(&MulticoreWindow::SetShaderProgram, this, std::placeholders::_1));
 
 	console.AddCommand(resetCamera);
 	console.AddCommand(pauseCamera);
@@ -75,6 +75,9 @@ bool MulticoreWindow::Init()
 	console.AddCommand(removeCameraFrame);
 	console.AddCommand(printCameraFrames);
 	console.AddCommand(setCameraTargetSpeed);
+
+#if USE_ALL_SHADER_PROGRAMS
+	auto setShaderProgram = new CommandCallMethod("SetShaderProgram", std::bind(&MulticoreWindow::SetShaderProgram, this, std::placeholders::_1));
 	console.AddCommand(setShaderProgram);
 
 	constantBufferShaderProgram.reset(new ConstantBufferShaderProgram());
@@ -85,8 +88,34 @@ bool MulticoreWindow::Init()
 	if(!structuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
 		return false;
 
+	aabbStructuredBufferShaderProgram.reset(new AABBStructuredBufferShaderProgram());
+	if(!aabbStructuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
 	shaderPrograms.push_back(constantBufferShaderProgram.get());
 	shaderPrograms.push_back(structuredBufferShaderProgram.get());
+	shaderPrograms.push_back(aabbStructuredBufferShaderProgram.get());
+
+	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
+#elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
+	constantBufferShaderProgram.reset(new ConstantBufferShaderProgram());
+	if(!constantBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
+	currentShaderProgram = constantBufferShaderProgram.get();
+#elif USE_STRUCTURED_BUFFER_SHADER_PROGRAM
+	structuredBufferShaderProgram.reset(new StructuredBufferShaderProgram());
+	if(!structuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
+	currentShaderProgram = structuredBufferShaderProgram.get();
+#elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
+	aabbStructuredBufferShaderProgram.reset(new AABBStructuredBufferShaderProgram());
+	if(!aabbStructuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
+	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
+#endif
 
 	if(!InitSRVs())
 		return false;
@@ -100,12 +129,23 @@ bool MulticoreWindow::Init()
 	if(!InitGraphs())
 		return false;
 
+#if USE_ALL_SHADER_PROGRAMS
 	if(!constantBufferShaderProgram->InitBuffers(backbufferUAV.get()))
 		return false;
 	if(!structuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
 		return false;
-
-	currentShaderProgram = constantBufferShaderProgram.get();
+	if(!aabbStructuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
+#elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
+	if(!constantBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
+#elif USE_STRUCTURED_BUFFER_SHADER_PROGRAM
+	if(!structuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
+#elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
+	if(!aabbStructuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
+#endif
 
 	if(cinematicCameraMode)
 		currentCamera = &cinematicCamera;
@@ -516,6 +556,7 @@ Argument MulticoreWindow::SetCameraTargetSpeed(const std::vector<Argument>& argu
 	return "";
 }
 
+#if USE_ALL_SHADER_PROGRAMS
 Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument)
 {
 	if(argument.size() != 1)
@@ -525,11 +566,14 @@ Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument
 		currentShaderProgram = constantBufferShaderProgram.get();
 	else if(argument.front().values.front() == "sbuffer")
 		currentShaderProgram = structuredBufferShaderProgram.get();
+	else if(argument.front().values.front() == "aabbsbuffer")
+		currentShaderProgram = aabbStructuredBufferShaderProgram.get();
 	else
 		return "Couldn't find shader program";
 
 	return "Shader program set";
 }
+#endif
 
 bool MulticoreWindow::InitSRVs()
 {
@@ -602,8 +646,12 @@ bool MulticoreWindow::InitPointLights()
 	lightAttenuation.factors[1] = 0.2f;
 	lightAttenuation.factors[2] = 1.0f;
 
+#if USE_ALL_SHADER_PROGRAMS
 	for(ShaderProgram* program : shaderPrograms)
 		program->SetLightAttenuationFactors(lightAttenuation);
+#else
+	currentShaderProgram->SetLightAttenuationFactors(lightAttenuation);
+#endif
 
 	PointLights pointlights;
 
@@ -719,8 +767,12 @@ bool MulticoreWindow::InitRoom()
 		rotationValue += DirectX::XM_2PI / 16.0f;
 		heightValue += heightIncrease;
 
+#if USE_ALL_SHADER_PROGRAMS
 		for(ShaderProgram* program : shaderPrograms)
 			program->AddSphere(newSphere, newColor);
+#else
+		currentShaderProgram->AddSphere(newSphere, newColor);
+#endif
 	}
 
 	//////////////////////////////////////////////////
@@ -731,10 +783,17 @@ bool MulticoreWindow::InitRoom()
 		for(int y = 0; y < 2; y++)
 		{
 			for(int x = 0; x < 2; x++)
+#if USE_ALL_SHADER_PROGRAMS
 				for(ShaderProgram* program : shaderPrograms)
 					program->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+			//program->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+#else
+				currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+#endif
 		}
 	}
+
+	//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 	return true;
 }

@@ -34,6 +34,9 @@
     <Filter Include="Resource Files\Shaders\StructuredBuffer">
       <UniqueIdentifier>{67cd83f3-ba87-4e85-b59d-513ad1e09db4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Shaders\AABBStructuredBuffer">
+      <UniqueIdentifier>{42d52a35-6ca3-4ef0-b439-f8a7277c5cae}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -58,6 +61,9 @@
       <Filter>Source Files\ShaderPrograms</Filter>
     </ClCompile>
     <ClCompile Include="ConstantBufferShaderProgram.cpp">
+      <Filter>Source Files\ShaderPrograms</Filter>
+    </ClCompile>
+    <ClCompile Include="AABBStructuredBufferShaderProgram.cpp">
       <Filter>Source Files\ShaderPrograms</Filter>
     </ClCompile>
   </ItemGroup>
@@ -103,6 +109,15 @@
     </ClInclude>
     <ClInclude Include="ConstantBufferShaderProgram.h">
       <Filter>Header Files\ShaderPrograms</Filter>
+    </ClInclude>
+    <ClInclude Include="AABBStructuredBufferShaderProgram.h">
+      <Filter>Header Files\ShaderPrograms</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedConstants.h">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedBuffers.h">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -159,6 +174,18 @@
     </FxCompile>
     <FxCompile Include="Shaders\ConstantBuffer\Shading.hlsl">
       <Filter>Resource Files\Shaders\ConstantBuffer</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\AABBStructuredBuffer\Composit.hlsl">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\AABBStructuredBuffer\Intersection.hlsl">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\AABBStructuredBuffer\PrimaryRayGenerator.hlsl">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\AABBStructuredBuffer\Shading.hlsl">
+      <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

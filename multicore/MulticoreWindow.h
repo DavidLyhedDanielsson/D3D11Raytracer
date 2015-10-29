@@ -24,24 +24,20 @@
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
 
-
 #include "Graph.h"
 #include "ComputeShader.h"
+
+#define USE_ALL_SHADER_PROGRAMS true
+
+//#define USE_CONSTANT_BUFFER_SHADER_PROGRAM true
+//#define USE_STRUCTURED_BUFFER_SHADER_PROGRAM true
+//#define USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM true
+
 
 class ShaderProgram;
 class ConstantBufferShaderProgram;
 class StructuredBufferShaderProgram;
-
-/*
-enum class BUFFER_DATA_TYPES
-{
-	MAT4X4
-	, INT
-	, FLOAT1
-	, FLOAT2
-	, FLOAT3
-	, FLOAT4
-};*/
+class AABBStructuredBufferShaderProgram;
 
 #define LogErrorReturnFalse(functionCall, messagePrefix)				\
 {																		\
@@ -214,10 +210,20 @@ private:
 	bool drawConsole;
 
 	ShaderProgram* currentShaderProgram;
+
+#if USE_ALL_SHADER_PROGRAMS
 	std::unique_ptr<ConstantBufferShaderProgram> constantBufferShaderProgram;
 	std::unique_ptr<StructuredBufferShaderProgram> structuredBufferShaderProgram;
+	std::unique_ptr<AABBStructuredBufferShaderProgram> aabbStructuredBufferShaderProgram;
 
 	std::vector<ShaderProgram*> shaderPrograms;
+#elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
+	std::unique_ptr<ConstantBufferShaderProgram> constantBufferShaderProgram;
+#elif USE_STRUCTURED_BUFFER_SHADER_PROGRAM
+	std::unique_ptr<StructuredBufferShaderProgram> structuredBufferShaderProgram;
+#elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
+	std::unique_ptr<AABBStructuredBufferShaderProgram> aabbStructuredBufferShaderProgram;
+#endif
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -229,7 +235,9 @@ private:
 	Argument PrintCameraFrames(const std::vector<Argument>& argument);
 	Argument SetCameraTargetSpeed(const std::vector<Argument>& argument);
 
+#if USE_ALL_SHADER_PROGRAMS
 	Argument SetShaderProgram(const std::vector<Argument>& argument);
+#endif
 
 	bool InitSRVs();
 
