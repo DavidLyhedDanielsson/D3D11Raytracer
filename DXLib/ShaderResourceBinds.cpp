@@ -86,6 +86,11 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 		}
 	}
 
+	CheckBoundSlots(cbuffers, cbufferRegisters, "cbuffer", shaderPath);
+	CheckBoundSlots(samplers, samplerRegisters, "sampler", shaderPath);
+	CheckBoundSlots(uavs, uavRegisters, "UAV", shaderPath);
+	CheckBoundSlots(srvs, srvRegisters, "SRV", shaderPath);
+
 	for(const auto& uavPair : uavs)
 	{
 		for(int i = 0, endI = static_cast<int>(uavPair.second.size()); i < endI; ++i)
@@ -102,6 +107,7 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 					int jOffset = srvPair.first;
 
 					ID3D11Resource* srvResource = nullptr;
+
 					srvPair.second[j]->GetResource(&srvResource);
 
 					if(uavResource == srvResource)
@@ -110,11 +116,6 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 			}
 		}
 	}
-
-	CheckBoundSlots(cbuffers, cbufferRegisters, "cbuffer", shaderPath);
-	CheckBoundSlots(samplers, samplerRegisters, "sampler", shaderPath);
-	CheckBoundSlots(uavs, uavRegisters, "UAV", shaderPath);
-	CheckBoundSlots(srvs, srvRegisters, "SRV", shaderPath);
 }
 
 void ShaderResourceBinds::AddResource(const DXConstantBuffer& buffer, int slot)

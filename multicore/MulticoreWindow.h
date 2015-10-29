@@ -19,7 +19,7 @@
 #include <DXLib/OBJFile.h>
 #include <DXLib/DXMath.h>
 
-#include "SharedShaderBuffers.h"
+#include "SharedShaderConstants.h"
 
 #include <DXConsole/guiManager.h>
 #include <DXConsole/Console.h>
@@ -29,7 +29,8 @@
 #include "ComputeShader.h"
 
 class ShaderProgram;
-class SimpleShaderProgram;
+class ConstantBufferShaderProgram;
+class StructuredBufferShaderProgram;
 
 /*
 enum class BUFFER_DATA_TYPES
@@ -54,16 +55,16 @@ enum class BUFFER_DATA_TYPES
 
 namespace
 {
-	struct Vertex
+	struct BulbVertex
 	{
-		Vertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color)
+		BulbVertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color)
 			: position(position)
 			, color(color)
 		{
 
 		}
 
-		Vertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color, DirectX::XMFLOAT2 texCoord)
+		BulbVertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 color, DirectX::XMFLOAT2 texCoord)
 			: position(position)
 			, color(color)
 			, texCoord(texCoord)
@@ -213,7 +214,10 @@ private:
 	bool drawConsole;
 
 	ShaderProgram* currentShaderProgram;
-	std::unique_ptr<SimpleShaderProgram> simpleShaderProgram;
+	std::unique_ptr<ConstantBufferShaderProgram> constantBufferShaderProgram;
+	std::unique_ptr<StructuredBufferShaderProgram> structuredBufferShaderProgram;
+
+	std::vector<ShaderProgram*> shaderPrograms;
 
 	Argument ResetCamera(const std::vector<Argument>& argument);
 	Argument PauseCamera(const std::vector<Argument>& argument);
@@ -224,6 +228,8 @@ private:
 	Argument RemoveCameraFrame(const std::vector<Argument>& argument);
 	Argument PrintCameraFrames(const std::vector<Argument>& argument);
 	Argument SetCameraTargetSpeed(const std::vector<Argument>& argument);
+
+	Argument SetShaderProgram(const std::vector<Argument>& argument);
 
 	bool InitSRVs();
 
@@ -244,7 +250,5 @@ private:
 	void DrawBezier();
 
 	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
-
-	void AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, DirectX::XMFLOAT4 color, VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, bool flipWindingOrder) const;
 };
 

@@ -16,7 +16,8 @@
 #include <DXConsole/commandGetterSetter.h>
 
 #include "ShaderProgram.h"
-#include "SimpleShaderProgram.h"
+#include "ConstantBufferShaderProgram.h"
+#include "StructuredBufferShaderProgram.h"
 
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
@@ -64,6 +65,7 @@ bool MulticoreWindow::Init()
 	auto removeCameraFrame = new CommandCallMethod("RemoveCameraFrame", std::bind(&MulticoreWindow::RemoveCameraFrame, this, std::placeholders::_1));
 	auto printCameraFrames = new CommandCallMethod("PrintCameraFrames", std::bind(&MulticoreWindow::PrintCameraFrames, this, std::placeholders::_1));
 	auto setCameraTargetSpeed = new CommandCallMethod("SetCameraTargetSpeed", std::bind(&MulticoreWindow::SetCameraTargetSpeed, this, std::placeholders::_1));
+	auto setShaderProgram = new CommandCallMethod("SetShaderProgram", std::bind(&MulticoreWindow::SetShaderProgram, this, std::placeholders::_1));
 
 	console.AddCommand(resetCamera);
 	console.AddCommand(pauseCamera);
@@ -73,11 +75,18 @@ bool MulticoreWindow::Init()
 	console.AddCommand(removeCameraFrame);
 	console.AddCommand(printCameraFrames);
 	console.AddCommand(setCameraTargetSpeed);
+	console.AddCommand(setShaderProgram);
 
-	simpleShaderProgram.reset(new SimpleShaderProgram());
-	currentShaderProgram = simpleShaderProgram.get();
-	if(!simpleShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+	constantBufferShaderProgram.reset(new ConstantBufferShaderProgram());
+	if(!constantBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
 		return false;
+
+	structuredBufferShaderProgram.reset(new StructuredBufferShaderProgram());
+	if(!structuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
+	shaderPrograms.push_back(constantBufferShaderProgram.get());
+	shaderPrograms.push_back(structuredBufferShaderProgram.get());
 
 	if(!InitSRVs())
 		return false;
@@ -91,8 +100,12 @@ bool MulticoreWindow::Init()
 	if(!InitGraphs())
 		return false;
 
-	if(!simpleShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!constantBufferShaderProgram->InitBuffers(backbufferUAV.get()))
 		return false;
+	if(!structuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+		return false;
+
+	currentShaderProgram = constantBufferShaderProgram.get();
 
 	if(cinematicCameraMode)
 		currentCamera = &cinematicCamera;
@@ -503,6 +516,21 @@ Argument MulticoreWindow::SetCameraTargetSpeed(const std::vector<Argument>& argu
 	return "";
 }
 
+Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument)
+{
+	if(argument.size() != 1)
+		return "Expected 1 argument";
+
+	if(argument.front().values.front() == "cbuffer")
+		currentShaderProgram = constantBufferShaderProgram.get();
+	else if(argument.front().values.front() == "sbuffer")
+		currentShaderProgram = structuredBufferShaderProgram.get();
+	else
+		return "Couldn't find shader program";
+
+	return "Shader program set";
+}
+
 bool MulticoreWindow::InitSRVs()
 {
 	//////////////////////////////////////////////////
@@ -539,7 +567,7 @@ bool MulticoreWindow::InitBulb()
 	, std::vector<std::string> { "POSITION", "COLOR", "TEX_COORD", "WORLD_MATRIX" }
 	, std::vector<bool> { false, false, false, true });
 
-	std::vector<Vertex> bulbVertices;
+	std::vector<BulbVertex> bulbVertices;
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f));
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(-0.5f, -0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f));
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f));
@@ -549,7 +577,7 @@ bool MulticoreWindow::InitBulb()
 	bulbVertices.emplace_back(DirectX::XMFLOAT3(0.5f, 0.5f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f));
 
 	LogErrorReturnFalse(bulbInstanceBuffer.Create<Float4x4BufferData>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_POINT_LIGHTS), "Couldn't create bulb instance buffer: ");
-	LogErrorReturnFalse(bulbVertexBuffer.Create<Vertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &bulbVertices[0]), "Couldn't create bulb vertex buffer: ");
+	LogErrorReturnFalse(bulbVertexBuffer.Create<BulbVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &bulbVertices[0]), "Couldn't create bulb vertex buffer: ");
 	LogErrorReturnFalse(bulbViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create bulb projection matrix buffer: ");
 
 	bulbTexture = contentManager.Load<Texture2D>("Bulb.dds");
@@ -574,7 +602,8 @@ bool MulticoreWindow::InitPointLights()
 	lightAttenuation.factors[1] = 0.2f;
 	lightAttenuation.factors[2] = 1.0f;
 
-	currentShaderProgram->SetLightAttenuationFactors(lightAttenuation);
+	for(ShaderProgram* program : shaderPrograms)
+		program->SetLightAttenuationFactors(lightAttenuation);
 
 	PointLights pointlights;
 
@@ -690,7 +719,8 @@ bool MulticoreWindow::InitRoom()
 		rotationValue += DirectX::XM_2PI / 16.0f;
 		heightValue += heightIncrease;
 
-		currentShaderProgram->AddSphere(newSphere, newColor);
+		for(ShaderProgram* program : shaderPrograms)
+			program->AddSphere(newSphere, newColor);
 	}
 
 	//////////////////////////////////////////////////
@@ -701,7 +731,8 @@ bool MulticoreWindow::InitRoom()
 		for(int y = 0; y < 2; y++)
 		{
 			for(int x = 0; x < 2; x++)
-				currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+				for(ShaderProgram* program : shaderPrograms)
+					program->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
 		}
 	}
 
@@ -821,7 +852,7 @@ void MulticoreWindow::DrawBulbs()
 {
 	PointLights pointslights = currentShaderProgram->GetPointLights();
 
-	for(int i = 0; i < pointslights.lightCount; i++)
+	for(int i = 0, end = std::min(pointslights.lightCount, 10); i < end; i++)
 	{
 		DirectX::XMMATRIX worldMatrix = DirectX::XMMatrixTranslation(pointslights.lights[i].x, pointslights.lights[i].y, pointslights.lights[i].z);
 		DirectX::XMStoreFloat4x4(&bulbInstanceData[i].matrix, worldMatrix);
@@ -832,7 +863,7 @@ void MulticoreWindow::DrawBulbs()
 	ID3D11Buffer* bulbBuffers[] = { bulbViewProjMatrixBuffer.GetBuffer() };
 	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
 
-	UINT bulbStrides[] = { sizeof(Vertex), sizeof(Float4x4BufferData) };
+	UINT bulbStrides[] = { sizeof(BulbVertex), sizeof(Float4x4BufferData) };
 	UINT bulbOffsets[] = { 0, 0 };
 
 	ID3D11Buffer* bulbVertexBuffers[] = { bulbVertexBuffer.GetBuffer(), bulbInstanceBuffer.GetBuffer() };
@@ -976,67 +1007,6 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 	}
 
 	return true;
-}
-
-void MulticoreWindow::AddFace(DirectX::XMFLOAT3 min, DirectX::XMFLOAT3 max, DirectX::XMFLOAT4 color, VertexBuffer& vertexBuffer, TriangleBuffer& triangleBuffer, bool flipWindingOrder) const
-{
-	/*int vertexOffset = -1;
-
-	for(int i = 0; i < triangleBuffer.triangleCount; i++)
-	{
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].x);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].y);
-		vertexOffset = std::max(vertexOffset, triangleBuffer.triangles.indicies[i].z);
-	}
-
-	vertexOffset++;
-
-	if(min.x == max.x)
-	{
-		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, max.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(min.x, max.y, max.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(min.x, min.y, max.z, 0.0f);
-	}
-	else if(min.y == max.y)
-	{
-		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, min.y, max.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(max.x, min.y, max.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(max.x, min.y, min.z, 0.0f);
-	}
-	else if(min.z == max.z)
-	{
-		vertexBuffer.vertices.position[vertexOffset + 0] = DirectX::XMFLOAT4(min.x, min.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 1] = DirectX::XMFLOAT4(min.x, max.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 2] = DirectX::XMFLOAT4(max.x, max.y, min.z, 0.0f);
-		vertexBuffer.vertices.position[vertexOffset + 3] = DirectX::XMFLOAT4(max.x, min.y, min.z, 0.0f);
-	}
-	else
-	{
-		Logger::LogLine(LOG_TYPE::WARNING, "Couldn't resolve axis when creating face, check input");
-		return;
-	}
-
-	vertexBuffer.vertices.texCoord[vertexOffset + 0] = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
-	vertexBuffer.vertices.texCoord[vertexOffset + 1] = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.0f);
-	vertexBuffer.vertices.texCoord[vertexOffset + 2] = DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f);
-	vertexBuffer.vertices.texCoord[vertexOffset + 3] = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
-
-	int indexOffset = triangleBuffer.triangleCount;
-
-	if(!flipWindingOrder)
-	{
-		triangleBuffer.triangles.indicies[indexOffset] = DirectX::XMINT4(vertexOffset, vertexOffset + 2, vertexOffset + 1, 0);
-		triangleBuffer.triangles.indicies[indexOffset + 1] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 2, vertexOffset, 0);
-	}
-	else
-	{
-		triangleBuffer.triangles.indicies[indexOffset + 1] = DirectX::XMINT4(vertexOffset, vertexOffset + 1, vertexOffset + 3, 0);
-		triangleBuffer.triangles.indicies[indexOffset] = DirectX::XMINT4(vertexOffset + 3, vertexOffset + 1, vertexOffset + 2, 0);
-	}
-
-	triangleBuffer.triangleCount += 2;*/
 }
 
 std::vector<BezierVertex> MulticoreWindow::CalcBezierVertices(const std::vector<CameraKeyFrame>& frames) const

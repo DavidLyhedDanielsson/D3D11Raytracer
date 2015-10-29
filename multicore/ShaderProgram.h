@@ -84,6 +84,8 @@ protected:
 	Console* console;
 	ContentManager* contentManager;
 
+	std::string shaderPath;
+
 	Graph graph;
 	D3D11Timer d3d11Timer;
 
