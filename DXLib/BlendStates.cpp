@@ -1,6 +1,9 @@
 #include "BlendStates.h"
 
+COMUniquePtr<ID3D11BlendState> BlendStates::singleOffSmart = nullptr;
 COMUniquePtr<ID3D11BlendState> BlendStates::singleDefaultSmart = nullptr;
+
+ID3D11BlendState* BlendStates::singleOff = nullptr;
 ID3D11BlendState* BlendStates::singleDefault = nullptr;
 
 bool BlendStates::Init(ID3D11Device* device)
@@ -26,6 +29,13 @@ bool BlendStates::Init(ID3D11Device* device)
 		return false;
 
 	singleDefault = singleDefaultSmart.get();
+
+	blendDesc.RenderTarget[0].BlendEnable = false;
+	singleOffSmart = CreateBlendState(device, blendDesc);
+	if(singleOffSmart == nullptr)
+		return false;
+
+	singleOff = singleOffSmart.get();
 
 	return true;
 }

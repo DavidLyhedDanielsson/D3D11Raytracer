@@ -97,6 +97,9 @@ void ShaderResourceBinds::Init(ID3D11Device* device, ID3D11ShaderReflection* ref
 		{
 			int iOffset = uavPair.first;
 
+			if(uavPair.second[i] == nullptr)
+				continue;;
+
 			ID3D11Resource* uavResource = nullptr;
 			uavPair.second[i]->GetResource(&uavResource);
 

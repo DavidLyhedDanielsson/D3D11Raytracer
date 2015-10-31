@@ -4,6 +4,7 @@ RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);
 RWTexture2D<float4> outputNormal : register(u2);
 RWTexture2D<float4> outputColor : register(u3);
+RWTexture2D<float> depth : register(u4);
 
 cbuffer viewProjBuffer : register(b0)
 {
@@ -19,8 +20,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	ndcCoords.x -= 1.0f;
 	ndcCoords.y = 1.0f - ndcCoords.y;
 
-	float3 minNDC = float3(ndcCoords, 0.0f);
-	float3 maxNDC = float3(ndcCoords, 1.0f);
+	//Reversed depth buffer
+	float3 minNDC = float3(ndcCoords, 1.0f);
+	float3 maxNDC = float3(ndcCoords, 0.0f);
 
 	//Use NDC coords to calculate direction vector
 	float4 maxWorld = mul(float4(maxNDC, 1.0f), viewProjMatrixInv);
@@ -34,4 +36,5 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	outputDirection[threadID.xy] = float4(normalize(maxWorld.xyz - origin.xyz), 1.0f);
 	outputNormal[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 	outputColor[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	depth[threadID.xy] = FLOAT_MAX;
 }

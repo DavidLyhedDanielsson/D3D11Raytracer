@@ -24,9 +24,12 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	: DX11Window(hInstance, nCmdShow, width, height)
 	, paused(false)
 	, billboardSamplerState(nullptr)
-	, backbufferUAV(nullptr)
+	, backBufferUAV(nullptr)
+	, depthBufferUAV(nullptr)
 	, billboardBlendState(nullptr)
 	, bulbTexture(nullptr)
+	, transferDepthVertexShader("main", "vs_5_0")
+	, transferDepthPixelShader("main", "ps_5_0")
 	, bulbVertexShader("main", "vs_5_0")
 	, bulbPixelShader("main", "ps_5_0")
 	, bezierPixelShader("main", "ps_5_0")
@@ -125,33 +128,38 @@ bool MulticoreWindow::Init()
 	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
 #endif
 
-	if(!InitSRVs())
+	if(!InitUAVs())
 		return false;
 	if(!InitRoom())
 		return false;
 	if(!InitPointLights())
 		return false;
 
+	LogErrorReturnFalse(viewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create view projection matrix buffer: ");
+	LogErrorReturnFalse(projMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create projection matrix buffer: ");
+
+	if(!InitFullscreenQuad())
+		return false;
 	if(!InitBulb())
 		return false;
 	if(!InitGraphs())
 		return false;
 
 #if USE_ALL_SHADER_PROGRAMS
-	if(!constantBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!constantBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
-	if(!structuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!structuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
-	if(!aabbStructuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!aabbStructuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
 #elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
-	if(!constantBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!constantBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
 #elif USE_STRUCTURED_BUFFER_SHADER_PROGRAM
-	if(!structuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!structuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
 #elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
-	if(!aabbStructuredBufferShaderProgram->InitBuffers(backbufferUAV.get()))
+	if(!aabbStructuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
 #endif
 
@@ -161,7 +169,7 @@ bool MulticoreWindow::Init()
 		currentCamera = &fpsCamera;
 
 	//Etc
-	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
+	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 1.0f, 1000.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 3.5f, 0.0f));
 
@@ -362,13 +370,22 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	//Forward rendering
 	//////////////////////////////////////////////////
-	renderTargets[0] = backBufferRenderTarget.get();
-	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
-
-	deviceContext->ClearDepthStencilView(depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	
+	deviceContext->ClearDepthStencilView(depthStencilView.get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.0f, 0);
 
 	deviceContext->RSSetState(rasterizerState.get());
 	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	deviceContext->OMSetDepthStencilState(DepthStencilStates::writeOnly, 0xFFFFFFFF);
+
+	//////////////////////////////////////////////////
+	//Transfer depth buffer
+	//////////////////////////////////////////////////
+	renderTargets[0] = backBufferRenderTarget.get();
+	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
+
+	DrawTransferDepthBuffer();
+
+	deviceContext->OMSetDepthStencilState(DepthStencilStates::readOnly, 0xFFFFFFFF);
 
 	//////////////////////////////////////////////////
 	//Bulbs
@@ -651,36 +668,77 @@ Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument
 }
 #endif
 
-bool MulticoreWindow::InitSRVs()
+bool MulticoreWindow::InitUAVs()
 {
 	//////////////////////////////////////////////////
-	//Back buffer SRV
+	//Back buffer UAV
 	//////////////////////////////////////////////////
 	ID3D11Texture2D* backBufferDumb = nullptr;
 	HRESULT hRes = swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBufferDumb));
 	COMUniquePtr<ID3D11Texture2D> backBuffer(backBufferDumb);
 	if(FAILED(hRes))
 	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't get backBuffer from swapChain");
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't get back buffer from swapChain");
 		return false;
 	}
 
 	ID3D11UnorderedAccessView* backBufferUAVDumb = nullptr;
 	device->CreateUnorderedAccessView(backBuffer.get(), nullptr, &backBufferUAVDumb);
-	backbufferUAV.reset(backBufferUAVDumb);
-	if(backbufferUAV == nullptr)
+	backBufferUAV.reset(backBufferUAVDumb);
+	if(backBufferUAV == nullptr)
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create back buffer UAV");
+		return false;
+	}
+
+	//////////////////////////////////////////////////
+	//Depth buffer UAV
+	//////////////////////////////////////////////////
+	if(!CreateUAVSRVCombo(width, height, depthBufferUAV, depthBufferSRV, DXGI_FORMAT_R32_FLOAT))
+	{
+		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't create back buffer UAV/SRV combo");
 		return false;
 	}
 
 	return true;
 }
 
+bool MulticoreWindow::InitFullscreenQuad()
+{
+	LogErrorReturnFalse(transferDepthVertexShader.CreateFromFile("TransferDepthVertexShader.cso", device.get()), "Couldn't load depth vertex shader: ");
+
+	ShaderResourceBinds pixelBinds;
+
+	pixelBinds.AddResource(SamplerStates::pointClamp, 0);
+	pixelBinds.AddResource(depthBufferSRV.get(), 0);
+	pixelBinds.AddResource(projMatrixBuffer, 0);
+
+	LogErrorReturnFalse(transferDepthPixelShader.CreateFromFile("TransferDepthPixelShader.cso", device.get(), pixelBinds), "Couldn't load depth pixel shader: ");
+
+	transferDepthVertexShader.SetVertexData(device.get(),
+		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT2 }
+		, std::vector<std::string> { "POSITION" }
+		, std::vector<bool> { false });
+	
+	std::vector<DirectX::XMFLOAT2> quadVertices;
+
+	quadVertices.emplace_back(-1.0f, -1.0f);
+	quadVertices.emplace_back(1.0f, -1.0f);
+	quadVertices.emplace_back(-1.0f, 1.0f);
+
+	quadVertices.emplace_back(1.0f, 1.0f);
+	quadVertices.emplace_back(-1.0f, 1.0f);
+	quadVertices.emplace_back(1.0f, -1.0f);
+
+	LogErrorReturnFalse(fullscreenQuadVertexBuffer.Create<DirectX::XMFLOAT2>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &quadVertices[0]), "Couldn't create bulb vertex buffer: ");
+
+	return true;
+}
+
 bool MulticoreWindow::InitBulb()
 {
-	LogErrorReturnFalse(bulbPixelShader.CreateFromFile("BulbPixelShader.cso", device.get()), "Couldnt' load bulb shader: ");
-	LogErrorReturnFalse(bulbVertexShader.CreateFromFile("BulbVertexShader.cso", device.get()), "Couldnt' load bulb shader: ");
+	LogErrorReturnFalse(bulbPixelShader.CreateFromFile("BulbPixelShader.cso", device.get()), "Couldn't load bulb shader: ");
+	LogErrorReturnFalse(bulbVertexShader.CreateFromFile("BulbVertexShader.cso", device.get()), "Couldn't load bulb shader: ");
 
 	bulbVertexShader.SetVertexData(device.get(),
 		std::vector<VERTEX_INPUT_DATA> { VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT3, VERTEX_INPUT_DATA::FLOAT2, VERTEX_INPUT_DATA::FLOAT4X4 }
@@ -698,7 +756,6 @@ bool MulticoreWindow::InitBulb()
 
 	LogErrorReturnFalse(bulbInstanceBuffer.Create<Float4x4BufferData>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_POINT_LIGHTS), "Couldn't create bulb instance buffer: ");
 	LogErrorReturnFalse(bulbVertexBuffer.Create<BulbVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), 6, &bulbVertices[0]), "Couldn't create bulb vertex buffer: ");
-	LogErrorReturnFalse(bulbViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create bulb projection matrix buffer: ");
 
 	bulbTexture = contentManager.Load<Texture2D>("Bulb.dds");
 	if(bulbTexture == nullptr)
@@ -736,7 +793,6 @@ bool MulticoreWindow::InitPointLights()
 	pointlights.lightCount = 1;
 	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
 		pointlights.lights[i].w = lightIntensity;
-
 
 	lightRotationRadius = 5.0f;
 	lightMinHeight = 1.0f;
@@ -811,14 +867,14 @@ bool MulticoreWindow::InitRoom()
 	float rotationValue = 0.0f;
 	float heightValue = 0.0f;
 
-	float radius = 4.0f;
+	float radius = 50.0f;
 
 	for(int i = 0; i < 0; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
 
-		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, heightValue, std::sinf(rotationValue) * radius, 0.5f);
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, 0.0f, std::sinf(rotationValue) * radius, 2.0f);
 		if(i % 3 == 0)
 			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
 		else if(i % 3 == 1)
@@ -826,7 +882,7 @@ bool MulticoreWindow::InitRoom()
 		else if(i % 3 == 2)
 			newColor = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 0.8f);
 
-		rotationValue += DirectX::XM_2PI / 16.0f;
+		rotationValue += DirectX::XM_2PI / 64.0f;
 		heightValue += heightIncrease;
 
 #if USE_ALL_SHADER_PROGRAMS
@@ -836,6 +892,18 @@ bool MulticoreWindow::InitRoom()
 		currentShaderProgram->AddSphere(newSphere, newColor);
 #endif
 	}
+
+
+
+#if USE_ALL_SHADER_PROGRAMS
+	for(ShaderProgram* program : shaderPrograms)
+	{
+		program->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 100.0f, 50.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f));
+		program->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 40.0f, 10.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f));
+	}
+#else
+	//currentShaderProgram->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 10.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f));
+#endif
 
 	//////////////////////////////////////////////////
 	//Triangles
@@ -867,8 +935,6 @@ bool MulticoreWindow::InitBezier()
 	//Vertices
 	LogErrorReturnFalse(bezierVertexBuffer.Create<BezierVertex>(device.get(), D3D11_BIND_VERTEX_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, MAX_BEZIER_LINES * 2), "Couldn't create bezier vertex buffer: ");
 
-	LogErrorReturnFalse(bezierViewProjMatrixBuffer.Create(device.get(), D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create bezier view projection matrix buffer: ");
-
 	UploadBezierFrames();
 
 	//Shaders
@@ -888,10 +954,9 @@ bool MulticoreWindow::InitBezier()
 
 	LogErrorReturnFalse(bezierHullShader.CreateFromFile("BezierHullShader.hlsl", device.get(), hullShaderBinds), "Couldn't load bezier hull shader: ");
 
-
 	ShaderResourceBinds domainShaderBinds;
 
-	domainShaderBinds.AddResource(bezierViewProjMatrixBuffer, 0);
+	domainShaderBinds.AddResource(viewProjMatrixBuffer, 0);
 
 	LogErrorReturnFalse(bezierDomainShader.CreateFromFile("BezierDomainShader.hlsl", device.get(), domainShaderBinds), "Couldn't load bezier domain shader: ");
 
@@ -949,7 +1014,7 @@ void MulticoreWindow::DrawUpdateMVP()
 	DirectX::XMFLOAT4X4 viewMatrix = currentCamera->GetViewMatrix();
 	DirectX::XMFLOAT4X4 projectionMatrix = currentCamera->GetProjectionMatrix();
 	DirectX::XMFLOAT4X4 viewProjectionMatrix;
-	DirectX::XMFLOAT4X4 viewProjectionMatrixInverse;
+	//DirectX::XMFLOAT4X4 viewProjectionMatrixInverse;
 
 	DirectX::XMMATRIX xmViewMatrix = DirectX::XMLoadFloat4x4(&viewMatrix);
 	DirectX::XMMATRIX xmProjectionMatrix = DirectX::XMLoadFloat4x4(&projectionMatrix);
@@ -961,12 +1026,34 @@ void MulticoreWindow::DrawUpdateMVP()
 	currentShaderProgram->SetViewProjMatrix(viewProjectionMatrix);
 	currentShaderProgram->SetCameraPosition(currentCamera->GetPosition());
 
-	DirectX::XMStoreFloat4x4(&viewProjectionMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
+	//DirectX::XMStoreFloat4x4(&viewProjectionMatrixInverse, DirectX::XMMatrixInverse(nullptr, xmViewProjMatrix));
 
-	//viewProjInverseBuffer.Update(deviceContext.get(), &viewProjectionMatrixInverse);
+	viewProjMatrixBuffer.Update(deviceContext.get(), &viewProjectionMatrix);
 
-	bulbViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
-	bezierViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
+	DirectX::XMFLOAT4X4 projMatrixTranspose = DirectX::XMStoreFloat4x4(DirectX::XMMatrixTranspose(xmProjectionMatrix));
+	projMatrixBuffer.Update(deviceContext.get(), &projMatrixTranspose);
+	//bezierViewProjMatrixBuffer.Update(deviceContext.get(), &xmViewProjMatrix);
+}
+
+void MulticoreWindow::DrawTransferDepthBuffer()
+{
+	UINT stride = sizeof(DirectX::XMFLOAT2);
+	UINT offset = 0;
+
+	ID3D11Buffer* buffer = fullscreenQuadVertexBuffer.GetBuffer();
+
+	deviceContext->IASetVertexBuffers(0, 1, &buffer, &stride, &offset);
+
+	float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	deviceContext->OMSetBlendState(BlendStates::singleOff, blendFactor, 0xFFFFFFFF);
+
+	transferDepthPixelShader.Bind(deviceContext.get());
+	transferDepthVertexShader.Bind(deviceContext.get());
+
+	deviceContext->Draw(6, 0);
+
+	transferDepthPixelShader.Unbind(deviceContext.get());
+	transferDepthVertexShader.Unbind(deviceContext.get());
 }
 
 void MulticoreWindow::DrawBulbs()
@@ -981,7 +1068,7 @@ void MulticoreWindow::DrawBulbs()
 
 	bulbInstanceBuffer.Update(deviceContext.get(), &bulbInstanceData);
 
-	ID3D11Buffer* bulbBuffers[] = { bulbViewProjMatrixBuffer.GetBuffer() };
+	ID3D11Buffer* bulbBuffers[] = { viewProjMatrixBuffer.GetBuffer() };
 	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
 
 	UINT bulbStrides[] = { sizeof(BulbVertex), sizeof(Float4x4BufferData) };
@@ -1004,11 +1091,16 @@ void MulticoreWindow::DrawBulbs()
 	deviceContext->DrawInstanced(6, pointslights.lightCount, 0, 0);
 	bulbVertexShader.Unbind(deviceContext.get());
 	bulbPixelShader.Unbind(deviceContext.get());
+
+	bulbVertexBuffers[0] = nullptr;
+	bulbVertexBuffers[1] = nullptr;
+
+	deviceContext->IASetVertexBuffers(0, 2, bulbVertexBuffers, bulbStrides, bulbOffsets);
 }
 
 void MulticoreWindow::DrawBezier()
 {
-	ID3D11Buffer* bulbBuffers[] = { bulbViewProjMatrixBuffer.GetBuffer() };
+	ID3D11Buffer* bulbBuffers[] = { viewProjMatrixBuffer.GetBuffer() };
 	deviceContext->VSSetConstantBuffers(0, 1, bulbBuffers);
 
 	UINT bezierStride = sizeof(BezierVertex);
@@ -1081,7 +1173,7 @@ Argument MulticoreWindow::ReloadRaytraceShaders(const std::vector<Argument>& arg
 	return "Successfully reloaded shaders";
 }*/
 
-bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv)
+bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format /*= DXGI_FORMAT_R32G32B32A32_FLOAT*/)
 {
 	D3D11_TEXTURE2D_DESC desc;
 	ZeroMemory(&desc, sizeof(desc));
@@ -1090,7 +1182,7 @@ bool MulticoreWindow::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D
 	desc.Height = height;
 
 	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.Format = format;
 	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	desc.CPUAccessFlags = 0;
 	desc.SampleDesc.Count = 1;

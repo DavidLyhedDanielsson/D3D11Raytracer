@@ -18,7 +18,7 @@ public:
 	~StructuredBufferShaderProgram() = default;
 
 	bool Init(ID3D11Device* device, ID3D11DeviceContext* deviceContext, UINT backBufferWidth, UINT backBufferHeight, Console* console, ContentManager* contentManager) override;
-	bool InitBuffers(ID3D11UnorderedAccessView* backBufferUAV) override;
+	bool InitBuffers(ID3D11UnorderedAccessView* depthBufferUAV, ID3D11UnorderedAccessView* backBufferUAV) override;
 
 	void Update(std::chrono::nanoseconds delta) override;
 	std::map<std::string, double> Draw() override;

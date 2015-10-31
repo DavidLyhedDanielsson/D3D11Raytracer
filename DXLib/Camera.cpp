@@ -39,10 +39,10 @@ void Camera::SetPerspectiveVertical(float fov, float aspectRatio, float nearPlan
 {
 	this->fovVertical = fov;
 	this->aspectRatio = aspectRatio;
-	this->nearPlane = nearPlane;
-	this->farPlane = farPlane;
+	this->nearPlane = farPlane;
+	this->farPlane = nearPlane;
 
-	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixPerspectiveFovLH(fovVertical, aspectRatio, nearPlane, farPlane));
+	DirectX::XMStoreFloat4x4(&projectionMatrix, DirectX::XMMatrixPerspectiveFovLH(fovVertical, aspectRatio, this->nearPlane, this->farPlane));
 }
 
 void Camera::LookAt(DirectX::XMFLOAT3 position)

@@ -130,7 +130,20 @@ private:
 	//////////////////////////////////////////////////
 	//Ray tracing
 	//////////////////////////////////////////////////
-	COMUniquePtr<ID3D11UnorderedAccessView> backbufferUAV;
+	COMUniquePtr<ID3D11UnorderedAccessView> backBufferUAV;
+
+	//////////////////////////////////////////////////
+	//Depth
+	//////////////////////////////////////////////////
+	//This "fake" depth buffer is written to by the compute shaders
+	//and then a fullscreen quad is drawn and the pixe shader transfers
+	//the depth from the "fake" buffer to the "read buffer"
+	COMUniquePtr<ID3D11UnorderedAccessView> depthBufferUAV;
+	COMUniquePtr<ID3D11ShaderResourceView> depthBufferSRV;
+
+	VertexShader transferDepthVertexShader;
+	PixelShader transferDepthPixelShader;
+	DXConstantBuffer fullscreenQuadVertexBuffer;
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -144,7 +157,8 @@ private:
 	////////////////////
 	VertexShader bulbVertexShader;
 	PixelShader bulbPixelShader;
-	DXConstantBuffer bulbViewProjMatrixBuffer;
+	DXConstantBuffer viewProjMatrixBuffer;
+	DXConstantBuffer projMatrixBuffer;
 	DXConstantBuffer bulbInstanceBuffer;
 	DXConstantBuffer bulbVertexBuffer;
 
@@ -183,7 +197,7 @@ private:
 	HullShader bezierHullShader;
 	DomainShader bezierDomainShader;
 
-	DXConstantBuffer bezierViewProjMatrixBuffer;
+	//DXConstantBuffer bezierViewProjMatrixBuffer;
 	DXConstantBuffer bezierVertexBuffer;
 
 	DXConstantBuffer bezierTessFactorBuffer;
@@ -248,8 +262,9 @@ private:
 	Argument SetShaderProgram(const std::vector<Argument>& argument);
 #endif
 
-	bool InitSRVs();
+	bool InitUAVs();
 
+	bool InitFullscreenQuad();
 	bool InitBulb();
 	bool InitPointLights();
 	bool InitGraphs();
@@ -263,9 +278,10 @@ private:
 
 	void DrawUpdateMVP();
 
+	void DrawTransferDepthBuffer();
 	void DrawBulbs();
 	void DrawBezier();
 
-	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
+	bool CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format = DXGI_FORMAT_R32G32B32A32_FLOAT);
 };
 

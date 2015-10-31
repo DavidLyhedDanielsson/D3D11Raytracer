@@ -5,6 +5,7 @@ RWTexture2D<float4> rayPositionsOut : register(u0);
 RWTexture2D<float4> rayDirectionsOut : register(u1);
 RWTexture2D<float4> rayNormalOut : register(u2);
 RWTexture2D<float4> rayColorOut : register(u3);
+RWTexture2D<float> depthOut : register(u4);
 
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayDirections : register(t1);
@@ -55,8 +56,6 @@ StructuredBuffer<Model> models : register(t7);
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 
-float TripleProduct(float3 a, float3 b, float3 z);
-
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates);
 
 float2 UnpackTexcoords(int intValue);
@@ -103,6 +102,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 		rayColorOut[threadID.xy] = GetTriangleColorAt(closestTriangle, barycentric);
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
+		depthOut[threadID.xy] = depth;
 	}
 	else
 	{
@@ -110,6 +110,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 		rayColorOut[threadID.xy] = spheres[closestSphere].color;
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, closestSphere);
+		depthOut[threadID.xy] = depth;
 	}
 }
 
@@ -124,20 +125,13 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout flo
 
 	for(int i = 0; i < (int)sphereCount; ++i)
 	{
+		float distance = 0.0f;
+
 		float3 spherePosition = spheres[i].position.xyz;
 		float sphereRadius = spheres[i].position.w;
 
-		float a = dot(rayDirection, (rayPosition - spherePosition));
-
-		float3 dirToSphere = rayPosition - spherePosition;
-		float b = dot(dirToSphere, dirToSphere);
-
-		float root = (a * a) - b + (sphereRadius * sphereRadius);
-
-		if(root < 0.0f)
+		if(!RaySphereIntersection(rayPosition, rayDirection, spherePosition, sphereRadius, distance))
 			continue;
-
-		float distance = -a - sqrt(root);
 
 		if(distance < depth
 			&& distance > 0.0f
@@ -166,9 +160,9 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	float u = 0.0f;
 	float v = 0.0f;
 
-	float3 closestV0 = float3(0.0f, 0.0f, 0.0f);
-	float3 closestV1 = float3(0.0f, 0.0f, 0.0f);
-	float3 closestV2 = float3(0.0f, 0.0f, 0.0f);
+	float3 closestV0 = float3(1.0f, 0.0f, 0.0f);
+	float3 closestV1 = float3(0.0f, 1.0f, 0.0f);
+	float3 closestV2 = float3(0.0f, 0.0f, 1.0f);
 
 	uint sphereCount = 0;
 	uint stride = 0;
@@ -193,29 +187,15 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 			{
 				float3 v0 = vertices[triangles[ii].indicies.x].position.xyz;
 				float3 v1 = vertices[triangles[ii].indicies.y].position.xyz;
-				float3 v2 = vertices[triangles[ii].indicies.z].position.xyz;
+				float3 v2 = vertices[triangles[ii].indicies.z].position.xyz;			
 
-				float3 e0 = v1 - v0;
-				float3 e1 = v2 - v0;
+				float tempU = 0.0f;
+				float tempV = 0.0f;
 
-				float3 detCross = cross(rayDirection, e1);
-				float det = dot(e0, detCross);
+				float t = 0.0f;
 
-				float detInv = 1.0f / det;
-
-				float3 rayDist = rayPosition - v0;
-				float tempU = dot(rayDist, detCross) * detInv;
-
-				if(tempU < 0.0f || tempU > 1.0f)
+				if(!RayTriangleIntersection(rayPosition, rayDirection, v0, v1, v2, tempU, tempV, t))
 					continue;
-
-				float3 vPrep = cross(rayDist, e0);
-				float tempV = dot(rayDirection, vPrep) * detInv;
-
-				if(tempV < 0.0f || tempU + tempV > 1.0f)
-					continue;
-
-				float t = dot(e1, vPrep) * detInv;
 
 				if(t > 0.0f 
 					&& t < depth
@@ -244,11 +224,6 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	closestIndex = closestTriangleIndex;
 
 	return float2(u, v);
-}
-
-float TripleProduct(float3 a, float3 b, float3 c)
-{
-	return dot(a, cross(b, c));
 }
 
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)

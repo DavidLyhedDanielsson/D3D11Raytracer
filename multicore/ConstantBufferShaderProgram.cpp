@@ -28,9 +28,9 @@ bool ConstantBufferShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext
 	return true;
 }
 
-bool ConstantBufferShaderProgram::InitBuffers(ID3D11UnorderedAccessView* backBufferUAV)
+bool ConstantBufferShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBufferUAV, ID3D11UnorderedAccessView* backBufferUAV)
 {
-	if(!ShaderProgram::InitBuffers(backBufferUAV))
+	if(!ShaderProgram::InitBuffers(depthBufferUAV, backBufferUAV))
 		return false;
 
 	LogErrorReturnFalse(sphereBuffer.Create<ConstantBufferSharedBuffers::SphereBuffer>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), &sphereBufferData), "Couldn't create sphere buffer: ");

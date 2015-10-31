@@ -187,5 +187,11 @@
     <FxCompile Include="Shaders\AABBStructuredBuffer\Shading.hlsl">
       <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
     </FxCompile>
+    <FxCompile Include="TransferDepthPixelShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="TransferDepthVertexShader.hlsl">
+      <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

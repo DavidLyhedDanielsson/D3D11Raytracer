@@ -20,6 +20,7 @@ bool ShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 	this->console = console;
 	this->device = device;
 	this->deviceContext = deviceContext;
+	this->depthBufferUAV = depthBufferUAV;
 	this->backBufferUAV = backBufferUAV;
 	this->backBufferWidth = backBufferWidth;
 	this->backBufferHeight = backBufferHeight;
@@ -38,8 +39,9 @@ bool ShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 	return true;
 }
 
-bool ShaderProgram::InitBuffers(ID3D11UnorderedAccessView* backBufferUAV)
+bool ShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBufferUAV, ID3D11UnorderedAccessView* backBufferUAV)
 {
+	this->depthBufferUAV = depthBufferUAV;
 	this->backBufferUAV = backBufferUAV;
 
 	return true;

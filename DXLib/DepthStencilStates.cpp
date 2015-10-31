@@ -45,14 +45,13 @@ bool DepthStencilStates::Init(ID3D11Device* device)
 	if(DepthStencilStates::readWriteGreaterSmart == nullptr)
 		return false;
 
-	desc.DepthEnable = TRUE;
 	desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
 	DepthStencilStates::readOnlySmart = CreateState(device, desc);
 	if(DepthStencilStates::readOnlySmart == nullptr)
 		return false;
 
-	desc.DepthEnable = FALSE;
 	desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
 	DepthStencilStates::writeOnlySmart = CreateState(device, desc);
 	if(DepthStencilStates::writeOnlySmart == nullptr)
 		return false;

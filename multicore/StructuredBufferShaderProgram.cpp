@@ -27,9 +27,9 @@ bool StructuredBufferShaderProgram::Init(ID3D11Device* device, ID3D11DeviceConte
 	return true;
 }
 
-bool StructuredBufferShaderProgram::InitBuffers(ID3D11UnorderedAccessView* backBufferUAV)
+bool StructuredBufferShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBufferUAV, ID3D11UnorderedAccessView* backBufferUAV)
 {
-	if(!ShaderProgram::InitBuffers(backBufferUAV))
+	if(!ShaderProgram::InitBuffers(depthBufferUAV, backBufferUAV))
 		return false;
 
 	if(!sphereBufferData.empty())
