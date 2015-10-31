@@ -56,7 +56,7 @@ std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, Cont
 	font = contentManager->Load<CharacterSet>("Calibri12");
 	legendFont = contentManager->Load<CharacterSet>("Calibri16");
 
-	backgroundWidth = font->GetWidthAtIndex("[9.999;9.999]", -1);
+	backgroundWidth = font->GetWidthAtIndex("[999.999;999.999]", -1);
 
 	//////////////////////////////////////////////////
 	//Dotted lines

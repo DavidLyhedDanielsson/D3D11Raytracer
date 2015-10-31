@@ -35,7 +35,7 @@ bool ShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 
 	if(!InitPointLights())
 		return false;
-	if(!InitGraph())
+	if(!InitTimer())
 		return false;
 
 	cameraPositionBuffer.Create<DirectX::XMFLOAT3>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE);
@@ -55,16 +55,6 @@ bool ShaderProgram::InitBuffers(ID3D11UnorderedAccessView* backBufferUAV)
 
 void ShaderProgram::Update(std::chrono::nanoseconds delta)
 {
-}
-
-void ShaderProgram::DrawGraph(SpriteRenderer* spriteRenderer)
-{
-	graph.Draw(spriteRenderer);
-}
-
-void ShaderProgram::DrawGraph()
-{
-	graph.Draw();
 }
 
 std::string ShaderProgram::ReloadShaders()
@@ -101,7 +91,7 @@ LightAttenuation ShaderProgram::GetLightAttenuationFactors() const
 	return pointlightAttenuationBufferData;
 }
 
-PointLights ShaderProgram::GetPointLights()
+PointLights ShaderProgram::GetPointLights() const
 {
 	return pointLightBufferData;
 }
@@ -164,43 +154,19 @@ bool ShaderProgram::InitPointLights()
 	return true;
 }
 
-bool ShaderProgram::InitGraph()
+bool ShaderProgram::InitTimer()
 {
-#ifdef _DEBUG
-	int gpuMSAverage = 10;
-#else
-	int gpuMSAverage = 10;
-#endif
-
-	std::vector<Track> gpuTracks{ Track(gpuMSAverage, 1.0f) };
-
-	std::vector<std::string> timerQueries{ "Primary" }; // , "Trace", "Shade" };
+	std::vector<std::string> timerQueries{ "Primary" };
 
 	for(int i = 0; i < MAX_BOUNCES; i++)
 	{
-		timerQueries.emplace_back("Trace" + std::to_string(i));
+		timerQueries.emplace_back("Intersect" + std::to_string(i));
 		timerQueries.emplace_back("Shade" + std::to_string(i));
 	}
 
 	if(!d3d11Timer.Init(device, deviceContext, timerQueries))
 	{
 		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize d3d11Timer");
-		return false;
-	}
-
-	std::vector<std::string> gpuTrackNames{ "Primary", "Trace", "Shade" };
-
-	std::string errorString = graph.Init(device, deviceContext, contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 100.0f, 1, backBufferWidth, backBufferHeight, true);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize GPU graph: " + errorString);
-		return false;
-	}
-
-	errorString = graph.AddTracks(gpuTrackNames, gpuTracks);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add GPU tracks to graph: " + errorString);
 		return false;
 	}
 

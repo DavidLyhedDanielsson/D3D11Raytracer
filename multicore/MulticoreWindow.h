@@ -204,7 +204,8 @@ private:
 
 	Timer gameTimer;
 
-	Graph cpuGraph;
+	Graph perFrameGraph;
+	Graph perSecondGraph;
 
 	Console console;
 	bool drawConsole;

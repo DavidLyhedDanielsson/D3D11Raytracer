@@ -60,10 +60,7 @@ public:
 	virtual void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) = 0;
 
 	virtual void Update(std::chrono::nanoseconds delta);
-	virtual void Draw() = 0;
-	
-	void DrawGraph(SpriteRenderer* spriteRenderer);
-	void DrawGraph();
+	virtual std::map<std::string, double> Draw() = 0;
 
 	std::string ReloadShaders();
 
@@ -73,7 +70,7 @@ public:
 	void SetCameraPosition(DirectX::XMFLOAT3 cameraPosition);
 
 	LightAttenuation GetLightAttenuationFactors() const;
-	PointLights GetPointLights();
+	PointLights GetPointLights() const;
 
 protected:
 	std::string CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
@@ -86,7 +83,6 @@ protected:
 
 	std::string shaderPath;
 
-	Graph graph;
 	D3D11Timer d3d11Timer;
 
 	ID3D11Device* device;
@@ -116,7 +112,7 @@ protected:
 
 	virtual std::string ReloadShadersInternal() = 0;
 	bool InitPointLights();
-	bool InitGraph();
+	bool InitTimer();
 };
 
 inline bool operator>>(const LightAttenuation& lhs, Argument& rhs)

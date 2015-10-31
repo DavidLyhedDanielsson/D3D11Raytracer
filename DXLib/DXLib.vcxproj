@@ -85,7 +85,6 @@
     <ClInclude Include="Rect.h" />
     <ClInclude Include="SamplerStates.h" />
     <ClInclude Include="Shader.h" />
-    <ClInclude Include="ShaderProgram.h" />
     <ClInclude Include="ShaderResourceBinds.h" />
     <ClInclude Include="SpriteBatch.h" />
     <ClInclude Include="SpriteInfo.h" />

@@ -200,9 +200,6 @@
     <ClInclude Include="VertexShader.h">
       <Filter>Header Files\Shader</Filter>
     </ClInclude>
-    <ClInclude Include="ShaderProgram.h">
-      <Filter>Header Files\Shader</Filter>
-    </ClInclude>
     <ClInclude Include="SpriteBatch.h">
       <Filter>Header Files\Sprite</Filter>
     </ClInclude>

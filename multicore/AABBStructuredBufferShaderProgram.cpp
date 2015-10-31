@@ -201,7 +201,7 @@ void AABBStructuredBufferShaderProgram::Update(std::chrono::nanoseconds delta)
 	ShaderProgram::Update(delta);
 }
 
-void AABBStructuredBufferShaderProgram::Draw()
+std::map<std::string, double> AABBStructuredBufferShaderProgram::Draw()
 {
 	auto xmViewProjInverse = DirectX::XMLoadFloat4x4(&viewProjMatrix);
 	xmViewProjInverse = DirectX::XMMatrixInverse(nullptr, xmViewProjInverse);
@@ -218,29 +218,14 @@ void AABBStructuredBufferShaderProgram::Draw()
 	for(int i = 0; i < rayBounces; ++i)
 	{
 		DrawRayIntersection(i % 2);
-		d3d11Timer.Stop("Trace" + std::to_string(i));
+		d3d11Timer.Stop("Intersect" + std::to_string(i));
 		DrawRayShading(i % 2);
 		d3d11Timer.Stop("Shade" + std::to_string(i));
 	}
 
 	DrawComposit((rayBounces + 1) % 2);
 
-	std::map<std::string, double> d3d11Times = d3d11Timer.Stop();
-
-	float traceTime = 0.0f;
-	float shadeTime = 0.0f;
-	for(const auto& pair : d3d11Times)
-	{
-		if(pair.first.compare(0, 5, "Trace") == 0)
-			traceTime += static_cast<float>(pair.second);
-		else if(pair.first.compare(0, 5, "Shade") == 0)
-			shadeTime += static_cast<float>(pair.second);
-		else
-			graph.AddValueToTrack(pair.first, static_cast<float>(pair.second));
-	}
-
-	graph.AddValueToTrack("Trace", traceTime);
-	graph.AddValueToTrack("Shade", shadeTime);
+	return d3d11Timer.Stop();
 }
 
 void AABBStructuredBufferShaderProgram::DrawRayPrimary()

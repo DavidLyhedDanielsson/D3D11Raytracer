@@ -238,8 +238,8 @@ void MulticoreWindow::Run()
 			Draw();
 			drawTimer.Stop();
 
-			cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
-			cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
+			//cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
+			//cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
 
 			/*if(cinematicCameraMode) //TODO!
 			{
@@ -326,7 +326,28 @@ void MulticoreWindow::Draw()
 	ID3D11RenderTargetView* renderTargets[] = { nullptr };
 	deviceContext->OMSetRenderTargets(1, renderTargets, depthStencilView.get());
 
-	currentShaderProgram->Draw();
+	std::map<std::string, double> d3d11Times = currentShaderProgram->Draw();
+
+	float intersectionTime = 0.0f;
+	float shadeTime = 0.0f;
+
+	for(const auto& pair : d3d11Times)
+	{
+		if(pair.first.compare(0, 9, "Intersect") == 0)
+			intersectionTime += static_cast<float>(pair.second);
+		else if(pair.first.compare(0, 5, "Shade") == 0)
+			shadeTime += static_cast<float>(pair.second);
+		else if(pair.first.compare(0, 7, "Primary") == 0)
+		{
+			perFrameGraph.AddValueToTrack("Primary", static_cast<float>(pair.second));
+			perSecondGraph.AddValueToTrack("Primary", static_cast<float>(pair.second));
+		}
+	}
+
+	perFrameGraph.AddValueToTrack("Intersect", intersectionTime);
+	perSecondGraph.AddValueToTrack("Intersect", intersectionTime);
+	perFrameGraph.AddValueToTrack("Shade", shadeTime);
+	perSecondGraph.AddValueToTrack("Shade", shadeTime);
 
 	//////////////////////////////////////////////////
 	//Forward rendering
@@ -355,15 +376,13 @@ void MulticoreWindow::Draw()
 
 	guiManager.Draw(&spriteRenderer);
 
-	currentShaderProgram->DrawGraph(&spriteRenderer);
-	//gpuGraph.Draw(&spriteRenderer);
-	//cpuGraph.Draw(&spriteRenderer);
+	perSecondGraph.Draw(&spriteRenderer);
+	perFrameGraph.Draw(&spriteRenderer);
 
 	spriteRenderer.End();
 
-	currentShaderProgram->DrawGraph();
-	//gpuGraph.Draw();
-	//cpuGraph.Draw();
+	perSecondGraph.Draw();
+	perFrameGraph.Draw();
 
 	swapChain->Present(1, 0);
 }
@@ -708,31 +727,16 @@ bool MulticoreWindow::InitPointLights()
 
 bool MulticoreWindow::InitGraphs()
 {
-	//////////////////////////////////////////////////
-	//Timing
-	//////////////////////////////////////////////////
-	//CPU
-#ifdef _DEBUG
-	int cpuMSAverage = 10;
-#else
-	int cpuMSAverage = 10;
-#endif
-	std::vector<Track> cpuTracks{ Track(cpuMSAverage, 1.0f) };
-	std::vector<std::string> cpuTrackNames{ "Update", "Draw" };
+	std::vector<Track> perFrameTrack{ Track(10, 1.0f) };
+	std::vector<Track> perSecondTrack{ Track(0.1f, 1.0f) };
+	std::vector<std::string> trackNames{ "Primary", "Intersect", "Shade" };
 
-	std::string errorString = cpuGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1, width, height, true);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't initialize CPU graph: " + errorString);
-		return false;
-	}
+	LogErrorReturnFalse(perFrameGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1, width, height, true), "Couldn't initialize per frame graph: ");
+	LogErrorReturnFalse(perSecondGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(perFrameGraph.GetBackgroundWidth() + 256, 720 - 128), DirectX::XMINT2(256, 128), 10000.0f, 1, width, height, true), "Couldn't initialize per second graph: ");
 
-	errorString = cpuGraph.AddTracks(cpuTrackNames, cpuTracks);
-	if(!errorString.empty())
-	{
-		Logger::LogLine(LOG_TYPE::FATAL, "Couldn't add CPU tracks to graph: " + errorString);
-		return false;
-	}
+	LogErrorReturnFalse(perFrameGraph.AddTracks(trackNames, perFrameTrack), "Couldn't add tracks to per frame graph: ");
+	LogErrorReturnFalse(perSecondGraph.AddTracks(trackNames, perSecondTrack), "Couldn't add tracks to per second graph: ");
+
 	return true;
 }
 

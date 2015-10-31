@@ -4,6 +4,7 @@
 #include <DXLib/Common.h>
 #include <DXLib/SpriteRenderer.h>
 #include <DXLib/ContentManager.h>
+#include <DXLib/Timer.h>
 
 #include <vector>
 #include <string>
@@ -54,8 +55,11 @@ namespace
 class Track
 {
 public:
+	enum class AVERAGE_TYPE { PER_SECOND, PER_ADD };
+
 	Track()
-		: color(-1.0f, -1.0f, -1.0f)
+		: averageType(AVERAGE_TYPE::PER_ADD)
+		, color(-1.0f, -1.0f, -1.0f)
 		, maxValues(0)
 		, valuesToAverage(1)
 		, xResolution(1.0f)
@@ -66,7 +70,8 @@ public:
 		values.emplace_back(0.0f);
 	}
 	Track(int valuesToAverage, float xResolution, DirectX::XMFLOAT3 color = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f))
-		: valuesToAverage(valuesToAverage)
+		: averageType(AVERAGE_TYPE::PER_ADD)
+		, valuesToAverage(static_cast<float>(valuesToAverage))
 		, xResolution(xResolution)
 		, color(color)
 		, maxValue(std::numeric_limits<float>::min())
@@ -75,18 +80,48 @@ public:
 	{
 		values.emplace_back(0.0f);
 	}
+	Track(float valuesToAverage, float xResolution, DirectX::XMFLOAT3 color = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f))
+		: averageType(AVERAGE_TYPE::PER_SECOND)
+		, valuesToAverage(valuesToAverage)
+		, xResolution(xResolution)
+		, color(color)
+		, maxValue(std::numeric_limits<float>::min())
+		, minValue(std::numeric_limits<float>::max())
+		, addedValues(0)
+	{
+		values.emplace_back(0.0f);
+
+		timer.Start();
+	}
 
 	void AddValue(float value)
 	{
-		if(addedValues == valuesToAverage)
+		if(averageType == AVERAGE_TYPE::PER_SECOND)
 		{
-			if(values.back() < minValue)
-				minValue = values.back();
+			if(timer.GetTimeMillisecondsFraction() * 0.001f >= valuesToAverage)
+			{
+				if(values.back() < minValue)
+					minValue = values.back();
 
-			addedValues = 0;
-			values.emplace_back(0.0f);
+				values.emplace_back(0.0f);
+				timer.Reset();
+			}
+
+		}
+		else
+		{
+			if(addedValues == static_cast<int>(valuesToAverage))
+			{
+				if(values.back() < minValue)
+					minValue = values.back();
+
+				addedValues = 0;
+				values.emplace_back(0.0f);
+			}
+
 		}
 
+		++addedValues;
 		values.back() += value;
 
 		if(values.back() > maxValue)
@@ -108,8 +143,6 @@ public:
 					minValue = values[i];
 			}
 		}
-
-		++addedValues;
 	}
 
 	float GetValue(int index) const
@@ -140,15 +173,19 @@ public:
 		minValue = 0;
 	}
 
+	AVERAGE_TYPE averageType;
+
 	DirectX::XMFLOAT3 color;
 	std::deque<float> values;
 
 	int maxValues;
-	int valuesToAverage;
+	float valuesToAverage;
 	int addedValues;
 	float xResolution;
 	float maxValue;
 	float minValue;
+
+	Timer timer;
 };
 
 class Graph

@@ -21,7 +21,7 @@ public:
 	bool InitBuffers(ID3D11UnorderedAccessView* backBufferUAV) override;
 
 	void Update(std::chrono::nanoseconds delta) override;
-	void Draw() override;
+	std::map<std::string, double> Draw() override;
 
 	void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) override;
 	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) override;
