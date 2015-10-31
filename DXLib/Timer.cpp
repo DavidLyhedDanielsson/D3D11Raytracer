@@ -103,6 +103,11 @@ float Timer::GetTimeMillisecondsFraction() const
 	return std::chrono::duration_cast<std::chrono::nanoseconds>(GetTime()).count() * 0.000001f;
 }
 
+float Timer::GetDeltaMillisecondsFraction() const
+{
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(GetDelta()).count() * 0.000001f;
+}
+
 bool Timer::IsRunning() const
 {
 	return isRunning;

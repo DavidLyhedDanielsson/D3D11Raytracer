@@ -41,6 +41,8 @@ public:
 					tempArgument.values.emplace_back(value);
 			}
 
+			tempArgument.type = arguments.front().type;
+
 			T tempValue;
 
 			//Set
@@ -51,6 +53,7 @@ public:
 				//Use sstream since it already has overloads for >> for primitive data types
 				setter(tempValue);
 
+				tempValue >> returnArgument;
 				returnArgument.values.front().insert(0, name + " = ");
 
 				returnArgument.type = arguments.size() == 1 ? arguments.front().type : Argument::TYPE::UNKNOWN;

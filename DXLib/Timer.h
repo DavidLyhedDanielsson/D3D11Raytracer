@@ -24,6 +24,7 @@ public:
 	long long GetTimeMicroseconds() const;
 	long long GetTimeMilliseconds() const;
 	float GetTimeMillisecondsFraction() const;
+	float GetDeltaMillisecondsFraction() const;
 
 	bool IsRunning() const;
 private:

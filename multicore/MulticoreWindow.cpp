@@ -66,6 +66,7 @@ bool MulticoreWindow::Init()
 	auto removeCameraFrame = new CommandCallMethod("RemoveCameraFrame", std::bind(&MulticoreWindow::RemoveCameraFrame, this, std::placeholders::_1));
 	auto printCameraFrames = new CommandCallMethod("PrintCameraFrames", std::bind(&MulticoreWindow::PrintCameraFrames, this, std::placeholders::_1));
 	auto setCameraTargetSpeed = new CommandCallMethod("SetCameraTargetSpeed", std::bind(&MulticoreWindow::SetCameraTargetSpeed, this, std::placeholders::_1));
+	auto reloadShaders = new CommandCallMethod("ReloadShaders", std::bind(&MulticoreWindow::ReloadShaders, this, std::placeholders::_1));
 
 	console.AddCommand(resetCamera);
 	console.AddCommand(pauseCamera);
@@ -75,6 +76,13 @@ bool MulticoreWindow::Init()
 	console.AddCommand(removeCameraFrame);
 	console.AddCommand(printCameraFrames);
 	console.AddCommand(setCameraTargetSpeed);
+	console.AddCommand(reloadShaders);
+
+	auto rayBounces = new CommandGetterSetter<int>("rayBounces", std::bind(&MulticoreWindow::GetRayBounces, this), std::bind(&MulticoreWindow::SetRayBounces, this, std::placeholders::_1));
+	auto lightAttenuation = new CommandGetterSetter<LightAttenuation>("lightAttenuationFactors", std::bind(&MulticoreWindow::GetLightAttenuationFactors, this), std::bind(&MulticoreWindow::SetLightAttenuationFactors, this, std::placeholders::_1));
+
+	console.AddCommand(rayBounces);
+	console.AddCommand(lightAttenuation);
 
 #if USE_ALL_SHADER_PROGRAMS
 	auto setShaderProgram = new CommandCallMethod("SetShaderProgram", std::bind(&MulticoreWindow::SetShaderProgram, this, std::placeholders::_1));
@@ -228,15 +236,17 @@ void MulticoreWindow::Run()
 		{
 			gameTimer.UpdateDelta();
 
-			updateTimer.Reset();
-			updateTimer.Start();
-			Update(gameTimer.GetDelta());
-			updateTimer.Stop();
+			perFrameGraph.AddValueToTrack("Delta", gameTimer.GetDeltaMillisecondsFraction());
 
-			drawTimer.Reset();
-			drawTimer.Start();
+			//updateTimer.Reset();
+			//updateTimer.Start();
+			Update(gameTimer.GetDelta());
+			//updateTimer.Stop();
+
+			//drawTimer.Reset();
+			//drawTimer.Start();
 			Draw();
-			drawTimer.Stop();
+			//drawTimer.Stop();
 
 			//cpuGraph.AddValueToTrack("Update", updateTimer.GetTimeMillisecondsFraction());
 			//cpuGraph.AddValueToTrack("Draw", drawTimer.GetTimeMillisecondsFraction());
@@ -575,6 +585,53 @@ Argument MulticoreWindow::SetCameraTargetSpeed(const std::vector<Argument>& argu
 	return "";
 }
 
+Argument MulticoreWindow::ReloadShaders(const std::vector<Argument>& argument)
+{
+#ifdef USE_ALL_SHADER_PROGRAMS
+	for(ShaderProgram* program : shaderPrograms)
+	{
+		std::string errorString = program->ReloadShaders();
+
+		if(!errorString.empty())
+			return errorString;
+	}
+
+	return "";
+#else
+	return currentShaderProgram->ReloadShaders();
+#endif
+}
+
+void MulticoreWindow::SetRayBounces(int bounces)
+{
+#ifdef USE_ALL_SHADER_PROGRAMS
+	for(ShaderProgram* program : shaderPrograms)
+		program->SetRayBounces(bounces);
+#else
+	currentShaderProgram->SetRayBounces(bounces);
+#endif
+}
+
+void MulticoreWindow::SetLightAttenuationFactors(const LightAttenuation& lightAttenuation)
+{
+#ifdef USE_ALL_SHADER_PROGRAMS
+	for(ShaderProgram* program : shaderPrograms)
+		program->SetLightAttenuationFactors(lightAttenuation);
+#else
+	currentShaderProgram->SetLightAttenuationFactors(lightAttenuation);
+#endif
+}
+
+int MulticoreWindow::GetRayBounces() const
+{
+	return currentShaderProgram->GetRayBounces();
+}
+
+LightAttenuation MulticoreWindow::GetLightAttenuationFactors() const
+{
+	return currentShaderProgram->GetLightAttenuationFactors();
+}
+
 #if USE_ALL_SHADER_PROGRAMS
 Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument)
 {
@@ -727,15 +784,16 @@ bool MulticoreWindow::InitPointLights()
 
 bool MulticoreWindow::InitGraphs()
 {
-	std::vector<Track> perFrameTrack{ Track(10, 1.0f) };
-	std::vector<Track> perSecondTrack{ Track(0.1f, 1.0f) };
-	std::vector<std::string> trackNames{ "Primary", "Intersect", "Shade" };
+	std::vector<TrackDescriptor> perFrameTracks{ TrackDescriptor(10, 1.0f) };
+	std::vector<TrackDescriptor> perSecondTracks{ TrackDescriptor(0.1f, 1.0f) };
+	std::vector<std::string> perFrameTrackNames{ "Delta", "Primary", "Intersect", "Shade" };
+	std::vector<std::string> perSecondTrackNames{ "Primary", "Intersect", "Shade" };
 
-	LogErrorReturnFalse(perFrameGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 30.0f, 1, width, height, true), "Couldn't initialize per frame graph: ");
+	LogErrorReturnFalse(perFrameGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(0, 720 - 128), DirectX::XMINT2(256, 128), 1000.0f, 1, width, height, true), "Couldn't initialize per frame graph: ");
 	LogErrorReturnFalse(perSecondGraph.Init(device.get(), deviceContext.get(), &contentManager, DirectX::XMINT2(perFrameGraph.GetBackgroundWidth() + 256, 720 - 128), DirectX::XMINT2(256, 128), 10000.0f, 1, width, height, true), "Couldn't initialize per second graph: ");
 
-	LogErrorReturnFalse(perFrameGraph.AddTracks(trackNames, perFrameTrack), "Couldn't add tracks to per frame graph: ");
-	LogErrorReturnFalse(perSecondGraph.AddTracks(trackNames, perSecondTrack), "Couldn't add tracks to per second graph: ");
+	LogErrorReturnFalse(perFrameGraph.AddTracks(perFrameTrackNames, perFrameTracks), "Couldn't add tracks to per frame graph: ");
+	LogErrorReturnFalse(perSecondGraph.AddTracks(perSecondTrackNames, perSecondTracks), "Couldn't add tracks to per second graph: ");
 
 	return true;
 }
@@ -1111,7 +1169,7 @@ void MulticoreWindow::UploadBezierFrames()
 	if(vertices.size() > 0)
 		bezierVertexBuffer.Update<BezierVertex>(deviceContext.get(), &vertices[0], static_cast<int>(vertices.size()));
 
-	bezierVertexCount = vertices.size();
+	bezierVertexCount = static_cast<int>(vertices.size());
 }
 
 Argument MulticoreWindow::SetBezierTessFactors(const std::vector<Argument>& arguments)

@@ -25,16 +25,16 @@
 #include <DXConsole/Console.h>
 
 #include "Graph.h"
-#include "ComputeShader.h"
-
-#define USE_ALL_SHADER_PROGRAMS true
+#include "ShaderProgram.h"
 
 //#define USE_CONSTANT_BUFFER_SHADER_PROGRAM true
 //#define USE_STRUCTURED_BUFFER_SHADER_PROGRAM true
 //#define USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM true
 
+#if !USE_CONSTANT_BUFFER_SHADER_PROGRAM && !USE_STRUCTURED_BUFFER_SHADER_PROGRAM && !USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
+#define USE_ALL_SHADER_PROGRAMS true
+#endif
 
-class ShaderProgram;
 class ConstantBufferShaderProgram;
 class StructuredBufferShaderProgram;
 class AABBStructuredBufferShaderProgram;
@@ -235,6 +235,14 @@ private:
 	Argument RemoveCameraFrame(const std::vector<Argument>& argument);
 	Argument PrintCameraFrames(const std::vector<Argument>& argument);
 	Argument SetCameraTargetSpeed(const std::vector<Argument>& argument);
+
+	Argument ReloadShaders(const std::vector<Argument>& argument);
+
+	void SetRayBounces(int bounces);
+	void SetLightAttenuationFactors(const LightAttenuation& lightAttenuation);
+
+	int GetRayBounces() const;
+	LightAttenuation GetLightAttenuationFactors() const;
 
 #if USE_ALL_SHADER_PROGRAMS
 	Argument SetShaderProgram(const std::vector<Argument>& argument);

@@ -64,11 +64,13 @@ public:
 
 	std::string ReloadShaders();
 
+	void SetRayBounces(int bounces);
 	void SetLightAttenuationFactors(LightAttenuation factors);
 	void SetPointLights(PointLights pointLights);
 	void SetViewProjMatrix(DirectX::XMFLOAT4X4 viewProjMatrix);
 	void SetCameraPosition(DirectX::XMFLOAT3 cameraPosition);
 
+	int GetRayBounces() const;
 	LightAttenuation GetLightAttenuationFactors() const;
 	PointLights GetPointLights() const;
 
@@ -117,11 +119,7 @@ protected:
 
 inline bool operator>>(const LightAttenuation& lhs, Argument& rhs)
 {
-	rhs.values.resize(3, "");
-	
-	rhs.values[0] = std::to_string(lhs.factors[0]);
-	rhs.values[1] = std::to_string(lhs.factors[1]);
-	rhs.values[2] = std::to_string(lhs.factors[2]);
+	rhs.values.push_back("[" + std::to_string(lhs.factors[0]) + ", " + std::to_string(lhs.factors[1]) + ", " + std::to_string(lhs.factors[2]) + "]");
 
 	return true;
 }
@@ -138,12 +136,14 @@ inline bool operator>>(const Argument& lhs, LightAttenuation& rhs)
 		return false;
 
 	sstream.str(std::string());
+	sstream.clear();
 	sstream << lhs.values[1];
 	sstream >> rhs.factors[1];
 	if(sstream.fail())
 		return false;
 
 	sstream.str(std::string());
+	sstream.clear();
 	sstream << lhs.values[2];
 	sstream >> rhs.factors[2];
 	if(sstream.fail())

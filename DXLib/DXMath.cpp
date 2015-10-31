@@ -58,9 +58,9 @@ DirectX::XMVECTOR DirectX::XMLoadFloat3(float x, float y, float z)
 	return XMLoadFloat4(x, y, z, 0.0f);
 }
 
-DirectX::XMFLOAT3 DirectX::XMLoadFloat3(const XMFLOAT2& float2)
+DirectX::XMFLOAT3 DirectX::XMLoadFloat3(const XMFLOAT2& float2, float z /*= 0.0f*/)
 {
-	return DirectX::XMFLOAT3(float2.x, float2.y, 0.0f);
+	return DirectX::XMFLOAT3(float2.x, float2.y, z);
 }
 
 DirectX::XMFLOAT3 DirectX::XMLoadFloat3(const XMFLOAT4& float4)
@@ -79,14 +79,14 @@ DirectX::XMVECTOR DirectX::XMLoadFloat4(float x, float y, float z, float w)
 	return returnVector;
 }
 
-DirectX::XMFLOAT4 DirectX::XMLoadFloat4(const XMFLOAT2& float2)
+DirectX::XMFLOAT4 DirectX::XMLoadFloat4(const XMFLOAT2& float2, float z /*= 0.0f*/, float w /*= 0.0f*/)
 {
-	return DirectX::XMFLOAT4(float2.x, float2.y, 0.0f, 0.0f);
+	return DirectX::XMFLOAT4(float2.x, float2.y, z, w);
 }
 
-DirectX::XMFLOAT4 DirectX::XMLoadFloat4(const XMFLOAT3& float3)
+DirectX::XMFLOAT4 DirectX::XMLoadFloat4(const XMFLOAT3& float3, float w /*= 0.0f*/)
 {
-	return DirectX::XMFLOAT4(float3.x, float3.y, float3.z, 0.0f);
+	return DirectX::XMFLOAT4(float3.x, float3.y, float3.z, w);
 }
 
 float DirectX::XMQuaternionGetYaw(const XMFLOAT4& quaternion)

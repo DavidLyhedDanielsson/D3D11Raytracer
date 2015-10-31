@@ -14,11 +14,11 @@ namespace DirectX
 	DirectX::XMFLOAT2 XMLoadFloat2(const DirectX::XMFLOAT3& float3);
 	DirectX::XMFLOAT2 XMLoadFloat2(const DirectX::XMFLOAT4& float4);
 	DirectX::XMVECTOR XMLoadFloat3(float x, float y, float z);
-	DirectX::XMFLOAT3 XMLoadFloat3(const DirectX::XMFLOAT2& float2);
+	DirectX::XMFLOAT3 XMLoadFloat3(const DirectX::XMFLOAT2& float2, float z = 0.0f);
 	DirectX::XMFLOAT3 XMLoadFloat3(const DirectX::XMFLOAT4& float4);
 	DirectX::XMVECTOR XMLoadFloat4(float x, float y, float z, float w);
-	DirectX::XMFLOAT4 XMLoadFloat4(const DirectX::XMFLOAT2& float2);
-	DirectX::XMFLOAT4 XMLoadFloat4(const DirectX::XMFLOAT3& float3);
+	DirectX::XMFLOAT4 XMLoadFloat4(const DirectX::XMFLOAT2& float2, float z = 0.0f, float w = 0.0f);
+	DirectX::XMFLOAT4 XMLoadFloat4(const DirectX::XMFLOAT3& float3, float w = 0.0f);
 
 	float XMQuaternionGetPitch(const DirectX::XMFLOAT4& quaternion);
 	float XMQuaternionGetYaw(const DirectX::XMFLOAT4& quaternion);

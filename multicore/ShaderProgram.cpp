@@ -25,14 +25,6 @@ bool ShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContex
 	this->backBufferHeight = backBufferHeight;
 	this->contentManager = contentManager;
 
-	auto rayBouncesCommand = new CommandGetSet<int>("rayBounces", &rayBounces);
-	if(!console->AddCommand(rayBouncesCommand))
-		delete rayBouncesCommand;
-
-	auto reloadShadersCommand = new CommandCallMethod("ReloadShaders", std::bind(&ShaderProgram::ConsoleReloadShaders, this, std::placeholders::_1), false);
-	if(!console->AddCommand(reloadShadersCommand))
-		delete reloadShadersCommand;
-
 	if(!InitPointLights())
 		return false;
 	if(!InitTimer())
@@ -84,6 +76,11 @@ void ShaderProgram::SetViewProjMatrix(DirectX::XMFLOAT4X4 viewProjMatrix)
 void ShaderProgram::SetCameraPosition(DirectX::XMFLOAT3 cameraPosition)
 {
 	this->cameraPosition = cameraPosition;
+}
+
+int ShaderProgram::GetRayBounces() const
+{
+	return rayBounces;
 }
 
 LightAttenuation ShaderProgram::GetLightAttenuationFactors() const
@@ -147,10 +144,6 @@ bool ShaderProgram::InitPointLights()
 	LogErrorReturnFalse(pointlightAttenuationBuffer.Create<LightAttenuation>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create light attenuation buffer: ");
 	LogErrorReturnFalse(pointLightBuffer.Create<PointLights>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create point light buffer: ");
 
-	auto setLightAttenuationFactors = new CommandGetterSetter<LightAttenuation>("lightAttenuationFactors", std::bind(&ShaderProgram::GetLightAttenuationFactors, this), std::bind(&ShaderProgram::SetLightAttenuationFactors, this, std::placeholders::_1));
-	if(!console->AddCommand(setLightAttenuationFactors))
-		delete setLightAttenuationFactors;
-
 	return true;
 }
 
@@ -171,4 +164,15 @@ bool ShaderProgram::InitTimer()
 	}
 
 	return true;
+}
+
+void ShaderProgram::SetRayBounces(int bounces)
+{
+	if(bounces > MAX_BOUNCES)
+	{
+		bounces = MAX_BOUNCES;
+		Logger::LogLine(LOG_TYPE::WARNING, "Can't set bounces to a value larger than " + std::to_string(MAX_BOUNCES) + "(MAX_BOUNCES)");
+	}
+
+	rayBounces = bounces;
 }

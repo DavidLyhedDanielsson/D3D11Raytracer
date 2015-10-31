@@ -127,23 +127,29 @@ std::string Graph::Init(ID3D11Device* device, ID3D11DeviceContext* context, Cont
 	return "";
 }
 
-std::string Graph::AddTrack(std::string name, Track track)
+std::string Graph::AddTrack(std::string name, TrackDescriptor descriptor)
 {
-	track.maxValues = CalculateMaxValues(track);
+	std::unique_ptr<Track> newTrack;
 
-	if(track.color.x == -1.0f)
+	if(descriptor.perTime)
+		newTrack.reset(new TrackPerSecond(descriptor.valuesToAdd, descriptor.xResolution, descriptor.color));
+	else
+		newTrack.reset(new TrackPerAdd(descriptor.valuesToAdd, descriptor.xResolution, descriptor.color));
+
+	newTrack->maxValues = CalculateMaxValues(newTrack.get());
+
+	if(descriptor.color.x == -1.0f)
 	{
 		if(defaultColors.empty())
-			return "Can't add more tracks than 10 without assigning them colors";
+			return "Can't add more tracks than 10 without explicitly assigning them colors";
 
-		Track newTrack(track);
-		newTrack.color = defaultColors.front();
+		newTrack->color = defaultColors.front();
 
 		this->tracks.insert(std::make_pair(name, std::move(newTrack)));
 		defaultColors.pop();
 	}
 	else
-		this->tracks.insert(std::make_pair(name, std::move(track)));
+		this->tracks.insert(std::make_pair(name, std::move(newTrack)));
 
 	vertexBuffer.reset(CreateVertexBuffer());
 	if(vertexBuffer == nullptr)
@@ -158,22 +164,29 @@ std::string Graph::AddTrack(std::string name, Track track)
 	return "";
 }
 
-std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<Track> tracks)
+std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<TrackDescriptor> descriptors)
 {
 	int addedTracks = 0;
 	bool tooManyTracks = false;
 
-	if(tracks.size() == 0)
-		tracks.push_back(Track(1, 1));
+	if(descriptors.size() == 0)
+		descriptors.push_back(TrackDescriptor(1, 1.0f));
 
-	while(tracks.size() < trackNames.size())
-		tracks.push_back(tracks[0]);
+	while(descriptors.size() < trackNames.size())
+		descriptors.push_back(descriptors[0]);
 
 	for(int i = 0, end = static_cast<int>(trackNames.size()); i < end; ++i)
 	{
-		tracks[i].maxValues = CalculateMaxValues(tracks[i]);
+		std::unique_ptr<Track> newTrack;
 
-		if(tracks[i].color.x == -1.0f)
+		if(descriptors[i].perTime)
+			newTrack.reset(new TrackPerSecond(descriptors[i].valuesToAdd, descriptors[i].xResolution, descriptors[i].color));
+		else
+			newTrack.reset(new TrackPerAdd(descriptors[i].valuesToAdd, descriptors[i].xResolution, descriptors[i].color));
+
+		newTrack->maxValues = CalculateMaxValues(newTrack.get());
+
+		if(descriptors[i].color.x == -1.0f)
 		{
 			if(defaultColors.empty())
 			{
@@ -181,14 +194,13 @@ std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<Tr
 				break;
 			}
 
-			Track newTrack(std::move(tracks[i]));
-			newTrack.color = defaultColors.front();
+			newTrack->color = defaultColors.front();
 
 			this->tracks.insert(std::make_pair(std::move(trackNames[i]), std::move(newTrack)));
 			defaultColors.pop();
 		}
 		else
-			this->tracks.insert(std::make_pair(std::move(trackNames[i]), std::move(tracks[i])));
+			this->tracks.insert(std::make_pair(trackNames[i], std::move(newTrack)));
 
 		++addedTracks;
 	}
@@ -202,7 +214,7 @@ std::string Graph::AddTracks(std::vector<std::string> trackNames, std::vector<Tr
 		return "Couldn't create index buffer";
 
 	if(tooManyTracks)
-		return "Can't add more tracks than 10 without assigning them colors. " + std::to_string(addedTracks) + " were added";
+		return "Can't add more tracks than 10 without explicitly assigning them colors. " + std::to_string(addedTracks) + " were added";
 
 	CreateLegend();
 
@@ -219,7 +231,7 @@ void Graph::AddValueToTrack(const std::string& track, float value)
 	}
 #endif
 
-	tracks[track].AddValue(value);
+	tracks[track]->AddValue(value);
 }
 
 void Graph::Draw(SpriteRenderer* spriteRenderer)
@@ -244,8 +256,8 @@ void Graph::Draw(SpriteRenderer* spriteRenderer)
 
 	for(const auto& track : tracks)
 	{
-		if(track.second.GetMaxValue() > maxValue)
-			maxValue = track.second.GetMaxValue();
+		if(track.second->maxValue > maxValue)
+			maxValue = track.second->maxValue;
 	}
 
 	if(maxValue == 0.0f)
@@ -253,66 +265,46 @@ void Graph::Draw(SpriteRenderer* spriteRenderer)
 
 	for(const auto& track : tracks)
 	{
-		DirectX::XMFLOAT4 color;
-		color.x = track.second.color.x;
-		color.y = track.second.color.y;
-		color.z = track.second.color.z;
-		color.w = 1.0f;
+		DirectX::XMFLOAT4 color = DirectX::XMLoadFloat4(track.second->color, 1.0f);
 
 		//////////////////////////////////////////////////
 		//Max
 		//////////////////////////////////////////////////
-		float max = track.second.GetMaxValue();
+		float max = track.second->maxValue;
 		float maxYPosition = CalculateYValue(maxValue, max) - font->GetLineHeight() * 0.5f;
 
 		//////////////////////////////////////////////////
-		//Min
+		//Average
 		//////////////////////////////////////////////////
-		std::deque<float> values = track.second.GetValues();
-
-		float min = 0.0f;// = track.second.GetMinValue();
-
-		int valueRange = std::ceil(values.size() * 0.25f);
-		if(values.size() > valueRange + 1)
-		{
-			int endDistance = valueRange + 2;
-
-			if(values.size() - endDistance <= 0)
-				endDistance = values.size();
-
-			for(auto iter = values.end() - 2, end = values.end() - endDistance; iter != end; --iter)
-				min += (*iter) / static_cast<float>(track.second.valuesToAverage);
-
-			min /= static_cast<float>(valueRange);
-		}
-
-		float minYPosition = CalculateYValue(maxValue, min) - font->GetLineHeight() * 0.5f;
+		float average = track.second->CalculateAverage();
+		float averageYPosition = CalculateYValue(maxValue, average) - font->GetLineHeight() * 0.5f;
 
 		std::string maxText;
-		std::string minText;
+		std::string averageText;
 
 		float maxXPosition = this->position.x + this->width;
-		float minXPosition;
+		float averageXPosition;
 
-		if(minYPosition - maxYPosition > font->GetLineHeight() * 0.5f)
+		if(averageYPosition - maxYPosition > font->GetLineHeight() * 0.5f)
 		{
-			minXPosition = maxXPosition;
+			//Draw max and avg separately
+			averageXPosition = maxXPosition;
 
 			maxText = FloatToString(max);
-			minText = FloatToString(min);
+			averageText = FloatToString(average);
 
 			spriteRenderer->DrawString(font, maxText, DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
-			spriteRenderer->DrawString(font, minText, DirectX::XMFLOAT2(std::roundf(minXPosition), std::roundf(minYPosition)), color);
+			spriteRenderer->DrawString(font, averageText, DirectX::XMFLOAT2(std::roundf(averageXPosition), std::roundf(averageYPosition)), color);
 		}
 		else
 		{
-			minXPosition = this->position.x + this->width + font->GetWidthAtIndex(track.first, -1);
+			//Draw max and avg as [max;avg]
+			averageXPosition = this->position.x + this->width + font->GetWidthAtIndex(track.first, -1);
 
 			maxText = FloatToString(max);
-			minText = FloatToString(min);
+			averageText = FloatToString(average);
 
-			//spriteRenderer->DrawString(characterSet, track.first + " [" + FloatToString(min) + "," + FloatToString(max) + "]", DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
-			spriteRenderer->DrawString(font, "[" + FloatToString(min) + ";" + FloatToString(max) + "]", DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
+			spriteRenderer->DrawString(font, "[" + FloatToString(average) + ";" + FloatToString(max) + "]", DirectX::XMFLOAT2(std::roundf(maxXPosition), std::roundf(maxYPosition)), color);
 		}
 	}
 }
@@ -336,8 +328,8 @@ void Graph::Draw()
 
 	for(const auto& track : tracks)
 	{
-		if(track.second.GetMaxValue() > maxValue)
-			maxValue = track.second.GetMaxValue();
+		if(track.second->maxValue > maxValue)
+			maxValue = track.second->maxValue;
 	}
 
 	if(maxValue == 0.0f)
@@ -353,13 +345,10 @@ void Graph::Draw()
 		DirectX::XMFLOAT2 position(this->position);
 		position.x += this->width;
 
-		DirectX::XMFLOAT4 color;
-		color.x = track.second.color.x;
-		color.y = track.second.color.y;
-		color.z = track.second.color.z;
-		color.w = 1.0f;
+		DirectX::XMFLOAT4 color = DirectX::XMLoadFloat4(track.second->color, 1.0f);
 
-		float max = track.second.GetMaxValue();
+		//Draw max line
+		float max = track.second->maxValue;
 		float maxYPosition = CalculateYValue(maxValue, max);
 
 		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, maxYPosition), color, DirectX::XM_PIDIV2);
@@ -368,51 +357,36 @@ void Graph::Draw()
 		newIndicies.emplace_back(vertexCount);
 		newIndicies.emplace_back(vertexCount + 1);
 
-		//float min = track.second.GetMinValue();
-		float min = 0.0f;// = track.second.GetMinValue();
-
-		std::deque<float> values = track.second.GetValues();
-		int valueRange = std::ceil(values.size() * 0.25f);
-		if(values.size() > valueRange + 1)
-		{
-			int endDistance = valueRange + 2;
-
-			if(values.size() - endDistance <= 0)
-				endDistance = values.size();
-
-			for(auto iter = values.end() - 2, end = values.end() - endDistance; iter != end; --iter)
-				min += (*iter) / static_cast<float>(track.second.valuesToAverage);
-
-			min /= static_cast<float>(valueRange);
-		}
-
-		//float minYPosition = CalculateYValue(maxValue, min) - characterSet->GetLineHeight() * 0.5f;
-
-		float minYPosition = CalculateYValue(maxValue, min);
-		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, minYPosition), color, DirectX::XM_PIDIV2);
-		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x, minYPosition), color, DirectX::XM_2PI * 20.5f);
+		//Draw avg line
+		float averageYPosition = CalculateYValue(maxValue, track.second->CalculateAverage());
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, averageYPosition), color, DirectX::XM_PIDIV2);
+		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x, averageYPosition), color, DirectX::XM_2PI * 20.5f);
 
 		newIndicies.emplace_back(vertexCount + 2);
 		newIndicies.emplace_back(vertexCount + 3);
 
 		vertexCount = newVertices.size();
 
-		if(values.empty())
+		if(track.second->values.empty())
 			continue;
 
+		//Begin point (basically 0)
 		newVertices.emplace_back(DirectX::XMFLOAT2(this->position.x + this->width, this->position.y + height), color, DirectX::XM_PIDIV2);
 
-		for(auto iter = values.rbegin(), end = values.rend(); iter != end; ++iter)
+		//Draw actual graph lines
+		for(auto iter = track.second->values.rbegin(), end = track.second->values.rend(); iter != end; ++iter)
 		{
-			float value = *iter / static_cast<float>(track.second.valuesToAverage);
+			float value = *iter;
+
+			//if(track.second->averageType == Track::AVERAGE_TYPE::PER_ADD)
+			//	value = *iter / static_cast<float>(track.second->valuesToAverage);
+			//else
+			//	value = *iter / static_cast<float>(track.second->addedValues);
 
 			position.y = CalculateYValue(maxValue, value);
-			position.x -= track.second.xResolution;
+			position.x -= track.second->xResolution;
 
 			newVertices.emplace_back(position, color, DirectX::XM_PIDIV2);
-
-			if(value > maxValue)
-				maxValue = value;
 		}
 
 		for(int i = vertexCount; i < static_cast<int>(newVertices.size()) - 1; ++i)
@@ -476,7 +450,7 @@ void Graph::CreateLegend()
 	std::priority_queue<Rect, std::vector<LegendIndex>, decltype(RectComparator)> rectangles(RectComparator);
 
 	for(const auto& track : tracks)
-		rectangles.emplace(track.first, DirectX::XMFLOAT2(legendFont->GetWidthAtIndex(track.first, -1) + xPadding, legendFont->GetLineHeight()), track.second.color);
+		rectangles.emplace(track.first, DirectX::XMFLOAT2(legendFont->GetWidthAtIndex(track.first, -1) + xPadding, legendFont->GetLineHeight()), track.second->color);
 
 	std::vector<float> shelves(1, maxWidth);
 
@@ -580,14 +554,14 @@ int Graph::CalculateMaxPoints() const
 	int maxPoints = 0;
 
 	for(const auto& pair : tracks)
-		maxPoints += pair.second.maxValues + 5; //+1 for "0-element", +2 for max markers, +2 for min markers
+		maxPoints += pair.second->maxValues + 5; //+1 for "0-element", +2 for max markers, +2 for min markers
 
 	return maxPoints;
 }
 
-int Graph::CalculateMaxValues(const Track& track) const
+int Graph::CalculateMaxValues(Track* track) const
 {
-	return std::ceil(width / track.xResolution);
+	return std::ceil(width / track->xResolution);
 }
 
 float Graph::CalculateYValue(float maxValue, float value) const
@@ -619,7 +593,7 @@ int Graph::GetBackgroundWidth() const
 void Graph::Reset()
 {
 	for(auto& pair : tracks)
-		pair.second.Clear();
+		pair.second->Clear();
 }
 
 bool Graph::DumpValues(const std::string& path) const
@@ -632,8 +606,7 @@ bool Graph::DumpValues(const std::string& path) const
 	{
 		out << pair.first << " ";
 
-		auto values = pair.second.GetValues();
-		for(float value : values)
+		for(float value : pair.second->values)
 			out << value << " ";
 
 		out << std::endl;

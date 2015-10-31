@@ -653,7 +653,7 @@ inline std::string operator+(const std::string& lhs, const Argument& rhs)
 
 	rhs >> temp;
 
-	return temp;
+	return lhs + temp;
 }
 
 inline std::string operator+(const Argument& lhs, const std::string& rhs)
