@@ -251,7 +251,7 @@ std::map<std::string, double> AABBStructuredBufferShaderProgram::Draw()
 	{
 		DrawRayIntersection(i + (i % 2));
 		d3d11Timer.Stop("Intersect" + std::to_string(i));
-		DrawRayShading(1 + (i % 2));
+		DrawRayShading(i % 2);
 		d3d11Timer.Stop("Shade" + std::to_string(i));
 	}
 

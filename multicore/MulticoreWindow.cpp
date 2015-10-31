@@ -169,7 +169,7 @@ bool MulticoreWindow::Init()
 		currentCamera = &fpsCamera;
 
 	//Etc
-	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 1.0f, 1000.0f);
+	fpsCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 1000.0f);
 	cinematicCamera.InitFovHorizontal(DirectX::XMFLOAT3(0.0f, 3.0f, -7.0f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), DirectX::XMConvertToRadians(90.0f), static_cast<float>(width) / static_cast<float>(height), 0.01f, 100.0f);
 	cinematicCamera.LookAt(DirectX::XMFLOAT3(0.0f, 3.5f, 0.0f));
 
@@ -862,19 +862,19 @@ bool MulticoreWindow::InitRoom()
 	std::vector<DirectX::XMFLOAT4> spheres;
 	std::vector<DirectX::XMFLOAT4> sphereColors;
 
-	float heightIncrease = 0.2f;
+	float heightIncrease = 0.1f;
 
 	float rotationValue = 0.0f;
 	float heightValue = 0.0f;
 
-	float radius = 50.0f;
+	float radius = 5.5f;
 
-	for(int i = 0; i < 0; ++i)
+	for(int i = 0; i < 64; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
 
-		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, 0.0f, std::sinf(rotationValue) * radius, 2.0f);
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, -3.0 + (rand() / static_cast<float>(RAND_MAX)) * 6.0f, std::sinf(rotationValue) * radius, 0.5f);
 		if(i % 3 == 0)
 			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
 		else if(i % 3 == 1)
@@ -892,18 +892,6 @@ bool MulticoreWindow::InitRoom()
 		currentShaderProgram->AddSphere(newSphere, newColor);
 #endif
 	}
-
-
-
-#if USE_ALL_SHADER_PROGRAMS
-	for(ShaderProgram* program : shaderPrograms)
-	{
-		program->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 100.0f, 50.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f));
-		program->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 40.0f, 10.0f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 0.0f));
-	}
-#else
-	//currentShaderProgram->AddSphere(DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 10.0f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f));
-#endif
 
 	//////////////////////////////////////////////////
 	//Triangles
