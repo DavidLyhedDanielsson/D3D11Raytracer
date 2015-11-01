@@ -1,4 +1,4 @@
-#include "StructuredBufferSharedConstants.h"
+#include "SuperSampledSharedConstants.h"
 
 RWTexture2D<float4> outputPosition : register(u0);
 RWTexture2D<float4> outputDirection : register(u1);
@@ -11,16 +11,21 @@ cbuffer viewProjBuffer : register(b0)
 	float4x4 viewProjMatrixInv;
 };
 
+cbuffer superSampleBuffer : register(b1)
+{
+	uint superSampleCount;
+};
+
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
 	//Convert threadID to NDC coords
-	float2 ndcCoords = threadID.xy / float2(SCREEN_RES_X, SCREEN_RES_Y) * 2.0f;
+	float2 ndcCoords = threadID.xy / float2(SCREEN_RES_X * superSampleCount, SCREEN_RES_Y * superSampleCount) * 2.0f;
 
 	ndcCoords.x -= 1.0f;
 	ndcCoords.y = 1.0f - ndcCoords.y;
 
-	//Reversed depth buffer, so min = 1.0f and max = 0.0f
+	//Reversed depth buffer
 	float3 minNDC = float3(ndcCoords, 1.0f);
 	float3 maxNDC = float3(ndcCoords, 0.0f);
 

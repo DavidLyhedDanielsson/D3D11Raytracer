@@ -140,6 +140,11 @@ bool RayTriangleIntersection(float3 rayPosition, float3 rayDirection, float3 v0,
 	return true;
 }
 
+float2 UnpackTexcoords(int intValue)
+{
+	return float2((intValue >> 16) & 0xFFFF, intValue & 0xFFFF) / (float)(0xFFFF);
+}
+
 #endif
 
 #endif // SharedShaderConstants_h__

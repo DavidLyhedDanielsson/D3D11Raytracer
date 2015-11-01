@@ -160,6 +160,7 @@
     <ClCompile Include="MulticoreWindow.cpp" />
     <ClCompile Include="ShaderProgram.cpp" />
     <ClCompile Include="ConstantBufferShaderProgram.cpp" />
+    <ClCompile Include="SuperSampledShaderProgram.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABBStructuredBufferShaderProgram.h" />
@@ -169,6 +170,8 @@
     <ClInclude Include="Shaders\ConstantBuffer\ConstantBufferSharedConstants.h" />
     <ClInclude Include="Shaders\StructuredBuffer\StructuredBufferSharedBuffers.h" />
     <ClInclude Include="Shaders\StructuredBuffer\StructuredBufferSharedConstants.h" />
+    <ClInclude Include="Shaders\SuperSampled\SuperSampledSharedBuffers.h" />
+    <ClInclude Include="Shaders\SuperSampled\SuperSampledSharedConstants.h" />
     <ClInclude Include="StructuredBufferShaderProgram.h" />
     <ClInclude Include="ComputeShader.h" />
     <ClInclude Include="DX11Window.h" />
@@ -179,6 +182,7 @@
     <ClInclude Include="SharedShaderConstants.h" />
     <ClInclude Include="SharedShaderBuffers.h" />
     <ClInclude Include="ConstantBufferShaderProgram.h" />
+    <ClInclude Include="SuperSampledShaderProgram.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BezierConstants.hlsl">
@@ -276,6 +280,38 @@
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(Filename).cso</ObjectFileOutput>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename).cso</ObjectFileOutput>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_DEBUG</PreprocessorDefinitions>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Composit.hlsl">
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Intersection.hlsl">
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\PrimaryRayGenerator.hlsl">
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Shading.hlsl">
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="TransferDepthVertexShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>

@@ -37,6 +37,9 @@
     <Filter Include="Resource Files\Shaders\AABBStructuredBuffer">
       <UniqueIdentifier>{42d52a35-6ca3-4ef0-b439-f8a7277c5cae}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Shaders\SuperSampled">
+      <UniqueIdentifier>{6ed9c01a-7ac0-40f4-97e8-04bdd86c2ea5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -65,6 +68,9 @@
     </ClCompile>
     <ClCompile Include="AABBStructuredBufferShaderProgram.cpp">
       <Filter>Source Files\ShaderPrograms</Filter>
+    </ClCompile>
+    <ClCompile Include="SuperSampledShaderProgram.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -118,6 +124,15 @@
     </ClInclude>
     <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedBuffers.h">
       <Filter>Resource Files\Shaders\AABBStructuredBuffer</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\SuperSampled\SuperSampledSharedBuffers.h">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\SuperSampled\SuperSampledSharedConstants.h">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </ClInclude>
+    <ClInclude Include="SuperSampledShaderProgram.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -192,6 +207,18 @@
     </FxCompile>
     <FxCompile Include="TransferDepthVertexShader.hlsl">
       <Filter>Resource Files\Forward</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\PrimaryRayGenerator.hlsl">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Shading.hlsl">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Composit.hlsl">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\SuperSampled\Intersection.hlsl">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

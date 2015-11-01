@@ -37,6 +37,10 @@ public:
 
 	std::string CreateFromFile(const std::string& path, ID3D11Device* const device)
 	{
+		shader.reset();
+		shaderBlob.reset();
+		resourceBinds.clear();
+
 		shaderPath = path;
 		std::string returnMessage;
 
@@ -48,9 +52,9 @@ public:
 		if(!returnMessage.empty())
 			return returnMessage;
 
-		ID3D11ShaderReflection* reflectionDumb = nullptr;
+		/*ID3D11ShaderReflection* reflectionDumb = nullptr;
 		D3DReflect(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflectionDumb));
-		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);
+		COMUniquePtr<ID3D11ShaderReflection> reflection(reflectionDumb);*/
 
 		return "";
 	}
@@ -58,6 +62,10 @@ public:
 	template<typename... ResourceBinds>
 	std::string CreateFromFile(const std::string& path, ID3D11Device* const device, ResourceBinds... resourceBinds)
 	{
+		shader.reset();
+		shaderBlob.reset();
+		resourceBinds.clear();
+
 		shaderPath = path;
 		std::string returnMessage;
 

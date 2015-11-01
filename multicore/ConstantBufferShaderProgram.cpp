@@ -75,11 +75,6 @@ bool ConstantBufferShaderProgram::InitUAVSRV()
 bool ConstantBufferShaderProgram::InitShaders()
 {
 	//////////////////////////////////////////////////
-	//Cbuffers
-	//////////////////////////////////////////////////
-	//LogErrorReturnFalse(viewProjInverseBuffer.Create(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, DXConstantBuffer::TYPE::FLOAT4X4), "Couldn't create view proj inverse buffer: ");
-
-	//////////////////////////////////////////////////
 	//Primary rays
 	//////////////////////////////////////////////////
 	ShaderResourceBinds primaryResourceBinds0;
@@ -91,12 +86,34 @@ bool ConstantBufferShaderProgram::InitShaders()
 	primaryResourceBinds0.AddResource(rayDirectionUAV[0].get(), 1);
 	primaryResourceBinds0.AddResource(rayNormalUAV.get(), 2);
 	primaryResourceBinds0.AddResource(outputColorUAV[1].get(), 3);
+	primaryResourceBinds0.AddResource(depthBufferUAV, 4);
 
 	LogErrorReturnFalse(primaryRayGenerator.CreateFromFile(shaderPath + "PrimaryRayGenerator.hlsl", device, primaryResourceBinds0), "");
 
 	//////////////////////////////////////////////////
 	//Intersection
 	//////////////////////////////////////////////////
+	ShaderResourceBinds traceResourceBindInitial;
+	//CBuffers
+	traceResourceBindInitial.AddResource(sphereBuffer, ConstantBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleVertexBuffer, ConstantBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleBuffer, ConstantBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+
+	//UAVs
+	traceResourceBindInitial.AddResource(rayPositionUAV[1].get(), 0);
+	traceResourceBindInitial.AddResource(rayDirectionUAV[1].get(), 1);
+	traceResourceBindInitial.AddResource(rayNormalUAV.get(), 2);
+	traceResourceBindInitial.AddResource(rayColorUAV.get(), 3);
+	traceResourceBindInitial.AddResource(depthBufferUAV, 4);
+
+	//SRVs
+	traceResourceBindInitial.AddResource(rayPositionSRV[0].get(), 0);
+	traceResourceBindInitial.AddResource(rayDirectionSRV[0].get(), 1);
+	traceResourceBindInitial.AddResource(objFile->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+
+	//Samplers
+	traceResourceBindInitial.AddResource(SamplerStates::linearClamp, 0);
+
 	ShaderResourceBinds traceResourceBinds0;
 	//CBuffers
 	traceResourceBinds0.AddResource(sphereBuffer, ConstantBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
@@ -108,6 +125,9 @@ bool ConstantBufferShaderProgram::InitShaders()
 	traceResourceBinds0.AddResource(rayDirectionUAV[1].get(), 1);
 	traceResourceBinds0.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds0.AddResource(rayColorUAV.get(), 3);
+
+	ID3D11UnorderedAccessView* nullUAV = nullptr;
+	traceResourceBinds0.AddResource(nullUAV, 4);
 
 	//SRVs
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
@@ -128,6 +148,7 @@ bool ConstantBufferShaderProgram::InitShaders()
 	traceResourceBinds1.AddResource(rayDirectionUAV[0].get(), 1);
 	traceResourceBinds1.AddResource(rayNormalUAV.get(), 2);
 	traceResourceBinds1.AddResource(rayColorUAV.get(), 3);
+	traceResourceBinds1.AddResource(nullUAV, 4);
 
 	//SRVs
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
@@ -137,7 +158,7 @@ bool ConstantBufferShaderProgram::InitShaders()
 	//Samplers
 	traceResourceBinds1.AddResource(SamplerStates::linearClamp, 0);
 
-	LogErrorReturnFalse(traceShader.CreateFromFile(shaderPath + "Intersection.hlsl", device, traceResourceBinds0, traceResourceBinds1), "");
+	LogErrorReturnFalse(traceShader.CreateFromFile(shaderPath + "Intersection.hlsl", device, traceResourceBindInitial, traceResourceBinds0, traceResourceBinds1), "");
 
 	//////////////////////////////////////////////////
 	//Coloring
@@ -212,9 +233,14 @@ std::map<std::string, double> ConstantBufferShaderProgram::Draw()
 	DrawRayPrimary();
 	d3d11Timer.Stop("Primary");
 
-	for(int i = 0; i < rayBounces; ++i)
+	DrawRayIntersection(0);
+	d3d11Timer.Stop("Intersect0");
+	DrawRayShading(0);
+	d3d11Timer.Stop("Shade0");
+
+	for(int i = 1; i < rayBounces; ++i)
 	{
-		DrawRayIntersection(i % 2);
+		DrawRayIntersection(i + (i % 2));
 		d3d11Timer.Stop("Intersect" + std::to_string(i));
 		DrawRayShading(i % 2);
 		d3d11Timer.Stop("Shade" + std::to_string(i));

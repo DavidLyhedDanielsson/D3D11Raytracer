@@ -1,4 +1,4 @@
-#include "AABBStructuredBufferSharedBuffers.h"
+#include "SuperSampledSharedBuffers.h"
 
 RWTexture2D<float4> rayPositionsOut : register(u0);
 RWTexture2D<float4> rayDirectionsOut : register(u1);

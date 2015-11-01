@@ -19,6 +19,7 @@
 #include "ConstantBufferShaderProgram.h"
 #include "StructuredBufferShaderProgram.h"
 #include "AABBStructuredBufferShaderProgram.h"
+#include "SuperSampledShaderProgram.h"
 
 MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, UINT height)
 	: DX11Window(hInstance, nCmdShow, width, height)
@@ -103,11 +104,16 @@ bool MulticoreWindow::Init()
 	if(!aabbStructuredBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
 		return false;
 
+	superSampledShaderProgram.reset(new SuperSampledShaderProgram());
+	if(!superSampledShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager, 1))
+		return false;
+
 	shaderPrograms.push_back(constantBufferShaderProgram.get());
 	shaderPrograms.push_back(structuredBufferShaderProgram.get());
 	shaderPrograms.push_back(aabbStructuredBufferShaderProgram.get());
+	shaderPrograms.push_back(superSampledShaderProgram.get());
 
-	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
+	currentShaderProgram = shaderPrograms.back();
 #elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
 	constantBufferShaderProgram.reset(new ConstantBufferShaderProgram());
 	if(!constantBufferShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
@@ -126,6 +132,12 @@ bool MulticoreWindow::Init()
 		return false;
 
 	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
+#elif USE_SUPER_SAMPLED_SHADER_PROGRAM
+	superSampledShaderProgram.reset(new SuperSampledShaderProgram());
+	if(!superSampledShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+		return false;
+
+	currentShaderProgram = superSampledShaderProgram.get();
 #endif
 
 	if(!InitUAVs())
@@ -152,6 +164,8 @@ bool MulticoreWindow::Init()
 		return false;
 	if(!aabbStructuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
+	if(!superSampledShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
+		return false;
 #elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
 	if(!constantBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
@@ -160,6 +174,9 @@ bool MulticoreWindow::Init()
 		return false;
 #elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
 	if(!aabbStructuredBufferShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
+		return false;
+#elif USE_SUPER_SAMPLED_SHADER_PROGRAM
+	if(!superSampledShaderProgram->InitBuffers(depthBufferUAV.get(), backBufferUAV.get()))
 		return false;
 #endif
 
@@ -896,11 +913,11 @@ bool MulticoreWindow::InitRoom()
 	//////////////////////////////////////////////////
 	//Triangles
 	//////////////////////////////////////////////////
-	for(int z = 0; z < 2; z++)
+	for(int z = 0; z < 1; z++)
 	{
-		for(int y = 0; y < 2; y++)
+		for(int y = 0; y < 1; y++)
 		{
-			for(int x = 0; x < 2; x++)
+			for(int x = 0; x < 1; x++)
 #if USE_ALL_SHADER_PROGRAMS
 				for(ShaderProgram* program : shaderPrograms)
 					program->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
@@ -910,7 +927,7 @@ bool MulticoreWindow::InitRoom()
 #endif
 		}
 	}
-
+	
 	//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 	return true;

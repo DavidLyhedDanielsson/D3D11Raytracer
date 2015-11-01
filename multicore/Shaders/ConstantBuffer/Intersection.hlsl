@@ -4,6 +4,7 @@ RWTexture2D<float4> rayPositionsOut : register(u0);
 RWTexture2D<float4> rayDirectionsOut : register(u1);
 RWTexture2D<float4> rayNormalOut : register(u2);
 RWTexture2D<float4> rayColorOut : register(u3);
+RWTexture2D<float> depthOut : register(u4);
 
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayDirections : register(t1);
@@ -15,11 +16,7 @@ sampler textureSampler : register(s0);
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 
-float TripleProduct(float3 a, float3 b, float3 z);
-
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates);
-
-float2 UnpackTexcoords(int intValue);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -54,7 +51,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	{
 		//A triangle was closest
 
-		//rayColorOut[threadID.xy] = vertices.color[closestTriangle];
 		rayColorOut[threadID.xy] = GetTriangleColorAt(closestTriangle, barycentric);
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
 	}
@@ -65,6 +61,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		rayColorOut[threadID.xy] = spheres.color[closestSphere];
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, closestSphere);
 	}
+	
+	depthOut[threadID.xy] = depth;
 }
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex)
@@ -76,17 +74,10 @@ void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout flo
 		float3 spherePosition = spheres.position[i].xyz;
 		float sphereRadius = spheres.position[i].w;
 
-		float a = dot(rayDirection, (rayPosition - spherePosition));
+		float distance = 0.0f;
 
-		float3 dirToSphere = rayPosition - spherePosition;
-		float b = dot(dirToSphere, dirToSphere);
-
-		float root = (a * a) - b + (sphereRadius * sphereRadius);
-
-		if(root < 0.0f)
+		if(!RaySphereIntersection(rayPosition, rayDirection, spherePosition, sphereRadius, distance))
 			continue;
-
-		float distance = -a - sqrt(root);
 
 		if(distance < depth
 			&& distance > 0.0f
@@ -123,33 +114,19 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	{
 		float3 v0 = vertices[triangles.indicies[i].x].position.xyz;
 		float3 v1 = vertices[triangles.indicies[i].y].position.xyz;
-		float3 v2 = vertices[triangles.indicies[i].z].position.xyz;
+		float3 v2 = vertices[triangles.indicies[i].z].position.xyz;	
 
-		float3 e0 = v1 - v0;
-		float3 e1 = v2 - v0;
+		float tempU = 0.0f;
+		float tempV = 0.0f;
 
-		float3 detCross = cross(rayDirection, e1);
-		float det = dot(e0, detCross);
+		float t = 0.0f;
 
-		float detInv = 1.0f / det;
-
-		float3 rayDist = rayPosition - v0;
-		float tempU = dot(rayDist, detCross) * detInv;
-
-		if(tempU < 0.0f || tempU > 1.0f)
+		if(!RayTriangleIntersection(rayPosition, rayDirection, v0, v1, v2, tempU, tempV, t))
 			continue;
-
-		float3 vPrep = cross(rayDist, e0);
-		float tempV = dot(rayDirection, vPrep) * detInv;
-
-		if(tempV < 0.0f || tempU + tempV > 1.0f)
-			continue;
-
-		float t = dot(e1, vPrep) * detInv;
 
 		if(t > 0.0f 
 			&& t < depth
-			&& i != lastHit)
+			&& i + sphereCount != lastHit)
 		{
 			u = tempU;
 			v = tempV;
@@ -174,11 +151,6 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	return float2(u, v);
 }
 
-float TripleProduct(float3 a, float3 b, float3 c)
-{
-	return dot(a, cross(b, c));
-}
-
 float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
 {
 	float2 v0 = UnpackTexcoords(vertices[triangles.indicies[triangleIndex].x].texCoord);
@@ -190,9 +162,4 @@ float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
 	currentTexCoord.y = 1.0f - currentTexCoord.y;
 
 	return float4(diffuseTexture.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.5f);
-}
-
-float2 UnpackTexcoords(int intValue)
-{
-	return float2((intValue >> 16) & 0xFFFF, intValue & 0xFFFF) / (float)(0xFFFF);
 }

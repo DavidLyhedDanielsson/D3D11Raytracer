@@ -75,7 +75,9 @@ public:
 	PointLights GetPointLights() const;
 
 protected:
-	std::string CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv);
+	std::string CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format = DXGI_FORMAT_R32G32B32A32_FLOAT);
+	std::string CreateUAV(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, DXGI_FORMAT format = DXGI_FORMAT_R32G32B32A32_FLOAT);
+	std::string CreateSRV(int width, int height, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format = DXGI_FORMAT_R32G32B32A32_FLOAT);
 
 	DirectX::XMFLOAT4X4 viewProjMatrix;
 	DirectX::XMFLOAT3 cameraPosition;

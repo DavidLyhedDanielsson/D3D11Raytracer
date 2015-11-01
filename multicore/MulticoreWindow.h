@@ -30,6 +30,7 @@
 //#define USE_CONSTANT_BUFFER_SHADER_PROGRAM true
 //#define USE_STRUCTURED_BUFFER_SHADER_PROGRAM true
 //#define USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM true
+//#define USE_SUPER_SAMPLED_SHADER_PROGRAM true
 
 #if !USE_CONSTANT_BUFFER_SHADER_PROGRAM && !USE_STRUCTURED_BUFFER_SHADER_PROGRAM && !USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
 #define USE_ALL_SHADER_PROGRAMS true
@@ -38,6 +39,7 @@
 class ConstantBufferShaderProgram;
 class StructuredBufferShaderProgram;
 class AABBStructuredBufferShaderProgram;
+class SuperSampledShaderProgram;
 
 #define LogErrorReturnFalse(functionCall, messagePrefix)				\
 {																		\
@@ -230,6 +232,7 @@ private:
 	std::unique_ptr<ConstantBufferShaderProgram> constantBufferShaderProgram;
 	std::unique_ptr<StructuredBufferShaderProgram> structuredBufferShaderProgram;
 	std::unique_ptr<AABBStructuredBufferShaderProgram> aabbStructuredBufferShaderProgram;
+	std::unique_ptr<SuperSampledShaderProgram> superSampledShaderProgram;
 
 	std::vector<ShaderProgram*> shaderPrograms;
 #elif USE_CONSTANT_BUFFER_SHADER_PROGRAM
@@ -238,6 +241,8 @@ private:
 	std::unique_ptr<StructuredBufferShaderProgram> structuredBufferShaderProgram;
 #elif USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
 	std::unique_ptr<AABBStructuredBufferShaderProgram> aabbStructuredBufferShaderProgram;
+#elif USE_SUPER_SAMPLED_SHADER_PROGRAM
+	std::unique_ptr<SuperSampledShaderProgram> superSampledShaderProgram;
 #endif
 
 	Argument ResetCamera(const std::vector<Argument>& argument);

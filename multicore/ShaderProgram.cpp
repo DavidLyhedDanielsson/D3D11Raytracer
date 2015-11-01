@@ -95,8 +95,11 @@ PointLights ShaderProgram::GetPointLights() const
 	return pointLightBufferData;
 }
 
-std::string ShaderProgram::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv)
+std::string ShaderProgram::CreateUAVSRVCombo(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format /*= DXGI_FORMAT_R32G32B32A32_FLOAT*/)
 {
+	uav.reset();
+	srv.reset();
+
 	D3D11_TEXTURE2D_DESC desc;
 	ZeroMemory(&desc, sizeof(desc));
 
@@ -104,7 +107,7 @@ std::string ShaderProgram::CreateUAVSRVCombo(int width, int height, COMUniquePtr
 	desc.Height = height;
 
 	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.Format = format;
 	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
 	desc.CPUAccessFlags = 0;
 	desc.SampleDesc.Count = 1;
@@ -125,6 +128,78 @@ std::string ShaderProgram::CreateUAVSRVCombo(int width, int height, COMUniquePtr
 	uav.reset(uavDumb);
 	if(FAILED(hRes))
 		return "Couldn't create UAV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height);
+
+	ID3D11ShaderResourceView* srvDumb;
+	hRes = device->CreateShaderResourceView(textureDumb, nullptr, &srvDumb);
+	srv.reset(srvDumb);
+	if(FAILED(hRes))
+		return "Couldn't create SRV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height);
+
+	return "";
+}
+
+std::string ShaderProgram::CreateUAV(int width, int height, COMUniquePtr<ID3D11UnorderedAccessView>& uav, DXGI_FORMAT format /*= DXGI_FORMAT_R32G32B32A32_FLOAT*/)
+{
+	uav.reset();
+
+	D3D11_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+
+	desc.Width = width;
+	desc.Height = height;
+
+	desc.ArraySize = 1;
+	desc.Format = format;
+	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	desc.CPUAccessFlags = 0;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.MipLevels = 1;
+
+	COMUniquePtr<ID3D11Texture2D> texture(nullptr);
+
+	ID3D11Texture2D* textureDumb = nullptr;
+	texture.reset(textureDumb);
+	HRESULT hRes = device->CreateTexture2D(&desc, nullptr, &textureDumb);
+	if(FAILED(hRes))
+		return "Couldn't create texture with dimensions " + std::to_string(width) + "x" + std::to_string(height);
+
+	ID3D11UnorderedAccessView* uavDumb;
+	hRes = device->CreateUnorderedAccessView(textureDumb, nullptr, &uavDumb);
+	uav.reset(uavDumb);
+	if(FAILED(hRes))
+		return "Couldn't create UAV from texture with dimensions " + std::to_string(width) + "x" + std::to_string(height);
+
+	return "";
+}
+
+std::string ShaderProgram::CreateSRV(int width, int height, COMUniquePtr<ID3D11ShaderResourceView>& srv, DXGI_FORMAT format /*= DXGI_FORMAT_R32G32B32A32_FLOAT*/)
+{
+	srv.reset();
+
+	D3D11_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+
+	desc.Width = width;
+	desc.Height = height;
+
+	desc.ArraySize = 1;
+	desc.Format = format;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.MipLevels = 1;
+
+	COMUniquePtr<ID3D11Texture2D> texture(nullptr);
+
+	ID3D11Texture2D* textureDumb = nullptr;
+	texture.reset(textureDumb);
+	HRESULT hRes = device->CreateTexture2D(&desc, nullptr, &textureDumb);
+	if(FAILED(hRes))
+		return "Couldn't create texture with dimensions " + std::to_string(width) + "x" + std::to_string(height);
 
 	ID3D11ShaderResourceView* srvDumb;
 	hRes = device->CreateShaderResourceView(textureDumb, nullptr, &srvDumb);
