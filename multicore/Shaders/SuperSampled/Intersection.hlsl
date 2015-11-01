@@ -147,7 +147,7 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 
 				float tempU = 0.0f;
 				float tempV = 0.0f;
-
+				
 				float t = 0.0f;
 
 				if(!RayTriangleIntersection(rayPosition, rayDirection, v0, v1, v2, tempU, tempV, t))

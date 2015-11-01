@@ -927,7 +927,7 @@ bool MulticoreWindow::InitRoom()
 #endif
 		}
 	}
-	
+
 	//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 
 	return true;

@@ -148,66 +148,6 @@ bool TriangleTrace(float3 rayPosition, float3 lightPosition, float distanceToLig
 		{
 			return false;
 		}
-
-
-		//float3 v0 = vertices.position[triangles.vertices[i].x].xyz;
-		//float3 v1 = vertices.position[triangles.vertices[i].y].xyz;
-		//float3 v2 = vertices.position[triangles.vertices[i].z].xyz;
-
-		//float3 v0v2 = v2 - v0;
-		//float3 v0v1 = v1 - v0;
-		//float3 v0ray = rayPosition - v0;
-
-		//float prediv = 1.0f / dot(v0v1, cross(rayDirection, v0v2));
-		//float3 precross = cross(v0ray, v0v1);
-
-		//float distance = dot(v0v2, precross) * prediv;
-		//float x = dot(v0ray, cross(rayDirection, v0v2)) * prediv;
-		//float y = dot(rayDirection, precross) * prediv;
-
-		//if(distance > 0.0f && x >= 0.0f && y >= 0.0f && x + y <= 1.0f
-		//	&& distance < distanceToLight
-		//	&& sphereCount + i != lastHit)
-		//{
-		//	return false;
-		//}
-
-
-
-		//if(sphereCount + i == lastHit)
-		//	continue;
-
-		//float3 a = vertices.position[triangles.vertices[i].x].xyz;
-		//float3 b = vertices.position[triangles.vertices[i].y].xyz;
-		//float3 c = vertices.position[triangles.vertices[i].z].xyz;
-
-		//float3 ab = b - a;
-		//float3 ac = c - a;
-
-		//float3 normal = cross(ac, ab);
-
-		//float d = dot(-rayDirection, normal);
-		//if(d < 0.0f)
-		//	continue;
-
-		//float3 ap = rayPosition - a;
-		//float t = dot(ap, normal);
-		//if(t < 0.0f)
-		//	continue;
-
-		//float3 e = cross(rayDirection, ap);
-		//float tempV = dot(ac, e);
-		//if(tempV < 0.0f || tempV > d)
-		//	continue;
-		//float tempW = -dot(ab, e);
-		//if(tempW < 0.0f || tempV + tempW > d)
-		//	continue;
-
-		//float dInv = 1.0f / d;
-		
-		//t *= dInv;
-		//if(t < distanceToLight)
-		//	return false;
 	}
 
 	return true;

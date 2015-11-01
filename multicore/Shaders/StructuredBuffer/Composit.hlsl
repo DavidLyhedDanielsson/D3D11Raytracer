@@ -7,7 +7,5 @@ void main(uint3 threadID : SV_DispatchThreadID)
 {
 	float3 outColor = colors[threadID.xy].xyz;
 
-	//float outColorMax = max(max(outColor.x, outColor.y), outColor.z);
-
 	backbuffer[threadID.xy] = float4(outColor, 1.0f);
 }
