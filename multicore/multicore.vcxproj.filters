@@ -40,6 +40,9 @@
     <Filter Include="Resource Files\Shaders\SuperSampled">
       <UniqueIdentifier>{6ed9c01a-7ac0-40f4-97e8-04bdd86c2ea5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\Shaders\Picking">
+      <UniqueIdentifier>{31cc683b-6b8d-48c3-a8e1-c65cc542777d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -134,6 +137,12 @@
     <ClInclude Include="SuperSampledShaderProgram.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Shaders\Picking\PickingSharedBuffers.h">
+      <Filter>Resource Files\Shaders\Picking</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\Picking\PickingSharedConstants.h">
+      <Filter>Resource Files\Shaders\Picking</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BezierConstants.hlsl">
@@ -219,6 +228,9 @@
     </FxCompile>
     <FxCompile Include="Shaders\SuperSampled\Intersection.hlsl">
       <Filter>Resource Files\Shaders\SuperSampled</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Picking\Intersection.hlsl">
+      <Filter>Resource Files\Shaders\Picking</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

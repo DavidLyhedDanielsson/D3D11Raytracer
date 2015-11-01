@@ -7,6 +7,7 @@
 #include <DXLib/DXStructuredBuffer.h>
 
 #include "Shaders/SuperSampled/SuperSampledSharedBuffers.h"
+#include "Shaders/Picking/PickingSharedBuffers.h"
 
 class OBJFile;
 
@@ -26,6 +27,8 @@ public:
 
 	void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) override;
 	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) override;
+
+	void Pick(const DirectX::XMINT2& mousePosition, std::function<void(const PickedObjectData&)> callback) override;
 
 	void SetSuperSampleCount(UINT count);
 	UINT GetSuperSampleCount() const;
@@ -88,6 +91,16 @@ private:
 
 	OBJFile* objFile;
 
+	//////////////////////////////////////////////////
+	//Picking
+	//////////////////////////////////////////////////
+	ComputeShader pickingShader;
+	
+	DXConstantBuffer pickingMousePositionBuffer;
+	DXStructuredBuffer pickingHitDataBuffer;
+
+	DirectX::XMINT2 pickPosition;
+
 	bool InitUAVSRV() override;
 	bool InitShaders() override;
 
@@ -97,6 +110,7 @@ private:
 	void DrawRayIntersection(int config);
 	void DrawRayShading(int config);
 	void DrawComposit(int config);
+	void DrawPick();
 };
 
 #endif //SuperSampledhaderProgram_h__

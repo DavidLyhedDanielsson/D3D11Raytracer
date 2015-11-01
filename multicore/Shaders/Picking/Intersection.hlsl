@@ -1,19 +1,5 @@
-#ifndef SharedShaderConstants_h__
-#define SharedShaderConstants_h__
+//#include "PickingSharedBuffers.h"
 
-static const float FLOAT_MAX = 3.4e38f;
-
-static const float SCREEN_RES_X = 1280.0f;
-static const float SCREEN_RES_Y = 720.0f;
-
-static const int MAX_POINT_LIGHTS = 10;
-
-const static float AMBIENT_FAC = 0.5f;
-
-//////////////////////////////////////////////////
-//HLSL functions
-//////////////////////////////////////////////////
-#ifndef _WIN32
 bool RayAABBIntersection(float3 rayOrigin, float3 rayDirection, float3 aabbMin, float3 aabbMax)
 {
 	float3 invDir = 1.0f / rayDirection;
@@ -144,6 +130,104 @@ float2 UnpackTexcoords(int intValue)
 {
 	return float2((intValue >> 16) & 0xFFFF, intValue & 0xFFFF) / (float)(0xFFFF);
 }
-#endif
 
-#endif // SharedShaderConstants_h__
+static const float FLOAT_MAX = 3.4e38f;
+
+static const float SCREEN_RES_X = 1280.0f;
+static const float SCREEN_RES_Y = 720.0f;
+
+static const int MAX_POINT_LIGHTS = 10;
+
+const static float AMBIENT_FAC = 0.5f;
+
+struct Sphere
+{
+	//Keeping position and color separate plays nice with the cache
+	float4 position; //position + radius
+	float4 color; //color + reflectivity
+};
+
+struct Vertex
+{
+	//float3 position[MAX_VERTICES]; //position
+	//int texCoord[MAX_VERTICES]; //tex coords packed into an int, first 16 bits = u, last 16 bits = v
+
+	float3 position;
+	int texCoord;
+};
+
+struct Triangle
+{
+	int4 indicies; //vertices + padding
+};
+
+struct AABB
+{
+	float3 min;
+	float3 max;
+};
+
+struct Model
+{
+	AABB aabb;
+	int beginIndex;
+	int endIndex;
+};
+
+struct Ray
+{
+	float3 position;
+	float3 direction;
+};
+
+struct HitData
+{
+	int modelIndex;
+	int triangleIndex;
+	float depth;
+	float padding;
+};
+
+StructuredBuffer<Sphere> spheres : register(t4);
+StructuredBuffer<Vertex> vertices: register(t5);
+StructuredBuffer<Triangle> triangles : register(t6);
+StructuredBuffer<Model> models : register(t7);
+
+
+Texture2D<float4> rayPositions : register(t0);
+Texture2D<float4> rayDirections : register(t1);
+
+RWStructuredBuffer<HitData> hitData : register(u0);
+
+cbuffer PickingBuffer : register(b0)
+{
+	int2 pickingPosition;
+};
+
+[numthreads(32, 1, 1)]
+void main(uint3 threadID : SV_DispatchThreadID)
+{
+	uint sphereCount = 0;
+	uint stride = 0;
+	
+	spheres.GetDimensions(sphereCount, stride);
+
+	if(threadID.x >= sphereCount)
+		return;
+
+	float3 spherePosition = spheres[threadID.x].position.xyz;
+	float sphereRadius = spheres[threadID.x].position.w;
+
+	float distance = 0.0f;
+
+	hitData[threadID.x].modelIndex = -1;
+	hitData[threadID.x].triangleIndex = -1;
+	hitData[threadID.x].depth = -1.0f;
+
+	if(!RaySphereIntersection(rayPositions[pickingPosition].xyz, rayDirections[pickingPosition].xyz, spherePosition, sphereRadius, distance))
+		return;
+
+	hitData[threadID.x].modelIndex = threadID.x;
+	hitData[threadID.x].triangleIndex = -1;
+	hitData[threadID.x].depth = distance;
+}

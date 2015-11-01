@@ -43,6 +43,14 @@ struct PointLights
 	int lightCount;
 };
 
+struct PickedObjectData
+{
+	int id;
+
+	DirectX::XMFLOAT3 position;
+	DirectX::XMFLOAT3 color;
+};
+
 class Console;
 class ContentManager;
 class SpriteRenderer;
@@ -63,6 +71,11 @@ public:
 	virtual std::map<std::string, double> Draw() = 0;
 
 	std::string ReloadShaders();
+
+	virtual void Pick(const DirectX::XMINT2& mousePosition, std::function<void(const PickedObjectData&)> callback)
+	{
+		pickingCallback = callback;
+	}
 
 	void SetRayBounces(int bounces);
 	void SetLightAttenuationFactors(LightAttenuation factors);
@@ -97,6 +110,8 @@ protected:
 
 	UINT backBufferWidth;
 	UINT backBufferHeight;
+
+	std::function<void(const PickedObjectData&)> pickingCallback;
 
 	const static int MAX_BOUNCES = 20;
 	int rayBounces;

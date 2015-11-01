@@ -12,6 +12,8 @@ SuperSampledShaderProgram::SuperSampledShaderProgram()
 	, traceShader("main", "cs_5_0")
 	, intersectionShader("main", "cs_5_0")
 	, compositShader("main", "cs_5_0")
+	, pickingShader("main", "cs_5_0")
+	, pickPosition(-1, -1)
 {}
 
 bool SuperSampledShaderProgram::Init(ID3D11Device* device, ID3D11DeviceContext* deviceContext, UINT backBufferWidth, UINT backBufferHeight, Console* console, ContentManager* contentManager)
@@ -46,13 +48,16 @@ bool SuperSampledShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBuff
 		return false;
 
 	if(!sphereBufferData.empty())
-		LogErrorReturnFalse(sphereBuffer.Create<SuperSampledSharedBuffers::Sphere>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(sphereBufferData.size()), sphereBufferData.empty() ? nullptr : &sphereBufferData[0]), "Couldn't create sphere buffer: ");
-	LogErrorReturnFalse(triangleVertexBuffer.Create<SuperSampledSharedBuffers::Vertex>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(vertexBufferData.size()), vertexBufferData.empty() ? nullptr : &vertexBufferData[0]), "Couldn't create triangle vertex buffer: ");
-	LogErrorReturnFalse(triangleBuffer.Create<SuperSampledSharedBuffers::Triangle>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(triangleBufferData.size()), triangleBufferData.empty() ? nullptr : &triangleBufferData[0]), "Couldn't create triangle index buffer: ");
-	LogErrorReturnFalse(modelsBuffer.Create<SuperSampledSharedBuffers::Model>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(modelsBufferData.size()), modelsBufferData.empty() ? nullptr : &modelsBufferData[0]), "Couldn't create model buffer: ");
+		LogErrorReturnFalse(sphereBuffer.Create<SuperSampledSharedBuffers::Sphere>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(sphereBufferData.size()), sphereBufferData.empty() ? nullptr : &sphereBufferData[0]), "Couldn't create sphere buffer: ");
+	LogErrorReturnFalse(triangleVertexBuffer.Create<SuperSampledSharedBuffers::Vertex>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(vertexBufferData.size()), vertexBufferData.empty() ? nullptr : &vertexBufferData[0]), "Couldn't create triangle vertex buffer: ");
+	LogErrorReturnFalse(triangleBuffer.Create<SuperSampledSharedBuffers::Triangle>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(triangleBufferData.size()), triangleBufferData.empty() ? nullptr : &triangleBufferData[0]), "Couldn't create triangle index buffer: ");
+	LogErrorReturnFalse(modelsBuffer.Create<SuperSampledSharedBuffers::Model>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(modelsBufferData.size()), modelsBufferData.empty() ? nullptr : &modelsBufferData[0]), "Couldn't create model buffer: ");
 
 	LogErrorReturnFalse(viewProjInverseBuffer.Create<DirectX::XMFLOAT4X4>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create view proj inverse buffer: ");
 	LogErrorReturnFalse(superSampleBuffer.Create<int>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, &superSampleCount), "Couldn't create view proj inverse buffer: ");
+
+	LogErrorReturnFalse(pickingMousePositionBuffer.Create<DirectX::XMINT2>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create view proj inverse buffer: "); //TODO D3D11_USAGE_STATIC ???
+	LogErrorReturnFalse(pickingHitDataBuffer.Create<PickingSharedBuffers::HitData>(device, D3D11_USAGE_DEFAULT, D3D11_CPU_ACCESS_READ, true, true, static_cast<int>(sphereBufferData.size())), "Couldn't create view proj inverse buffer: ");
 
 	if(!InitUAVSRV())
 		return false;
@@ -64,6 +69,9 @@ bool SuperSampledShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBuff
 
 bool SuperSampledShaderProgram::InitUAVSRV()
 {
+	//////////////////////////////////////////////////
+	//Ray trace
+	//////////////////////////////////////////////////
 	//Position
 	LogErrorReturnFalse(CreateUAVSRVCombo(superSampleWidth, superSampleHeight, rayPositionUAV[0], rayPositionSRV[0]), "Couldn't create ray position combo");
 
@@ -87,7 +95,6 @@ bool SuperSampledShaderProgram::InitUAVSRV()
 
 	//Upscaled depth buffer
 	LogErrorReturnFalse(CreateUAVSRVCombo(superSampleWidth, superSampleHeight, depthBufferUAVUpscaled, depthBufferSRVUpscaled, DXGI_FORMAT_R32_FLOAT), "Couldn't create upsacled depth buffer UAV");
-
 
 	return true;
 }
@@ -116,10 +123,10 @@ bool SuperSampledShaderProgram::InitShaders()
 	//////////////////////////////////////////////////
 	ShaderResourceBinds traceResourceBindInitial;
 	//CBuffers
-	traceResourceBindInitial.AddResource(sphereBuffer, SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBindInitial.AddResource(triangleVertexBuffer, SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBindInitial.AddResource(triangleBuffer, SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
-	traceResourceBindInitial.AddResource(modelsBuffer, SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBindInitial.AddResource(rayPositionUAV[1].get(), 0);
@@ -138,10 +145,10 @@ bool SuperSampledShaderProgram::InitShaders()
 
 	ShaderResourceBinds traceResourceBinds0;
 	//CBuffers
-	traceResourceBinds0.AddResource(sphereBuffer, SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleVertexBuffer, SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleBuffer, SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(modelsBuffer, SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
@@ -162,10 +169,10 @@ bool SuperSampledShaderProgram::InitShaders()
 
 	ShaderResourceBinds traceResourceBinds1;
 	//CBuffers
-	traceResourceBinds1.AddResource(sphereBuffer, SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleVertexBuffer, SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleBuffer, SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(modelsBuffer, SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
@@ -189,11 +196,11 @@ bool SuperSampledShaderProgram::InitShaders()
 	//////////////////////////////////////////////////
 	ShaderResourceBinds shadeResourceBinds0;
 	//CBuffers
-	shadeResourceBinds0.AddResource(sphereBuffer, SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleVertexBuffer, SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleBuffer, SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(modelsBuffer, SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds0.AddResource(cameraPositionBuffer, 5);
 
@@ -208,11 +215,11 @@ bool SuperSampledShaderProgram::InitShaders()
 
 	ShaderResourceBinds shadeResourceBinds1;
 	//CBuffers
-	shadeResourceBinds1.AddResource(sphereBuffer, SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleVertexBuffer, SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleBuffer, SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(modelsBuffer, SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds1.AddResource(cameraPositionBuffer, 5);
 
@@ -247,6 +254,22 @@ bool SuperSampledShaderProgram::InitShaders()
 
 	LogErrorReturnFalse(compositShader.CreateFromFile(shaderPath + "Composit.hlsl", device, compositResourceBinds0, compositResourceBinds1), "");
 
+	//////////////////////////////////////////////////
+	//Picking
+	//////////////////////////////////////////////////
+	ShaderResourceBinds pickingIntersectionBinds;
+	pickingIntersectionBinds.AddResource(pickingMousePositionBuffer, 0);
+	pickingIntersectionBinds.AddResource(pickingHitDataBuffer.GetUAV(), 0);
+	pickingIntersectionBinds.AddResource(rayPositionSRV[0].get(), 0);
+	pickingIntersectionBinds.AddResource(rayDirectionSRV[0].get(), 1);
+
+	pickingIntersectionBinds.AddResource(sphereBuffer.GetSRV(), SuperSampledSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	pickingIntersectionBinds.AddResource(triangleVertexBuffer.GetSRV(), SuperSampledSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	pickingIntersectionBinds.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	pickingIntersectionBinds.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
+
+	LogErrorReturnFalse(pickingShader.CreateFromFile("Shaders/Picking/Intersection.hlsl", device, pickingIntersectionBinds), "");
+
 	return true;
 }
 
@@ -269,6 +292,26 @@ std::map<std::string, double> SuperSampledShaderProgram::Draw()
 	d3d11Timer.Start();
 	DrawRayPrimary();
 	d3d11Timer.Stop("Primary");
+
+	//Do picking here "for free"
+	//if(pickPosition.x != -1)
+	//{
+	if(pickingCallback != nullptr)
+	{
+		pickPosition.x *= superSampleCount;
+		pickPosition.y *= superSampleCount;
+
+		pickPosition.x = 640;
+		pickPosition.y = 360;
+
+		//Logger::LogLine(LOG_TYPE::INFO, "Picking at " + std::to_string(pickPosition.x) + ", " + std::to_string(pickPosition.y));
+
+		pickingMousePositionBuffer.Update(deviceContext, &pickPosition);
+		pickPosition = DirectX::XMINT2(-1, -1);
+
+		DrawPick();
+	}
+	//}
 
 	DrawRayIntersection(0);
 	d3d11Timer.Stop("Intersect0");
@@ -315,6 +358,58 @@ void SuperSampledShaderProgram::DrawComposit(int config)
 	compositShader.Bind(deviceContext, config);
 	deviceContext->Dispatch(dispatchX / superSampleCount, dispatchY / superSampleCount, 1);
 	compositShader.Unbind(deviceContext);
+}
+
+void SuperSampledShaderProgram::DrawPick()
+{
+	pickingShader.Bind(deviceContext);
+	deviceContext->Dispatch(static_cast<int>(std::ceil(sphereBufferData.size() / 32.0f)), 1, 1);
+	pickingShader.Unbind(deviceContext);
+
+	std::vector<PickingSharedBuffers::HitData> hitData;
+	hitData.resize(sphereBufferData.size());
+
+	D3D11_MAPPED_SUBRESOURCE mappedBuffer;
+	deviceContext->Map(pickingHitDataBuffer.GetBuffer(), 0, D3D11_MAP_READ, 0, &mappedBuffer);
+	memcpy(&hitData[0], mappedBuffer.pData, sizeof(PickingSharedBuffers::HitData) * sphereBufferData.size());
+	deviceContext->Unmap(pickingHitDataBuffer.GetBuffer(), 0);
+
+	float nearest = std::numeric_limits<float>::max();
+	int nearestIndex = -1;
+
+	for(int i = 0, end = static_cast<int>(hitData.size()); i < end; ++i)
+	{
+		if(hitData[i].depth >= 0.0f
+			&& hitData[i].depth < nearest)
+		{
+			nearest = hitData[i].depth;
+			nearestIndex = i;
+		}
+	}
+
+	PickedObjectData data;
+	
+	if(nearestIndex == -1)
+	{
+		data.id = -1;
+		data.position = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+		data.color = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+	}
+	else
+	{
+		data.id = hitData[nearestIndex].modelIndex;
+		data.position = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].position);
+		data.color = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].color);
+	}
+
+	pickingCallback(data);
+}
+
+void SuperSampledShaderProgram::Pick(const DirectX::XMINT2& mousePosition, std::function<void(const PickedObjectData&)> callback)
+{
+	ShaderProgram::Pick(mousePosition, callback);
+
+	pickPosition = mousePosition;
 }
 
 void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)

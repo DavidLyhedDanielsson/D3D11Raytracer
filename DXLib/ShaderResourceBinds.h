@@ -17,7 +17,6 @@ class PixelShader;
 class VertexShader;
 class HullShader;
 class DomainShader;
-class DXStructuredBuffer;
 
 class ShaderResourceBinds
 {
@@ -28,7 +27,7 @@ public:
 	void Init(ID3D11Device* device, ID3D11ShaderReflection* reflection, std::string shaderPath);
 
 	void AddResource(const DXConstantBuffer& buffer, int slot);
-	void AddResource(const DXStructuredBuffer& buffer, int slot);
+	//void AddResource(const DXStructuredBuffer& buffer, int slot);
 	void AddResource(ID3D11SamplerState* sampler, int slot);
 	void AddResource(ID3D11UnorderedAccessView* uav, int slot);
 	void AddResource(ID3D11ShaderResourceView* srv, int slot);

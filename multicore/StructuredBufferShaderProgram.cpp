@@ -33,10 +33,10 @@ bool StructuredBufferShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depth
 		return false;
 
 	if(!sphereBufferData.empty())
-		LogErrorReturnFalse(sphereBuffer.Create<StructuredBufferSharedBuffers::Sphere>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(sphereBufferData.size()), sphereBufferData.empty() ? nullptr : &sphereBufferData[0]), "Couldn't create sphere buffer: ");
+		LogErrorReturnFalse(sphereBuffer.Create<StructuredBufferSharedBuffers::Sphere>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(sphereBufferData.size()), sphereBufferData.empty() ? nullptr : &sphereBufferData[0]), "Couldn't create sphere buffer: ");
 
-	LogErrorReturnFalse(triangleVertexBuffer.Create<StructuredBufferSharedBuffers::Vertex>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(vertexBufferData.size()), vertexBufferData.empty() ? nullptr : &vertexBufferData[0]), "Couldn't create triangle vertex buffer: ");
-	LogErrorReturnFalse(triangleBuffer.Create<StructuredBufferSharedBuffers::Triangle>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), static_cast<int>(triangleBufferData.size()), triangleBufferData.empty() ? nullptr : &triangleBufferData[0]), "Couldn't create triangle index buffer: ");
+	LogErrorReturnFalse(triangleVertexBuffer.Create<StructuredBufferSharedBuffers::Vertex>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(vertexBufferData.size()), vertexBufferData.empty() ? nullptr : &vertexBufferData[0]), "Couldn't create triangle vertex buffer: ");
+	LogErrorReturnFalse(triangleBuffer.Create<StructuredBufferSharedBuffers::Triangle>(device, D3D11_USAGE_DEFAULT, static_cast<D3D11_CPU_ACCESS_FLAG>(0), true, false, static_cast<int>(triangleBufferData.size()), triangleBufferData.empty() ? nullptr : &triangleBufferData[0]), "Couldn't create triangle index buffer: ");
 	LogErrorReturnFalse(viewProjInverseBuffer.Create<DirectX::XMFLOAT4X4>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create triangle index buffer: ");
 
 	if(!InitUAVSRV())
@@ -96,9 +96,9 @@ bool StructuredBufferShaderProgram::InitShaders()
 	//////////////////////////////////////////////////
 	ShaderResourceBinds traceResourceBindInitial;
 	//CBuffers
-	traceResourceBindInitial.AddResource(sphereBuffer, StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBindInitial.AddResource(triangleVertexBuffer, StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBindInitial.AddResource(triangleBuffer, StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(sphereBuffer.GetSRV(), StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleVertexBuffer.GetSRV(), StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBindInitial.AddResource(triangleBuffer.GetSRV(), StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBindInitial.AddResource(rayPositionUAV[1].get(), 0);
@@ -117,9 +117,9 @@ bool StructuredBufferShaderProgram::InitShaders()
 
 	ShaderResourceBinds traceResourceBinds0;
 	//CBuffers
-	traceResourceBinds0.AddResource(sphereBuffer, StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleVertexBuffer, StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds0.AddResource(triangleBuffer, StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(sphereBuffer.GetSRV(), StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleVertexBuffer.GetSRV(), StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds0.AddResource(triangleBuffer.GetSRV(), StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds0.AddResource(rayPositionUAV[1].get(), 0);
@@ -140,9 +140,9 @@ bool StructuredBufferShaderProgram::InitShaders()
 
 	ShaderResourceBinds traceResourceBinds1;
 	//CBuffers
-	traceResourceBinds1.AddResource(sphereBuffer, StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleVertexBuffer, StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	traceResourceBinds1.AddResource(triangleBuffer, StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(sphereBuffer.GetSRV(), StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleVertexBuffer.GetSRV(), StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	traceResourceBinds1.AddResource(triangleBuffer.GetSRV(), StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 
 	//UAVs
 	traceResourceBinds1.AddResource(rayPositionUAV[0].get(), 0);
@@ -166,9 +166,9 @@ bool StructuredBufferShaderProgram::InitShaders()
 	//////////////////////////////////////////////////
 	ShaderResourceBinds shadeResourceBinds0;
 	//CBuffers
-	shadeResourceBinds0.AddResource(sphereBuffer, StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleVertexBuffer, StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds0.AddResource(triangleBuffer, StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(sphereBuffer.GetSRV(), StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleVertexBuffer.GetSRV(), StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds0.AddResource(triangleBuffer.GetSRV(), StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds0.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds0.AddResource(cameraPositionBuffer, 5);
@@ -184,9 +184,9 @@ bool StructuredBufferShaderProgram::InitShaders()
 
 	ShaderResourceBinds shadeResourceBinds1;
 	//CBuffers
-	shadeResourceBinds1.AddResource(sphereBuffer, StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleVertexBuffer, StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
-	shadeResourceBinds1.AddResource(triangleBuffer, StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(sphereBuffer.GetSRV(), StructuredBufferSharedBuffers::SPHERE_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleVertexBuffer.GetSRV(), StructuredBufferSharedBuffers::VERTEX_BUFFER_REGISTRY_INDEX);
+	shadeResourceBinds1.AddResource(triangleBuffer.GetSRV(), StructuredBufferSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointLightBuffer, POINT_LIGHT_BUFFER_REGISTRY_INDEX);
 	shadeResourceBinds1.AddResource(pointlightAttenuationBuffer, 4);
 	shadeResourceBinds1.AddResource(cameraPositionBuffer, 5);

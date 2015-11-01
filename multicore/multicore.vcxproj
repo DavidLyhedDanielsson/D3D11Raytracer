@@ -168,6 +168,8 @@
     <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedConstants.h" />
     <ClInclude Include="Shaders\ConstantBuffer\ConstantBufferSharedBuffers.h" />
     <ClInclude Include="Shaders\ConstantBuffer\ConstantBufferSharedConstants.h" />
+    <ClInclude Include="Shaders\Picking\PickingSharedBuffers.h" />
+    <ClInclude Include="Shaders\Picking\PickingSharedConstants.h" />
     <ClInclude Include="Shaders\StructuredBuffer\StructuredBufferSharedBuffers.h" />
     <ClInclude Include="Shaders\StructuredBuffer\StructuredBufferSharedConstants.h" />
     <ClInclude Include="Shaders\SuperSampled\SuperSampledSharedBuffers.h" />
@@ -280,6 +282,14 @@
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(Filename).cso</ObjectFileOutput>
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)%(Filename).cso</ObjectFileOutput>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_DEBUG</PreprocessorDefinitions>
+    </FxCompile>
+    <FxCompile Include="Shaders\Picking\Intersection.hlsl">
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="Shaders\SuperSampled\Composit.hlsl">
       <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)Shaders\ConstantBuffer\%(Filename).cso</ObjectFileOutput>

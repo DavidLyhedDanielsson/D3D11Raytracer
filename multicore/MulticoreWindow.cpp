@@ -494,6 +494,18 @@ void MulticoreWindow::KeyEvent(const KeyState& keyCode)
 void MulticoreWindow::MouseEvent(const KeyState& keyCode)
 {
 	guiManager.MouseEvent(keyCode);
+
+	if(keyCode.key == VK_LBUTTON
+		&& keyCode.action == KEY_ACTION::DOWN)
+	{
+		DirectX::XMFLOAT2 mousePositionFloat = Input::GetMousePosition();
+
+		DirectX::XMINT2 mousePosition;
+		mousePosition.x = static_cast<int>(mousePositionFloat.x);
+		mousePosition.y = static_cast<int>(mousePositionFloat.y);
+
+		currentShaderProgram->Pick(mousePosition, std::bind(&MulticoreWindow::PickingCallback, this, std::placeholders::_1));
+	}
 }
 
 void MulticoreWindow::CharEvent(int character)
@@ -678,12 +690,19 @@ Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument
 		currentShaderProgram = structuredBufferShaderProgram.get();
 	else if(argument.front().values.front() == "aabbsbuffer")
 		currentShaderProgram = aabbStructuredBufferShaderProgram.get();
+	else if(argument.front().values.front() == "supersampled")
+		currentShaderProgram = superSampledShaderProgram.get();
 	else
 		return "Couldn't find shader program";
 
 	return "Shader program set";
 }
 #endif
+
+void MulticoreWindow::PickingCallback(const PickedObjectData& data)
+{
+	Logger::LogLine(LOG_TYPE::INFO, "ID: " + std::to_string(data.id) + ". Position: " + std::to_string(data.position.x) + ", " + std::to_string(data.position.y) + ", " + std::to_string(data.position.z) + ". Color: " + std::to_string(data.color.x) + ", " + std::to_string(data.color.y) + ", " + std::to_string(data.color.z));
+}
 
 bool MulticoreWindow::InitUAVs()
 {

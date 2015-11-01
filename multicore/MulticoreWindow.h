@@ -267,6 +267,8 @@ private:
 	Argument SetShaderProgram(const std::vector<Argument>& argument);
 #endif
 
+	void PickingCallback(const PickedObjectData& data);
+
 	bool InitUAVs();
 
 	bool InitFullscreenQuad();
