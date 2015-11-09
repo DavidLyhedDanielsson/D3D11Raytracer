@@ -9,14 +9,15 @@ RWTexture2D<float> depthOut : register(u4);
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayDirections : register(t1);
 
-Texture2D diffuseTexture : register(t2);
+Texture2D diffuseTexture0 : register(t2);
+Texture2D diffuseTexture1 : register(t3);
 
 sampler textureSampler : register(s0);
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 
-float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates);
+float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates, int textureID);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -56,7 +57,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 		spheres.GetDimensions(sphereCount, stride);
 
-		rayColorOut[threadID.xy] = GetTriangleColorAt(closestTriangle, barycentric);
+		rayColorOut[threadID.xy] = GetTriangleColorAt(closestTriangle, barycentric, triangles[closestTriangle].textureID);
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
 	}
 	else
@@ -182,7 +183,7 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	return float2(u, v);
 }
 
-float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
+float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates, int textureID)
 {
 	float2 v0 = UnpackTexcoords(vertices[triangles[triangleIndex].indicies.x].texCoord);
 	float2 v1 = UnpackTexcoords(vertices[triangles[triangleIndex].indicies.y].texCoord);
@@ -192,5 +193,10 @@ float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
 
 	currentTexCoord.y = 1.0f - currentTexCoord.y;
 
-	return float4(diffuseTexture.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+	if(textureID == 0)
+		return float4(diffuseTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+	else if(textureID == 1)
+		return float4(diffuseTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+	else
+		return float4(1.0f, 0.0f, 0.25f, 0.0f);
 }

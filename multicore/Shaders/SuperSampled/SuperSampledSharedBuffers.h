@@ -33,23 +33,20 @@ namespace SuperSampledSharedBuffers
 
 struct Sphere
 {
-	//Keeping position and color separate plays nice with the cache
 	float4 position; //position + radius
 	float4 color; //color + reflectivity
 };
 
 struct Vertex
 {
-	//float3 position[MAX_VERTICES]; //position
-	//int texCoord[MAX_VERTICES]; //tex coords packed into an int, first 16 bits = u, last 16 bits = v
-
 	float3 position;
-	int texCoord;
+	int texCoord; //first 16 bits = u, last 16 bits = v
 };
 
 struct Triangle
 {
-	int4 indicies; //vertices + padding
+	int3 indicies; //vertices which make up this triangle
+	int textureID; //texture to use when drawing this triangle
 };
 
 //Requires 8 bytes of padding whenever used

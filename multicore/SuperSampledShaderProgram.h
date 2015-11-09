@@ -101,6 +101,8 @@ private:
 
 	DirectX::XMINT2 pickPosition;
 
+	std::map<Texture2D*, int> textures;
+
 	bool InitUAVSRV() override;
 	bool InitShaders() override;
 
