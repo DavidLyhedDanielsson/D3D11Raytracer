@@ -8,7 +8,7 @@ static const float SCREEN_RES_Y = 720.0f;
 
 static const int MAX_POINT_LIGHTS = 10;
 
-const static float AMBIENT_FAC = 0.5f;
+const static float AMBIENT_FAC = 1.0f;
 
 //////////////////////////////////////////////////
 //HLSL functions
@@ -115,6 +115,11 @@ bool RayTriangleIntersection(float3 rayPosition, float3 rayDirection, float3 v0,
 	float3 e0 = v1 - v0;
 	float3 e1 = v2 - v0;
 
+	float3 currentNormal = normalize(cross(e0, e1));
+
+	if(dot(rayDirection, currentNormal) >= 0.0f)
+		return false;
+
 	float3 detCross = cross(rayDirection, e1);
 	float det = dot(e0, detCross);
 
@@ -143,6 +148,24 @@ bool RayTriangleIntersection(float3 rayPosition, float3 rayDirection, float3 v0,
 float2 UnpackTexcoords(int intValue)
 {
 	return float2((intValue >> 16) & 0xFFFF, intValue & 0xFFFF) / (float)(0xFFFF);
+}
+
+float LineSegmentPointDistance(float3 p0, float3 p1, float3 p)
+{
+	float3 v = p1 - p0;
+	float3 w = p - p0;
+
+	float c1 = dot(w, v);
+	if(c1 <= 0.0f)
+		return distance(p, p0);
+	
+	float c2 = dot(v, v);
+	if(c2 <= c1)
+		return distance(p, p1);
+
+	float b = c1 / c2;
+	float3 pb = p0 + b * v;
+	return distance(p, pb);
 }
 #endif
 

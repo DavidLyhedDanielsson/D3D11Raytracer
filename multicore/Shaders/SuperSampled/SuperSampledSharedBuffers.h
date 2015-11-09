@@ -52,6 +52,7 @@ struct Triangle
 	int4 indicies; //vertices + padding
 };
 
+//Requires 8 bytes of padding whenever used
 struct AABB
 {
 	float3 min;

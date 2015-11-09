@@ -45,7 +45,8 @@ struct PointLights
 
 struct PickedObjectData
 {
-	int id;
+	int modelIndex;
+	int triangleIndex;
 
 	DirectX::XMFLOAT3 position;
 	DirectX::XMFLOAT3 color;

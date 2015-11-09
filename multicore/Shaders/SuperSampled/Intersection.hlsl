@@ -192,5 +192,5 @@ float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates)
 
 	currentTexCoord.y = 1.0f - currentTexCoord.y;
 
-	return float4(diffuseTexture.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.5f);
+	return float4(diffuseTexture.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
 }

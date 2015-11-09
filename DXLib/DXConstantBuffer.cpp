@@ -34,6 +34,9 @@ ID3D11Buffer* DXConstantBuffer::GetBuffer() const
 
 std::string DXConstantBuffer::CreateInternal(ID3D11Device* device, D3D11_BIND_FLAG bindFlag, D3D11_USAGE usage, D3D11_CPU_ACCESS_FLAG cpuAccessFlag, UINT size, void* initialData)
 {
+	if(size == 0)
+		return "Can't create a constant buffer with size 0";
+
 	//DX requires buffer size to be multiples of 16
 	this->size = size;
 	this->paddedSize = size;

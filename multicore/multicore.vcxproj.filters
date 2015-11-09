@@ -143,6 +143,9 @@
     <ClInclude Include="Shaders\Picking\PickingSharedConstants.h">
       <Filter>Resource Files\Shaders\Picking</Filter>
     </ClInclude>
+    <ClInclude Include="CodeStandard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BezierConstants.hlsl">

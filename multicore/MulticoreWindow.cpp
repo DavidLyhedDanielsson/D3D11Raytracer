@@ -42,6 +42,7 @@ MulticoreWindow::MulticoreWindow(HINSTANCE hInstance, int nCmdShow, UINT width, 
 	, bezierVertexCount(0)
 	, lightSinVal(0.0f)
 	, lightOtherSinVal(0.0f)
+	, cameraSpeed(0.005f)
 {
 }
 
@@ -87,6 +88,9 @@ bool MulticoreWindow::Init()
 
 	console.AddCommand(rayBounces);
 	console.AddCommand(lightAttenuation);
+
+	auto cameraSpeedCommand = new CommandGetSet<float>("cameraSpeed", &cameraSpeed);
+	console.AddCommand(cameraSpeedCommand);
 
 #if USE_ALL_SHADER_PROGRAMS
 	auto setShaderProgram = new CommandCallMethod("SetShaderProgram", std::bind(&MulticoreWindow::SetShaderProgram, this, std::placeholders::_1));
@@ -313,7 +317,7 @@ void MulticoreWindow::Update(std::chrono::nanoseconds delta)
 		cinematicCamera.Update(delta);
 	else if(!drawConsole)
 	{
-		float cameraSpeed = 0.005f * deltaMS;
+		float cameraSpeed = this->cameraSpeed * deltaMS;
 
 		if(keyMap.count(VK_SHIFT))
 			cameraSpeed *= 5.0f;
@@ -701,7 +705,14 @@ Argument MulticoreWindow::SetShaderProgram(const std::vector<Argument>& argument
 
 void MulticoreWindow::PickingCallback(const PickedObjectData& data)
 {
-	Logger::LogLine(LOG_TYPE::INFO, "ID: " + std::to_string(data.id) + ". Position: " + std::to_string(data.position.x) + ", " + std::to_string(data.position.y) + ", " + std::to_string(data.position.z) + ". Color: " + std::to_string(data.color.x) + ", " + std::to_string(data.color.y) + ", " + std::to_string(data.color.z));
+	if(data.triangleIndex != -1)
+	{
+		Logger::LogLine(LOG_TYPE::INFO, "ID: " + std::to_string(data.modelIndex) + ". Model: " + std::to_string(data.modelIndex) + ". Triangle: " + std::to_string(data.triangleIndex));
+	}
+	else
+	{
+		Logger::LogLine(LOG_TYPE::INFO, "ID: " + std::to_string(data.modelIndex) + ". Position: " + std::to_string(data.position.x) + ", " + std::to_string(data.position.y) + ", " + std::to_string(data.position.z) + ". Color: " + std::to_string(data.color.x) + ", " + std::to_string(data.color.y) + ", " + std::to_string(data.color.z));
+	}
 }
 
 bool MulticoreWindow::InitUAVs()
@@ -905,7 +916,7 @@ bool MulticoreWindow::InitRoom()
 
 	float radius = 5.5f;
 
-	for(int i = 0; i < 64; ++i)
+	for(int i = 0; i < 0; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
@@ -936,7 +947,7 @@ bool MulticoreWindow::InitRoom()
 	{
 		for(int y = 0; y < 1; y++)
 		{
-			for(int x = 0; x < 1; x++)
+			for(int x = 0; x < 0; x++)
 #if USE_ALL_SHADER_PROGRAMS
 				for(ShaderProgram* program : shaderPrograms)
 					program->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
@@ -947,7 +958,12 @@ bool MulticoreWindow::InitRoom()
 		}
 	}
 
-	//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+#if USE_ALL_SHADER_PROGRAMS
+	for(ShaderProgram* program : shaderPrograms)
+		program->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+#else
+	currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+#endif
 
 	return true;
 }

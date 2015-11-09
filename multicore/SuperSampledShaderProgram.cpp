@@ -57,7 +57,10 @@ bool SuperSampledShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBuff
 	LogErrorReturnFalse(superSampleBuffer.Create<int>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE, &superSampleCount), "Couldn't create view proj inverse buffer: ");
 
 	LogErrorReturnFalse(pickingMousePositionBuffer.Create<DirectX::XMINT2>(device, D3D11_BIND_CONSTANT_BUFFER, D3D11_USAGE_DYNAMIC, D3D11_CPU_ACCESS_WRITE), "Couldn't create view proj inverse buffer: "); //TODO D3D11_USAGE_STATIC ???
-	LogErrorReturnFalse(pickingHitDataBuffer.Create<PickingSharedBuffers::HitData>(device, D3D11_USAGE_DEFAULT, D3D11_CPU_ACCESS_READ, true, true, static_cast<int>(sphereBufferData.size())), "Couldn't create view proj inverse buffer: ");
+	
+	if(!sphereBufferData.empty()
+		|| !triangleBufferData.empty())
+		LogErrorReturnFalse(pickingHitDataBuffer.Create<PickingSharedBuffers::HitData>(device, D3D11_USAGE_DEFAULT, D3D11_CPU_ACCESS_READ, true, true, static_cast<int>(sphereBufferData.size() + triangleBufferData.size())), "Couldn't create picking hit data buffer: ");
 
 	if(!InitUAVSRV())
 		return false;
@@ -363,15 +366,15 @@ void SuperSampledShaderProgram::DrawComposit(int config)
 void SuperSampledShaderProgram::DrawPick()
 {
 	pickingShader.Bind(deviceContext);
-	deviceContext->Dispatch(static_cast<int>(std::ceil(sphereBufferData.size() / 32.0f)), 1, 1);
+	deviceContext->Dispatch(static_cast<int>(std::ceil((sphereBufferData.size() + triangleBufferData.size()) / 32.0f)), 1, 1);
 	pickingShader.Unbind(deviceContext);
 
 	std::vector<PickingSharedBuffers::HitData> hitData;
-	hitData.resize(sphereBufferData.size());
+	hitData.resize(sphereBufferData.size() + triangleBufferData.size());
 
 	D3D11_MAPPED_SUBRESOURCE mappedBuffer;
 	deviceContext->Map(pickingHitDataBuffer.GetBuffer(), 0, D3D11_MAP_READ, 0, &mappedBuffer);
-	memcpy(&hitData[0], mappedBuffer.pData, sizeof(PickingSharedBuffers::HitData) * sphereBufferData.size());
+	memcpy(&hitData[0], mappedBuffer.pData, sizeof(PickingSharedBuffers::HitData) * (sphereBufferData.size() + triangleBufferData.size()));
 	deviceContext->Unmap(pickingHitDataBuffer.GetBuffer(), 0);
 
 	float nearest = std::numeric_limits<float>::max();
@@ -391,15 +394,26 @@ void SuperSampledShaderProgram::DrawPick()
 	
 	if(nearestIndex == -1)
 	{
-		data.id = -1;
+		data.modelIndex = -1;
+		data.triangleIndex = -1;
 		data.position = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
 		data.color = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
 	}
 	else
 	{
-		data.id = hitData[nearestIndex].modelIndex;
-		data.position = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].position);
-		data.color = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].color);
+		data.modelIndex = hitData[nearestIndex].modelIndex;
+		data.triangleIndex = hitData[nearestIndex].triangleIndex;
+
+		if(data.triangleIndex == -1)
+		{
+			data.position = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].position);
+			data.color = DirectX::XMLoadFloat3(sphereBufferData[nearestIndex].color);
+		}
+		else
+		{
+			data.position = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
+			data.color = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
+		}
 	}
 
 	pickingCallback(data);
@@ -407,6 +421,9 @@ void SuperSampledShaderProgram::DrawPick()
 
 void SuperSampledShaderProgram::Pick(const DirectX::XMINT2& mousePosition, std::function<void(const PickedObjectData&)> callback)
 {
+	if(pickingHitDataBuffer.GetUAV() == nullptr)
+		return;
+
 	ShaderProgram::Pick(mousePosition, callback);
 
 	pickPosition = mousePosition;
@@ -424,8 +441,6 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 	auto xmAABBMin = DirectX::XMLoadFloat3(&aabbMin);
 	auto xmAABBMax = DirectX::XMLoadFloat3(&aabbMax);
 
-	Mesh mesh = objFile->GetMeshes().front();
-
 	int vertexOffset = 0;
 
 	for(const auto& triangle : triangleBufferData)
@@ -435,48 +450,51 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 		vertexOffset = std::max(vertexOffset, triangle.indicies.z + 1);
 	}
 
-	for(int i = 0, end = static_cast<int>(mesh.vertices.size()); i < end; ++i)
+	for(const auto& mesh : objFile->GetMeshes())
 	{
-		SuperSampledSharedBuffers::Vertex newVertex;
+		for(int i = 0, end = static_cast<int>(mesh.vertices.size()); i < end; ++i)
+		{
+			SuperSampledSharedBuffers::Vertex newVertex;
 
-		newVertex.position.x = mesh.vertices[i].position.x + position.x;
-		newVertex.position.y = mesh.vertices[i].position.y + position.y;
-		newVertex.position.z = mesh.vertices[i].position.z + position.z;
+			newVertex.position.x = mesh.vertices[i].position.x + position.x;
+			newVertex.position.y = mesh.vertices[i].position.y + position.y;
+			newVertex.position.z = mesh.vertices[i].position.z + position.z;
 
-		int u = mesh.vertices[i].texCoord.x * 0xFFFF;
-		int v = mesh.vertices[i].texCoord.y * 0xFFFF;
+			int u = mesh.vertices[i].texCoord.x * 0xFFFF;
+			int v = mesh.vertices[i].texCoord.y * 0xFFFF;
 
-		newVertex.texCoord = (u << 16) | v;
+			newVertex.texCoord = (u << 16) | v;
 
-		auto xmNewVertexPosition = DirectX::XMLoadFloat3(&newVertex.position);
-		xmAABBMin = DirectX::XMVectorMin(xmNewVertexPosition, xmAABBMin);
-		xmAABBMax = DirectX::XMVectorMax(xmNewVertexPosition, xmAABBMax);
+			auto xmNewVertexPosition = DirectX::XMLoadFloat3(&newVertex.position);
+			xmAABBMin = DirectX::XMVectorMin(xmNewVertexPosition, xmAABBMin);
+			xmAABBMax = DirectX::XMVectorMax(xmNewVertexPosition, xmAABBMax);
 
-		vertexBufferData.push_back(std::move(newVertex));
+			vertexBufferData.push_back(std::move(newVertex));
+		}
+
+		int triangleCount = static_cast<int>(triangleBufferData.size());
+
+		for(int i = 0, end = static_cast<int>(mesh.indicies.size()) / 3; i < end; ++i)
+		{
+			SuperSampledSharedBuffers::Triangle newTriangle;
+
+			newTriangle.indicies.x = vertexOffset + mesh.indicies[i * 3];
+			newTriangle.indicies.y = vertexOffset + mesh.indicies[i * 3 + 1];
+			newTriangle.indicies.z = vertexOffset + mesh.indicies[i * 3 + 2];
+			newTriangle.indicies.w = 0;
+
+			triangleBufferData.push_back(std::move(newTriangle));
+		}
+
+		SuperSampledSharedBuffers::Model newModel;
+		DirectX::XMStoreFloat3(&newModel.aabb.min, xmAABBMin);
+		DirectX::XMStoreFloat3(&newModel.aabb.max, xmAABBMax);
+
+		newModel.beginIndex = triangleCount;
+		newModel.endIndex = static_cast<int>(triangleBufferData.size());
+
+		modelsBufferData.push_back(std::move(newModel));
 	}
-
-	int triangleCount = static_cast<int>(triangleBufferData.size());
-
-	for(int i = 0, end = static_cast<int>(mesh.indicies.size()) / 3; i < end; ++i)
-	{
-		SuperSampledSharedBuffers::Triangle newTriangle;
-
-		newTriangle.indicies.x = vertexOffset + mesh.indicies[i * 3];
-		newTriangle.indicies.y = vertexOffset + mesh.indicies[i * 3 + 1];
-		newTriangle.indicies.z = vertexOffset + mesh.indicies[i * 3 + 2];
-		newTriangle.indicies.w = 0;
-
-		triangleBufferData.push_back(std::move(newTriangle));
-	}
-
-	SuperSampledSharedBuffers::Model newModel;
-	DirectX::XMStoreFloat3(&newModel.aabb.min, xmAABBMin);
-	DirectX::XMStoreFloat3(&newModel.aabb.max, xmAABBMax);
-
-	newModel.beginIndex = triangleCount;
-	newModel.endIndex = static_cast<int>(triangleBufferData.size()) - 1;
-
-	modelsBufferData.push_back(std::move(newModel));
 }
 
 void SuperSampledShaderProgram::SetSuperSampleCount(UINT count)

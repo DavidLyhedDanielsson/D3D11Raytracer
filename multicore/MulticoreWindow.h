@@ -30,9 +30,9 @@
 //#define USE_CONSTANT_BUFFER_SHADER_PROGRAM true
 //#define USE_STRUCTURED_BUFFER_SHADER_PROGRAM true
 //#define USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM true
-//#define USE_SUPER_SAMPLED_SHADER_PROGRAM true
+#define USE_SUPER_SAMPLED_SHADER_PROGRAM true
 
-#if !USE_CONSTANT_BUFFER_SHADER_PROGRAM && !USE_STRUCTURED_BUFFER_SHADER_PROGRAM && !USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM
+#if !USE_CONSTANT_BUFFER_SHADER_PROGRAM && !USE_STRUCTURED_BUFFER_SHADER_PROGRAM && !USE_AABBSTRUCTUREDBUFFER_SHADER_PROGRAM && !USE_SUPER_SAMPLED_SHADER_PROGRAM
 #define USE_ALL_SHADER_PROGRAMS true
 #endif
 
@@ -46,7 +46,7 @@ class SuperSampledShaderProgram;
 	std::string errorString = functionCall;								\
 	if(!errorString.empty())											\
 	{																	\
-		Logger::LogLine(LOG_TYPE::FATAL, messagePrefix + errorString);	\
+		Logger::LogLine(LOG_TYPE::FATAL ,messagePrefix + errorString);	\
 		return false;													\
 	}																	\
 } 
@@ -225,6 +225,8 @@ private:
 
 	Console console;
 	bool drawConsole;
+
+	float cameraSpeed;
 
 	ShaderProgram* currentShaderProgram;
 

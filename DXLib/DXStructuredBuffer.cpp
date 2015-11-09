@@ -45,6 +45,11 @@ D3D11_CPU_ACCESS_FLAG DXStructuredBuffer::GetCPUAccessFlag() const
 
 std::string DXStructuredBuffer::CreateInternal(ID3D11Device* device, D3D11_USAGE usage, D3D11_CPU_ACCESS_FLAG cpuAccessFlag, bool read, bool write, UINT size, UINT byteStride, void* initialData)
 {
+	if(size == 0)
+		return "Can't create a structured buffer with 0 size";
+	if(byteStride == 0)
+		return "Can't create a structured buffer with 0 byte stride";
+
 	//DX requires structured buffer size to be multiples of 16
 	this->size = size;
 	this->paddedSize = size;

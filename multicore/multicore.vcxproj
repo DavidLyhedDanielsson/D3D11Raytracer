@@ -164,6 +164,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABBStructuredBufferShaderProgram.h" />
+    <ClInclude Include="CodeStandard.h" />
     <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedBuffers.h" />
     <ClInclude Include="Shaders\AABBStructuredBuffer\AABBStructuredBufferSharedConstants.h" />
     <ClInclude Include="Shaders\ConstantBuffer\ConstantBufferSharedBuffers.h" />
