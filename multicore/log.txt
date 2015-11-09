@@ -1,17 +1,1 @@
 [INFO] Found "o" tag when loading sword.obj, these aren't implemented so it will simply be ignored
-[FATAL] Couldn't create ray position comboCouldn't create texture with dimensions -842150451x-842150451
-Stack trace:
-    Logger::Log
-    Logger::LogLine
-    SuperSampledShaderProgram::InitUAVSRV
-    SuperSampledShaderProgram::InitBuffers
-    MulticoreWindow::Init
-    MulticoreWindow::Run
-[WARNING] WriteAutoexec called without calling ParseAutoexec first
-Stack trace:
-    Logger::Log
-    Logger::LogLine
-    ConsoleAutoexecManager::WriteAutoexec
-    Console::~Console
-    MulticoreWindow::~MulticoreWindow
-    WinMain

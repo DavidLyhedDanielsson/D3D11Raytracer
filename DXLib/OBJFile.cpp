@@ -241,6 +241,11 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 		newVertices.emplace_back(positionIndex, texCoordIndex, normalIndex);
 	}
 
+	int indexOffset = 0;
+
+	for(int i = 0; i < meshes.size() - 1; ++i)
+		indexOffset += meshes[i].vertices.size();
+
 	for(int i = 0; i < 3; i++)
 	{
 		//Turn 0-indexed
@@ -260,7 +265,7 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 			index = indexCount;
 			++indexCount;
 
-			vertexMap[newVertices[i].x][newVertices[i].y][newVertices[i].z] = meshes.back().vertices.size();
+			vertexMap[newVertices[i].x][newVertices[i].y][newVertices[i].z] = indexOffset + meshes.back().vertices.size();
 			meshes.back().vertices.emplace_back(v[newVertices[i].x], vn[newVertices[i].z], vt[newVertices[i].y]);
 		}
 

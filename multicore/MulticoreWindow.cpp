@@ -138,7 +138,7 @@ bool MulticoreWindow::Init()
 	currentShaderProgram = aabbStructuredBufferShaderProgram.get();
 #elif USE_SUPER_SAMPLED_SHADER_PROGRAM
 	superSampledShaderProgram.reset(new SuperSampledShaderProgram());
-	if(!superSampledShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager))
+	if(!superSampledShaderProgram->Init(device.get(), deviceContext.get(), width, height, &console, &contentManager, 1))
 		return false;
 
 	currentShaderProgram = superSampledShaderProgram.get();
