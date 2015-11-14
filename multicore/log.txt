@@ -1,1 +1,2 @@
-[INFO] Found "o" tag when loading sword.obj, these aren't implemented so it will simply be ignored
+[INFO] Found "o" tag when loading meshes/sword.obj, these aren't implemented so it will simply be ignored
+[INFO] Found "o" tag when loading meshes/cube.obj, these aren't implemented so it will simply be ignored

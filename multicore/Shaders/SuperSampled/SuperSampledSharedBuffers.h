@@ -40,9 +40,10 @@ struct Sphere
 struct Vertex
 {
 	float3 position;
+	float3 normal;
 	float3 tangent;
 	int texCoord; //first 16 bits = u, last 16 bits = v
-	int padding;
+	int2 padding;
 };
 
 struct Triangle
@@ -63,6 +64,15 @@ struct Model
 	AABB aabb;
 	int beginIndex;
 	int endIndex;
+};
+
+//Picking
+struct HitData
+{
+	int modelIndex;
+	int triangleIndex;
+	float depth;
+	float padding;
 };
 
 #ifdef _WIN32

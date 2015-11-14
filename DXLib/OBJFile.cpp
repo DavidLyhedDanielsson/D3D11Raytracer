@@ -285,9 +285,6 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 	auto xmE0 = DirectX::XMVectorSubtract(xmV1Position, xmV0Position);
 	auto xmE1 = DirectX::XMVectorSubtract(xmV2Position, xmV0Position);
 
-	auto xmNormal = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(xmE0, xmE1));
-	auto normal = DirectX::XMStoreFloat3(xmNormal);
-
 	float u0 = vertex1.texCoord.x - vertex0.texCoord.x;
 	float u1 = vertex2.texCoord.x - vertex0.texCoord.x;
 
@@ -301,13 +298,6 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 
 	auto tangent = DirectX::XMFLOAT3(mult * (v1 * e0.x - v0 * e1.x), mult * (v1 * e0.y - v0 * e1.y), mult * (v1 * e0.z - v0 * e1.z));
 	auto binormal = DirectX::XMFLOAT3(mult * (-u1 * e0.x + u0 * e1.x), mult * (-u1 * e0.y + u0 * e1.y), mult * (-u1 * e0.z + u0 * e1.z));
-
-	auto xmTangent = DirectX::XMLoadFloat3(&tangent);
-	auto xmBinormal= DirectX::XMLoadFloat3(&binormal);
-
-	float tangentDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmNormal, xmTangent));
-	float binormalDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmNormal, xmBinormal));
-	float otherDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmTangent, xmBinormal));
 
 	vertex0.tangent = tangent;
 	vertex1.tangent = tangent;

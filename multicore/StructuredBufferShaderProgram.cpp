@@ -280,7 +280,7 @@ void StructuredBufferShaderProgram::DrawComposit(int config)
 	compositShader.Unbind(deviceContext);
 }
 
-void StructuredBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
+void StructuredBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale)
 {
 	objFile = contentManager->Load<OBJFile>(path);
 	if(objFile == nullptr)

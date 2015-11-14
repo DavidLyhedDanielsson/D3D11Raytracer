@@ -279,7 +279,7 @@ void ConstantBufferShaderProgram::DrawComposit(int config)
 	compositShader.Unbind(deviceContext);
 }
 
-void ConstantBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
+void ConstantBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale)
 {
 	objFile = contentManager->Load<OBJFile>(path);
 	if(objFile == nullptr)

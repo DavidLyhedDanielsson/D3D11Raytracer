@@ -1,0 +1,6 @@
+# Blender MTL File: 'None'
+# Material Count: 1
+
+newmtl sword
+map_Kd textures/swordDiffuse.dds
+map_Bump textures/swordNormal.dds

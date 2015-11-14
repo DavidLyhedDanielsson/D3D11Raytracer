@@ -413,9 +413,9 @@ void MulticoreWindow::Draw()
 	//////////////////////////////////////////////////
 	DrawBulbs();
 
-	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST);
+	/*deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST);
 	DrawBezier();
-	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);*/
 
 	//////////////////////////////////////////////////
 	//Sprites
@@ -914,14 +914,14 @@ bool MulticoreWindow::InitRoom()
 	float rotationValue = 0.0f;
 	float heightValue = 0.0f;
 
-	float radius = 5.5f;
+	float radius = 3.0f;
 
-	for(int i = 0; i < 0; ++i)
+	for(int i = 0; i < 64; ++i)
 	{
 		DirectX::XMFLOAT4 newSphere;
 		DirectX::XMFLOAT4 newColor;
 
-		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, -3.0 + (rand() / static_cast<float>(RAND_MAX)) * 6.0f, std::sinf(rotationValue) * radius, 0.5f);
+		newSphere = DirectX::XMFLOAT4(std::cosf(rotationValue) * radius, -3.0f + (rand() / static_cast<float>(RAND_MAX)) * 6.0f, std::sinf(rotationValue) * radius, 0.5f);
 		if(i % 3 == 0)
 			newColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 0.8f);
 		else if(i % 3 == 1)
@@ -960,9 +960,12 @@ bool MulticoreWindow::InitRoom()
 
 #if USE_ALL_SHADER_PROGRAMS
 	for(ShaderProgram* program : shaderPrograms)
-		program->AddOBJ("SpecNorm.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+		program->AddOBJ("SpecNorm.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), 1.0f);
 #else
-	currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+	//currentShaderProgram->AddOBJ("cube.obj", DirectX::XMFLOAT3(0.0f, -2.0f, 0.0f));
+	currentShaderProgram->AddOBJ("meshes/sword.obj", DirectX::XMFLOAT3(0.0f, -2.0f, 0.0f), 0.1f);
+	currentShaderProgram->AddOBJ("meshes/cube.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f), 10.0f);
+	//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 2.0f, 0.0f));
 #endif
 
 	return true;

@@ -283,7 +283,7 @@ void AABBStructuredBufferShaderProgram::DrawComposit(int config)
 	compositShader.Unbind(deviceContext);
 }
 
-void AABBStructuredBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
+void AABBStructuredBufferShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale)
 {
 	objFile = contentManager->Load<OBJFile>(path);
 	if(objFile == nullptr)

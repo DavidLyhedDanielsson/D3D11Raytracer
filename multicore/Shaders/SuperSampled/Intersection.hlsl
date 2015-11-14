@@ -45,9 +45,6 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		rayNormalOut[threadID.xy] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 		return;
 	}
-
-	float3 outDirection = reflect(rayDirection, normal);
-	rayDirectionsOut[threadID.xy] = float4(outDirection, 0.0f);
 	
 	float3 outNormal = normal;
 	float4 outColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -75,6 +72,10 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	rayColorOut[threadID.xy] = outColor;
 	rayNormalOut[threadID.xy] = float4(outNormal, 0.0f);
+
+	float3 outDirection = reflect(rayDirection, outNormal);
+	rayDirectionsOut[threadID.xy] = float4(outDirection, 0.0f);
+
 	depthOut[threadID.xy] = depth;
 }
 
@@ -183,7 +184,11 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	if(closestTriangleIndex == -1)
 		return float2(0.0f, 0.0f);
 
-	currentNormal = normalize(cross(closestV1 - closestV0, closestV2 - closestV0));
+	float3 n0 = vertices[triangles[closestTriangleIndex].indicies.x].normal;
+	float3 n1 = vertices[triangles[closestTriangleIndex].indicies.y].normal;
+	float3 n2 = vertices[triangles[closestTriangleIndex].indicies.z].normal;
+
+	currentNormal = n0 + (n1 - n0) * u + (n2 - n0) * v;
 
 	closestIndex = closestTriangleIndex;
 
@@ -204,12 +209,12 @@ void GetTriangleColorAndNormalAt(int triangleIndex, float2 barycentricCoordinate
 
 	if(textureID == 0)
 	{
-		color = float4(diffuseTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+		color = diffuseTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0);
 		sampledNormal = normalTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz;
 	}
 	else if(textureID == 1)
 	{
-		color = float4(diffuseTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+		color = diffuseTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0);
 		sampledNormal = normalTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz;
 	}
 	else

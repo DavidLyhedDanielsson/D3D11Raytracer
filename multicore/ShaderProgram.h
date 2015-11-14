@@ -65,7 +65,7 @@ public:
 	virtual bool Init(ID3D11Device* device, ID3D11DeviceContext* deviceContext, UINT backBufferWidth, UINT backBufferHeight, Console* console, ContentManager* contentManager);
 	virtual bool InitBuffers(ID3D11UnorderedAccessView* depthBufferUAV, ID3D11UnorderedAccessView* backBufferUAV);
 
-	virtual void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) = 0;
+	virtual void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale) = 0;
 	virtual void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) = 0;
 
 	virtual void Update(std::chrono::nanoseconds delta);

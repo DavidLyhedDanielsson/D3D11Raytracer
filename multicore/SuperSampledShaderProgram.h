@@ -45,7 +45,7 @@ public:
 	std::map<std::string, double> Draw() override;
 
 	void AddSphere(DirectX::XMFLOAT4 sphere, DirectX::XMFLOAT4 color) override;
-	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position) override;
+	void AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale) override;
 
 	void Pick(const DirectX::XMINT2& mousePosition, std::function<void(const PickedObjectData&)> callback) override;
 

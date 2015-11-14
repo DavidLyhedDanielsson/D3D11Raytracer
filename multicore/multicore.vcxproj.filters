@@ -232,8 +232,8 @@
     <FxCompile Include="Shaders\SuperSampled\Intersection.hlsl">
       <Filter>Resource Files\Shaders\SuperSampled</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Picking\Intersection.hlsl">
-      <Filter>Resource Files\Shaders\Picking</Filter>
+    <FxCompile Include="Shaders\SuperSampled\PickingIntersection.hlsl">
+      <Filter>Resource Files\Shaders\SuperSampled</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

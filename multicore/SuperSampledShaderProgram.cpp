@@ -60,7 +60,7 @@ bool SuperSampledShaderProgram::InitBuffers(ID3D11UnorderedAccessView* depthBuff
 	
 	if(!sphereBufferData.empty()
 		|| !triangleBufferData.empty())
-		LogErrorReturnFalse(pickingHitDataBuffer.Create<PickingSharedBuffers::HitData>(device, D3D11_USAGE_DEFAULT, D3D11_CPU_ACCESS_READ, true, true, static_cast<int>(sphereBufferData.size() + triangleBufferData.size())), "Couldn't create picking hit data buffer: ");
+		LogErrorReturnFalse(pickingHitDataBuffer.Create<SuperSampledSharedBuffers::HitData>(device, D3D11_USAGE_DEFAULT, D3D11_CPU_ACCESS_READ, true, true, static_cast<int>(sphereBufferData.size() + triangleBufferData.size())), "Couldn't create picking hit data buffer: ");
 
 	if(!InitUAVSRV())
 		return false;
@@ -286,7 +286,7 @@ bool SuperSampledShaderProgram::InitShaders()
 	pickingIntersectionBinds.AddResource(triangleBuffer.GetSRV(), SuperSampledSharedBuffers::TRIANGLE_BUFFER_REGISTRY_INDEX);
 	pickingIntersectionBinds.AddResource(modelsBuffer.GetSRV(), SuperSampledSharedBuffers::MODEL_BUFFER_REGISTRY_INDEX);
 
-	LogErrorReturnFalse(pickingShader.CreateFromFile("Shaders/Picking/Intersection.hlsl", device, pickingIntersectionBinds), "");
+	LogErrorReturnFalse(pickingShader.CreateFromFile(shaderPath + "PickingIntersection.hlsl", device, pickingIntersectionBinds), "");
 
 	return true;
 }
@@ -333,7 +333,7 @@ std::map<std::string, double> SuperSampledShaderProgram::Draw()
 
 	for(int i = 1; i < rayBounces; ++i)
 	{
-		DrawRayIntersection(i + (i % 2));
+		DrawRayIntersection(1 + (i % 2));
 		d3d11Timer.Stop("Intersect" + std::to_string(i));
 		DrawRayShading(i % 2);
 		d3d11Timer.Stop("Shade" + std::to_string(i));
@@ -379,12 +379,12 @@ void SuperSampledShaderProgram::DrawPick()
 	deviceContext->Dispatch(static_cast<int>(std::ceil((sphereBufferData.size() + triangleBufferData.size()) / 32.0f)), 1, 1);
 	pickingShader.Unbind(deviceContext);
 
-	std::vector<PickingSharedBuffers::HitData> hitData;
+	std::vector<SuperSampledSharedBuffers::HitData> hitData;
 	hitData.resize(sphereBufferData.size() + triangleBufferData.size());
 
 	D3D11_MAPPED_SUBRESOURCE mappedBuffer;
 	deviceContext->Map(pickingHitDataBuffer.GetBuffer(), 0, D3D11_MAP_READ, 0, &mappedBuffer);
-	memcpy(&hitData[0], mappedBuffer.pData, sizeof(PickingSharedBuffers::HitData) * (sphereBufferData.size() + triangleBufferData.size()));
+	memcpy(&hitData[0], mappedBuffer.pData, sizeof(SuperSampledSharedBuffers::HitData) * (sphereBufferData.size() + triangleBufferData.size()));
 	deviceContext->Unmap(pickingHitDataBuffer.GetBuffer(), 0);
 
 	float nearest = std::numeric_limits<float>::max();
@@ -439,7 +439,7 @@ void SuperSampledShaderProgram::Pick(const DirectX::XMINT2& mousePosition, std::
 	pickPosition = mousePosition;
 }
 
-void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position)
+void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT3 position, float scale)
 {
 	objFile = contentManager->Load<OBJFile>(path);
 	if(objFile == nullptr)
@@ -466,9 +466,9 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 		{
 			SuperSampledSharedBuffers::Vertex newVertex;
 
-			newVertex.position.x = mesh.vertices[i].position.x + position.x;
-			newVertex.position.y = mesh.vertices[i].position.y + position.y;
-			newVertex.position.z = mesh.vertices[i].position.z + position.z;
+			newVertex.position.x = (mesh.vertices[i].position.x * scale) + position.x;
+			newVertex.position.y = (mesh.vertices[i].position.y * scale) + position.y;
+			newVertex.position.z = (mesh.vertices[i].position.z * scale) + position.z;
 
 			int u = mesh.vertices[i].texCoord.x * 0xFFFF;
 			int v = mesh.vertices[i].texCoord.y * 0xFFFF;
@@ -476,6 +476,7 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 			newVertex.texCoord = (u << 16) | v;
 
 			newVertex.tangent = mesh.vertices[i].tangent;
+			newVertex.normal = mesh.vertices[i].normal;
 
 			auto xmNewVertexPosition = DirectX::XMLoadFloat3(&newVertex.position);
 			xmAABBMin = DirectX::XMVectorMin(xmNewVertexPosition, xmAABBMin);

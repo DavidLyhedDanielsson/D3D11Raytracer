@@ -70,9 +70,11 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		specularFac = saturate(specularFac);
 
 		float3 oldColor = backbufferIn[threadID.xy].xyz;
-		float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w * (1.0f - rayColors[threadID.xy].w);
+		float3 color = rayColors[threadID.xy].xyz;
+		//float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w * (1.0f - rayColors[threadID.xy].w);
 
-		float3 outColor = oldColor + color * lightFac + specularFac;
+		float3 outColor = oldColor + color * backbufferIn[threadID.xy].w * lightFac + specularFac;
+		//float3 outColor = oldColor + color * lightFac + specularFac;
 
 		backbufferOut[threadID.xy] = float4(outColor, backbufferIn[threadID.xy].w * rayColors[threadID.xy].w);
 	}
