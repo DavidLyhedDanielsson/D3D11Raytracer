@@ -943,7 +943,7 @@ bool MulticoreWindow::InitRoom()
 	//////////////////////////////////////////////////
 	//Triangles
 	//////////////////////////////////////////////////
-	for(int z = 0; z < 1; z++)
+	/*for(int z = 0; z < 1; z++)
 	{
 		for(int y = 0; y < 1; y++)
 		{
@@ -953,14 +953,14 @@ bool MulticoreWindow::InitRoom()
 					program->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
 			//program->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 #else
-				currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
+				//currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(-1.0f + x * 2.0f, -1.0f + y * 2.0f, -2.5f + z * 5.0f));
 #endif
 		}
-	}
+	}*/
 
 #if USE_ALL_SHADER_PROGRAMS
 	for(ShaderProgram* program : shaderPrograms)
-		program->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
+		program->AddOBJ("SpecNorm.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 #else
 	currentShaderProgram->AddOBJ("sword.obj", DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f));
 #endif

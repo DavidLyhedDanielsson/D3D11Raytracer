@@ -109,7 +109,7 @@ bool AABBStructuredBufferShaderProgram::InitShaders()
 	//SRVs
 	traceResourceBindInitial.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBindInitial.AddResource(rayDirectionSRV[0].get(), 1);
-	traceResourceBindInitial.AddResource(objFile->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+	traceResourceBindInitial.AddResource(objFile->GetMeshes().front().material.diffuseTexture->GetTextureResourceView(), 2);
 
 	//Samplers
 	traceResourceBindInitial.AddResource(SamplerStates::linearClamp, 0);
@@ -133,7 +133,7 @@ bool AABBStructuredBufferShaderProgram::InitShaders()
 	//SRVs
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
-	traceResourceBinds0.AddResource(objFile->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+	traceResourceBinds0.AddResource(objFile->GetMeshes().front().material.diffuseTexture->GetTextureResourceView(), 2);
 
 	//Samplers
 	traceResourceBinds0.AddResource(SamplerStates::linearClamp, 0);
@@ -155,7 +155,7 @@ bool AABBStructuredBufferShaderProgram::InitShaders()
 	//SRVs
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
 	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
-	traceResourceBinds1.AddResource(objFile->GetMeshes().front().material.ambientTexture->GetTextureResourceView(), 2);
+	traceResourceBinds1.AddResource(objFile->GetMeshes().front().material.diffuseTexture->GetTextureResourceView(), 2);
 
 	//Samplers
 	traceResourceBinds1.AddResource(SamplerStates::linearClamp, 0);

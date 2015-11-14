@@ -154,8 +154,8 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 
 	splitLine.erase(splitLine.begin());
 
-	std::vector<DirectX::XMINT3> newVertices;
-	newVertices.reserve(3);
+	std::vector<DirectX::XMINT3> newVertexData;
+	newVertexData.reserve(3);
 
 	for(int i = 0; i < 3; ++i)
 	{
@@ -189,7 +189,7 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 
 		if(splitVertex.size() == 1)
 		{
-			newVertices.emplace_back(positionIndex, -1, -1);
+			newVertexData.emplace_back(positionIndex, -1, -1);
 			continue;
 		}
 
@@ -214,7 +214,7 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 
 		if(splitVertex.size() == 2)
 		{
-			newVertices.emplace_back(positionIndex, texCoordIndex, -1);
+			newVertexData.emplace_back(positionIndex, texCoordIndex, -1);
 			continue;
 		}
 
@@ -238,7 +238,7 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 			return;
 		}
 
-		newVertices.emplace_back(positionIndex, texCoordIndex, normalIndex);
+		newVertexData.emplace_back(positionIndex, texCoordIndex, normalIndex);
 	}
 
 	int indexOffset = 0;
@@ -249,28 +249,69 @@ void OBJFile::ProcessF(const std::string& line, VertexMap& vertexMap, int& index
 	for(int i = 0; i < 3; i++)
 	{
 		//Turn 0-indexed
-		--newVertices[i].x;
-		--newVertices[i].y;
-		--newVertices[i].z;
+		--newVertexData[i].x;
+		--newVertexData[i].y;
+		--newVertexData[i].z;
 
 		int index = 0;
 
 		try
 		{
-			index = vertexMap.at(newVertices[i].x).at(newVertices[i].y).at(newVertices[i].z);
+			index = vertexMap.at(newVertexData[i].x).at(newVertexData[i].y).at(newVertexData[i].z);
 		}
 		catch(const std::out_of_range&)
 		{
-			//index = static_cast<int>(meshes.back().indicies.size());
 			index = indexCount;
 			++indexCount;
 
-			vertexMap[newVertices[i].x][newVertices[i].y][newVertices[i].z] = indexOffset + meshes.back().vertices.size();
-			meshes.back().vertices.emplace_back(v[newVertices[i].x], vn[newVertices[i].z], vt[newVertices[i].y]);
+			vertexMap[newVertexData[i].x][newVertexData[i].y][newVertexData[i].z] = indexOffset + meshes.back().vertices.size();
+			meshes.back().vertices.emplace_back(v[newVertexData[i].x], vn[newVertexData[i].z], vt[newVertexData[i].y]);
 		}
 
 		meshes.back().indicies.push_back(index);
 	}
+
+	//All vertices have been added, now calculation of tangent can be done
+	int startCount = static_cast<int>(meshes.back().indicies.size() - 3);
+
+	OBJVertex& vertex0 = meshes.back().vertices[meshes.back().indicies[startCount] - indexOffset];
+	OBJVertex& vertex1 = meshes.back().vertices[meshes.back().indicies[startCount + 1] - indexOffset];
+	OBJVertex& vertex2 = meshes.back().vertices[meshes.back().indicies[startCount + 2] - indexOffset];
+
+	auto xmV0Position = DirectX::XMLoadFloat3(&vertex0.position);
+	auto xmV1Position = DirectX::XMLoadFloat3(&vertex1.position);
+	auto xmV2Position = DirectX::XMLoadFloat3(&vertex2.position);
+
+	auto xmE0 = DirectX::XMVectorSubtract(xmV1Position, xmV0Position);
+	auto xmE1 = DirectX::XMVectorSubtract(xmV2Position, xmV0Position);
+
+	auto xmNormal = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(xmE0, xmE1));
+	auto normal = DirectX::XMStoreFloat3(xmNormal);
+
+	float u0 = vertex1.texCoord.x - vertex0.texCoord.x;
+	float u1 = vertex2.texCoord.x - vertex0.texCoord.x;
+
+	float v0 = vertex1.texCoord.y - vertex0.texCoord.y;
+	float v1 = vertex2.texCoord.y - vertex0.texCoord.y;
+
+	float mult = 1.0f / (u0 * v1 - v0 * u1);
+
+	auto e0 = DirectX::XMStoreFloat3(xmE0);
+	auto e1 = DirectX::XMStoreFloat3(xmE1);
+
+	auto tangent = DirectX::XMFLOAT3(mult * (v1 * e0.x - v0 * e1.x), mult * (v1 * e0.y - v0 * e1.y), mult * (v1 * e0.z - v0 * e1.z));
+	auto binormal = DirectX::XMFLOAT3(mult * (-u1 * e0.x + u0 * e1.x), mult * (-u1 * e0.y + u0 * e1.y), mult * (-u1 * e0.z + u0 * e1.z));
+
+	auto xmTangent = DirectX::XMLoadFloat3(&tangent);
+	auto xmBinormal= DirectX::XMLoadFloat3(&binormal);
+
+	float tangentDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmNormal, xmTangent));
+	float binormalDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmNormal, xmBinormal));
+	float otherDot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(xmTangent, xmBinormal));
+
+	vertex0.tangent = tangent;
+	vertex1.tangent = tangent;
+	vertex2.tangent = tangent;
 }
 
 void OBJFile::ProcessM(const std::string& line, ContentManager* contentManager)
@@ -450,8 +491,14 @@ bool MTLLib::Load(const std::string& path, ID3D11Device* device, ContentManager*
 		}
 		else if(line.compare(0, 6, "map_Kd") == 0)
 		{
-			newMaterial.ambientTexture = contentManager->Load<Texture2D>(line.substr(line.find_first_of("\t ") + 1));
-			if(newMaterial.ambientTexture == nullptr)
+			newMaterial.diffuseTexture = contentManager->Load<Texture2D>(line.substr(line.find_first_of("\t ") + 1));
+			if(newMaterial.diffuseTexture == nullptr)
+				return false;
+		}
+		else if(line.compare(0, 8, "map_Bump") == 0)
+		{
+			newMaterial.normalTexture = contentManager->Load<Texture2D>(line.substr(line.find_first_of("\t ") + 1));
+			if(newMaterial.normalTexture == nullptr)
 				return false;
 		}
 	}
@@ -468,7 +515,7 @@ bool MTLLib::Load(const std::string& path, ID3D11Device* device, ContentManager*
 void MTLLib::Unload(ContentManager* contentManager /*= nullptr*/)
 {
 	for(auto pair : materials)
-		contentManager->Unload(pair.second.ambientTexture);
+		contentManager->Unload(pair.second.diffuseTexture);
 }
 
 Material MTLLib::operator[](const std::string& i)

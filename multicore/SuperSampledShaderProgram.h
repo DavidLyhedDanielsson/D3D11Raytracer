@@ -11,6 +11,25 @@
 
 class OBJFile;
 
+namespace
+{
+	struct TextureSet
+	{
+		TextureSet()
+			: diffuse(nullptr)
+			, normal(nullptr)
+		{}
+
+		Texture2D* diffuse;
+		Texture2D* normal;
+
+		bool operator<(const TextureSet& rhs) const
+		{
+			return diffuse < rhs.diffuse;
+		}
+	};
+}
+
 class SuperSampledShaderProgram
 	: public ShaderProgram
 {
@@ -95,13 +114,13 @@ private:
 	//Picking
 	//////////////////////////////////////////////////
 	ComputeShader pickingShader;
-	
+
 	DXConstantBuffer pickingMousePositionBuffer;
 	DXStructuredBuffer pickingHitDataBuffer;
 
 	DirectX::XMINT2 pickPosition;
 
-	std::map<Texture2D*, int> textures;
+	std::map<TextureSet, int> textureSets;
 
 	bool InitUAVSRV() override;
 	bool InitShaders() override;

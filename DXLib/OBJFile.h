@@ -6,7 +6,7 @@
 #include <map>
 #include <unordered_map>
 
-#include <DirectXMath.h>
+#include "DXMath.h"
 
 #include "Content.h"
 #include "ContentManager.h"
@@ -23,29 +23,41 @@ struct OBJVertex
 	DirectX::XMFLOAT3 position;
 	DirectX::XMFLOAT3 normal;
 	DirectX::XMFLOAT2 texCoord;
+	DirectX::XMFLOAT3 tangent;
 
 	OBJVertex()
 		: position(0.0f, 0.0f, 0.0f)
 		, normal(0.0f, 0.0f, 0.0f)
 		, texCoord(0.0f, 0.0f)
+		, tangent(0.0f, 0.0f, 0.0f)
 	{}
 
 	OBJVertex(DirectX::XMFLOAT3 position)
 		: position(position)
 		, normal(0.0f, 0.0f, 0.0f)
 		, texCoord(0.0f, 0.0f)
+		, tangent(0.0f, 0.0f, 0.0f)
 	{}
 
 	OBJVertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 normal)
 		: position(position)
 		, normal(normal)
 		, texCoord(0.0f, 0.0f)
+		, tangent(0.0f, 0.0f, 0.0f)
 	{}
 
 	OBJVertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 normal, DirectX::XMFLOAT2 texCoord)
 		: position(position)
 		, normal(normal)
 		, texCoord(texCoord)
+		, tangent(0.0f, 0.0f, 0.0f)
+	{}
+
+	OBJVertex(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 normal, DirectX::XMFLOAT2 texCoord, DirectX::XMFLOAT3 tangent)
+		: position(position)
+		, normal(normal)
+		, texCoord(texCoord)
+		, tangent(tangent)
 	{}
 };
 
@@ -53,12 +65,14 @@ struct Material
 {
 	Material()
 		: name("")
-		, ambientTexture(nullptr)
+		, diffuseTexture(nullptr)
+		, normalTexture(nullptr)
 	{}
 
 	std::string name;
 
-	Texture2D* ambientTexture;
+	Texture2D* diffuseTexture;
+	Texture2D* normalTexture;
 };
 
 class MTLLib

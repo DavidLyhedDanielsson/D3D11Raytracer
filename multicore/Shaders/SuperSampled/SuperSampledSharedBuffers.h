@@ -40,7 +40,9 @@ struct Sphere
 struct Vertex
 {
 	float3 position;
+	float3 tangent;
 	int texCoord; //first 16 bits = u, last 16 bits = v
+	int padding;
 };
 
 struct Triangle

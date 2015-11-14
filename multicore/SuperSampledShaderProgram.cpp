@@ -141,9 +141,13 @@ bool SuperSampledShaderProgram::InitShaders()
 	//SRVs
 	traceResourceBindInitial.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBindInitial.AddResource(rayDirectionSRV[0].get(), 1);
-	int baseTextureIndex = 2;
-	for(const auto& pair : textures)
-		traceResourceBindInitial.AddResource(pair.first->GetTextureResourceView(), baseTextureIndex + pair.second);
+	int baseDiffuseTextureIndex = 8;
+	int baseNormalTextureIndex = 10;
+	for(const auto& pair : textureSets)
+	{
+		traceResourceBindInitial.AddResource(pair.first.diffuse->GetTextureResourceView(), baseDiffuseTextureIndex + pair.second);
+		traceResourceBindInitial.AddResource(pair.first.normal->GetTextureResourceView(), baseNormalTextureIndex + pair.second);
+	}
 
 	//Samplers
 	traceResourceBindInitial.AddResource(SamplerStates::linearClamp, 0);
@@ -168,8 +172,11 @@ bool SuperSampledShaderProgram::InitShaders()
 	traceResourceBinds0.AddResource(rayPositionSRV[0].get(), 0);
 	traceResourceBinds0.AddResource(rayDirectionSRV[0].get(), 1);
 
-	for(const auto& pair : textures)
-		traceResourceBinds0.AddResource(pair.first->GetTextureResourceView(), baseTextureIndex + pair.second);
+	for(const auto& pair : textureSets)
+	{
+		traceResourceBinds0.AddResource(pair.first.diffuse->GetTextureResourceView(), baseDiffuseTextureIndex + pair.second);
+		traceResourceBinds0.AddResource(pair.first.normal->GetTextureResourceView(), baseNormalTextureIndex + pair.second);
+	}
 
 	//Samplers
 	traceResourceBinds0.AddResource(SamplerStates::linearClamp, 0);
@@ -191,8 +198,11 @@ bool SuperSampledShaderProgram::InitShaders()
 	//SRVs
 	traceResourceBinds1.AddResource(rayPositionSRV[1].get(), 0);
 	traceResourceBinds1.AddResource(rayDirectionSRV[1].get(), 1);
-	for(const auto& pair : textures)
-		traceResourceBinds1.AddResource(pair.first->GetTextureResourceView(), baseTextureIndex + pair.second);
+	for(const auto& pair : textureSets)
+	{
+		traceResourceBinds1.AddResource(pair.first.diffuse->GetTextureResourceView(), baseDiffuseTextureIndex + pair.second);
+		traceResourceBinds1.AddResource(pair.first.normal->GetTextureResourceView(), baseNormalTextureIndex + pair.second);
+	}
 
 	//Samplers
 	traceResourceBinds1.AddResource(SamplerStates::linearClamp, 0);
@@ -302,24 +312,19 @@ std::map<std::string, double> SuperSampledShaderProgram::Draw()
 	d3d11Timer.Stop("Primary");
 
 	//Do picking here "for free"
-	//if(pickPosition.x != -1)
-	//{
-	if(pickingCallback != nullptr)
+	if(pickPosition.x != -1
+		&& pickingCallback != nullptr)
 	{
 		pickPosition.x *= superSampleCount;
 		pickPosition.y *= superSampleCount;
-
-		pickPosition.x = 640;
-		pickPosition.y = 360;
-
-		//Logger::LogLine(LOG_TYPE::INFO, "Picking at " + std::to_string(pickPosition.x) + ", " + std::to_string(pickPosition.y));
 
 		pickingMousePositionBuffer.Update(deviceContext, &pickPosition);
 		pickPosition = DirectX::XMINT2(-1, -1);
 
 		DrawPick();
+
+		pickPosition.x = -1;
 	}
-	//}
 
 	DrawRayIntersection(0);
 	d3d11Timer.Stop("Intersect0");
@@ -470,6 +475,8 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 
 			newVertex.texCoord = (u << 16) | v;
 
+			newVertex.tangent = mesh.vertices[i].tangent;
+
 			auto xmNewVertexPosition = DirectX::XMLoadFloat3(&newVertex.position);
 			xmAABBMin = DirectX::XMVectorMin(xmNewVertexPosition, xmAABBMin);
 			xmAABBMax = DirectX::XMVectorMax(xmNewVertexPosition, xmAABBMax);
@@ -486,23 +493,27 @@ void SuperSampledShaderProgram::AddOBJ(const std::string& path, DirectX::XMFLOAT
 			newTriangle.indicies.x = vertexOffset + mesh.indicies[i * 3];
 			newTriangle.indicies.y = vertexOffset + mesh.indicies[i * 3 + 1];
 			newTriangle.indicies.z = vertexOffset + mesh.indicies[i * 3 + 2];
-			//newTriangle.indicies.w = 0;
 
-			if(textures.find(mesh.material.ambientTexture) != textures.end())
+			TextureSet textureSet;
+			textureSet.diffuse = mesh.material.diffuseTexture;
+			textureSet.normal = mesh.material.normalTexture;
+
+			if(textureSets.find(textureSet) != textureSets.end())
 			{
-				newTriangle.textureID = textures[mesh.material.ambientTexture];
+				newTriangle.textureID = textureSets[textureSet];
 			}
 			else
 			{
-				if(textures.size() == MAX_TEXTURES)
+				if(textureSets.size() == MAX_TEXTURES)
 				{
 					Logger::LogLine(LOG_TYPE::WARNING, "Tried using more textures than " + std::to_string(MAX_TEXTURES) + " (MAX_TEXTURES). Will default to first used texture");
-					newTriangle.textureID = textures.begin()->second;
+					newTriangle.textureID = textureSets.begin()->second;
 				}
 				else
 				{
-					textures[mesh.material.ambientTexture] = textures.size();
-					newTriangle.textureID = textures[mesh.material.ambientTexture];
+					textureSets[textureSet] = textureSets.size();
+
+					newTriangle.textureID = textureSets[textureSet];
 				}
 			}
 

@@ -9,15 +9,17 @@ RWTexture2D<float> depthOut : register(u4);
 Texture2D<float4> rayPositions : register(t0);
 Texture2D<float4> rayDirections : register(t1);
 
-Texture2D diffuseTexture0 : register(t2);
-Texture2D diffuseTexture1 : register(t3);
+Texture2D diffuseTexture0 : register(t8);
+Texture2D diffuseTexture1 : register(t9);
+Texture2D normalTexture0 : register(t10);
+Texture2D normalTexture1 : register(t11);
 
 sampler textureSampler : register(s0);
 
 void SphereTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout float depth, inout float3 currentNormal, inout int closestIndex);
 
-float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates, int textureID);
+void GetTriangleColorAndNormalAt(int triangleIndex, float2 barycentricCoordinates, int textureID, out float4 color, inout float3 normal);
 
 [numthreads(32, 16, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
@@ -46,7 +48,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 	float3 outDirection = reflect(rayDirection, normal);
 	rayDirectionsOut[threadID.xy] = float4(outDirection, 0.0f);
-	rayNormalOut[threadID.xy] = float4(normal, 0.0f);
+	
+	float3 outNormal = normal;
+	float4 outColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
 
 	if(closestTriangle != -1)
 	{
@@ -57,17 +61,20 @@ void main(uint3 threadID : SV_DispatchThreadID)
 
 		spheres.GetDimensions(sphereCount, stride);
 
-		rayColorOut[threadID.xy] = GetTriangleColorAt(closestTriangle, barycentric, triangles[closestTriangle].textureID);
+		GetTriangleColorAndNormalAt(closestTriangle, barycentric, triangles[closestTriangle].textureID, outColor, outNormal);
+
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, sphereCount + closestTriangle);
 	}
 	else
 	{
 		//A sphere was closest
 
-		rayColorOut[threadID.xy] = spheres[closestSphere].color;
+		outColor = spheres[closestSphere].color;
 		rayPositionsOut[threadID.xy] = float4(rayPosition.xyz + rayDirection * depth, closestSphere);
 	}
 
+	rayColorOut[threadID.xy] = outColor;
+	rayNormalOut[threadID.xy] = float4(outNormal, 0.0f);
 	depthOut[threadID.xy] = depth;
 }
 
@@ -183,7 +190,7 @@ float2 TriangleTrace(float3 rayPosition, float3 rayDirection, int lastHit, inout
 	return float2(u, v);
 }
 
-float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates, int textureID)
+void GetTriangleColorAndNormalAt(int triangleIndex, float2 barycentricCoordinates, int textureID, out float4 color, inout float3 normal)
 {
 	float2 v0 = UnpackTexcoords(vertices[triangles[triangleIndex].indicies.x].texCoord);
 	float2 v1 = UnpackTexcoords(vertices[triangles[triangleIndex].indicies.y].texCoord);
@@ -193,10 +200,29 @@ float4 GetTriangleColorAt(int triangleIndex, float2 barycentricCoordinates, int 
 
 	currentTexCoord.y = 1.0f - currentTexCoord.y;
 
+	float3 sampledNormal = float3(0.0f, 0.0f, 0.0f);
+
 	if(textureID == 0)
-		return float4(diffuseTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+	{
+		color = float4(diffuseTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+		sampledNormal = normalTexture0.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz;
+	}
 	else if(textureID == 1)
-		return float4(diffuseTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+	{
+		color = float4(diffuseTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz, 0.0f);
+		sampledNormal = normalTexture1.SampleLevel(textureSampler, currentTexCoord.xy, 0).xyz;
+	}
 	else
-		return float4(1.0f, 0.0f, 0.25f, 0.0f);
+	{
+		color = float4(1.0f, 0.0f, 0.25f, 0.0f);
+	}
+
+	//Flat shading so the normal doens't need to be interpolated
+	float3 tangent = vertices[triangles[triangleIndex].indicies.x].tangent;
+
+	sampledNormal = sampledNormal * 2.0f - 1.0f;
+
+	tangent = normalize(tangent - dot(tangent, normal) * normal);
+	float3 bitangent = cross(tangent, normal);
+	normal = mul(sampledNormal, float3x3(tangent, bitangent, normal));
 }
