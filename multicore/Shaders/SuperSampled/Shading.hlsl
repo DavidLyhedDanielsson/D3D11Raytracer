@@ -73,7 +73,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		float3 color = rayColors[threadID.xy].xyz;
 		//float3 color = rayColors[threadID.xy].xyz * backbufferIn[threadID.xy].w * (1.0f - rayColors[threadID.xy].w);
 
-		float3 outColor = oldColor + color * backbufferIn[threadID.xy].w * lightFac + specularFac;
+		float3 outColor = oldColor * (1.0f - backbufferIn[threadID.xy].w) + color * backbufferIn[threadID.xy].w * lightFac + specularFac;
 		//float3 outColor = oldColor + color * lightFac + specularFac;
 
 		backbufferOut[threadID.xy] = float4(outColor, backbufferIn[threadID.xy].w * rayColors[threadID.xy].w);

@@ -8,7 +8,7 @@ static const float SCREEN_RES_Y = 720.0f;
 
 static const int MAX_POINT_LIGHTS = 10;
 
-const static float AMBIENT_FAC = 0.05f;
+const static float AMBIENT_FAC = 0.0005f;
 
 //////////////////////////////////////////////////
 //HLSL functions
