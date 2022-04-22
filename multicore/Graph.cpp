@@ -433,57 +433,62 @@ void Graph::Draw()
 	pixelShader.Unbind(deviceContext);
 }
 
+bool RectComparator(const LegendIndex& lhs, const LegendIndex& rhs)
+{
+	return lhs.position.x < rhs.position.x;
+};
+
 void Graph::CreateLegend()
 {
-	int xPadding = 4;
+	//int xPadding = 4;
 
-	legend.clear();
+	//legend.clear();
 
-	int maxWidth = backgroundWidth + width;
+	//int maxWidth = backgroundWidth + width;
 
-	//Use position as size
-	auto RectComparator = [](const LegendIndex& lhs, const LegendIndex& rhs)
-	{
-		return lhs.position.x < rhs.position.x;
-	};
+	////Use position as size
+	////auto RectComparator = [](const LegendIndex& lhs, const LegendIndex& rhs)
+	////{
+	////	return lhs.position.x < rhs.position.x;
+	////};
 
-	std::priority_queue<Rect, std::vector<LegendIndex>, decltype(RectComparator)> rectangles(RectComparator);
+	//std::priority_queue<Rect, std::vector<LegendIndex>, decltype(RectComparator)> rectangles{ RectComparator };
 
-	for(const auto& track : tracks)
-		rectangles.emplace(track.first, DirectX::XMFLOAT2(legendFont->GetWidthAtIndex(track.first, -1) + xPadding, legendFont->GetLineHeight()), track.second->color);
+	//for(const auto& track : tracks)
+	//	rectangles.emplace(track.first, DirectX::XMFLOAT2(legendFont->GetWidthAtIndex(track.first, -1) + xPadding, legendFont->GetLineHeight()), track.second->color);
 
-	std::vector<float> shelves(1, maxWidth);
+	//std::vector<float> shelves(1, maxWidth);
 
-	while(!rectangles.empty())
-	{
-		LegendIndex index = rectangles.top();
-		rectangles.pop();
+	//while(!rectangles.empty())
+	//{
+	//	LegendIndex index = rectangles.top();
+	//	rectangles.pop();
 
-		float width = index.position.x;
+	//	float width = index.position.x;
 
-		bool found = false;
+	//	bool found = false;
 
-		for(int i = 0, end = static_cast<int>(shelves.size()); i < end; ++i)
-		{
-			if(shelves[i] >= width)
-			{
-				found = true;
+	//	for(int i = 0, end = static_cast<int>(shelves.size()); i < end; ++i)
+	//	{
+	//		if(shelves[i] >= width)
+	//		{
+	//			found = true;
 
-				legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x + (maxWidth - shelves[i]), this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (i + 1)), index.color);
-				shelves[i] -= width;
+	//			legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x + (maxWidth - shelves[i]), this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (i + 1)), index.color);
+	//			shelves[i] -= width;
 
-				break;
-			}
-		}
+	//			break;
+	//		}
+	//	}
 
-		if(!found)
-		{
-			shelves.emplace_back(maxWidth - width);
-			legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x, this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (shelves.size())), index.color);
-		}
-	}
+	//	if(!found)
+	//	{
+	//		shelves.emplace_back(maxWidth - width);
+	//		legend.emplace_back(index.name, DirectX::XMFLOAT2(this->position.x, this->position.y - font->GetLineHeight() * 0.5f - legendFont->GetLineHeight() * (shelves.size())), index.color);
+	//	}
+	//}
 
-	legendHeight = shelves.size() * legendFont->GetLineHeight();
+	legendHeight = legendFont->GetLineHeight();
 }
 
 ID3D11Buffer* Graph::CreateVertexBuffer() const

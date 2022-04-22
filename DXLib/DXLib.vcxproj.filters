@@ -280,10 +280,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="..\..\multicore\multicore\SpriteRendererPixelShader.hlsl">
+    <FxCompile Include="SpriteRendererVertexShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="..\..\multicore\multicore\SpriteRendererVertexShader.hlsl">
+    <FxCompile Include="SpriteRendererPixelShader.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

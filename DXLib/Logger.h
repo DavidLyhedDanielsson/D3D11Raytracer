@@ -5,6 +5,7 @@
 
 #include <string>
 #include <functional>
+#include <iostream>
 
 enum class CONSOLE_LOG_LEVEL : int
 {

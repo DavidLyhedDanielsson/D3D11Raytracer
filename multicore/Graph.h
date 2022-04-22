@@ -13,6 +13,23 @@
 #include <deque>
 #include <limits>
 
+struct LegendIndex
+{
+	LegendIndex()
+		: position(0.0f, 0.0f)
+		, color(0.0f, 0.0f, 0.0f)
+	{}
+	LegendIndex(std::string name, DirectX::XMFLOAT2 position, DirectX::XMFLOAT3 color)
+		: name(name)
+		, position(position)
+		, color(color)
+	{}
+
+	std::string name;
+	DirectX::XMFLOAT2 position;
+	DirectX::XMFLOAT3 color;
+};
+
 namespace
 {
 	struct LineVertex 
@@ -32,23 +49,6 @@ namespace
 			, color(color)
 			, dashValue(dashValue)
 		{}
-	};
-
-	struct LegendIndex
-	{
-		LegendIndex()
-			: position(0.0f, 0.0f)
-			, color(0.0f, 0.0f, 0.0f)
-		{}
-		LegendIndex(std::string name, DirectX::XMFLOAT2 position, DirectX::XMFLOAT3 color)
-			: name(name)
-			, position(position)
-			, color(color)
-		{}
-
-		std::string name;
-		DirectX::XMFLOAT2 position;
-		DirectX::XMFLOAT3 color;
 	};
 
 	class Track
